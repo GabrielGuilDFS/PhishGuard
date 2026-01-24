@@ -15,17 +15,15 @@ import { useNavigate, Link as RouterLink } from 'react-router-dom';
 export default function Login() {
   const navigate = useNavigate();
   
-  // Estados para guardar o que o usuário digita
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
   const [erro, setErro] = useState('');
 
   const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault(); // Evita recarregar a página
+    e.preventDefault();
     setErro('');
 
     try {
-      // 1. Chamada para a sua API (ajuste a porta se não for 5000)
       const response = await fetch('http://localhost:5000/api/Auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -36,13 +34,10 @@ export default function Login() {
         throw new Error('Email ou senha inválidos!');
       }
 
-      // 2. Pegar o Token (que vem como texto puro da API)
       const token = await response.text();
 
-      // 3. Salvar no Navegador (O passo mais importante!)
       localStorage.setItem('phishguard_token', token);
 
-      // 4. Redirecionar para o Painel
       alert("Login realizado com sucesso!");
       navigate('/admin/dashboard');
 
@@ -90,18 +85,23 @@ export default function Login() {
             
             {erro && <Alert severity="error" sx={{ mt: 2 }}>{erro}</Alert>}
 
-            <Button
-              type="submit"
-              fullWidth
-              variant="contained"
-              sx={{ mt: 3, mb: 2 }}
-            >
-              Entrar no Sistema
-            </Button>
+          <Button
+            type="submit"
+            fullWidth
+            variant="contained"
+            sx={{ mt: 3, mb: 2 }}
+          >
+            Entrar no Sistema
+          </Button>
           </Box>
-          <Link component={RouterLink} to="/Register" variant="body2">
-                {"Sem conta? Cadastre-se"}
-              </Link>
+          <Link 
+            component={RouterLink} 
+            to="/Register" 
+            variant="body2" 
+            sx={{ color: 'primary.main', fontWeight: 'bold' }} 
+          >
+            {"Sem conta? Cadastre-se"}
+          </Link>
         </Paper>
       </Box>
     </Container>

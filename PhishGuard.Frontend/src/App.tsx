@@ -1,21 +1,60 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { type ReactNode } from 'react';
 import Login from './pages/Login';
-import Register from './pages/Register'; 
+import Register from './pages/Register';
+import AdminLayout from './layouts/AdminLayout'; 
+import DashboardHome from './pages/DashboardHome';
+import Targets from './pages/Targets';
+import Scenarios from './pages/Scenarios';
+import Campaigns from './pages/Campaigns';
+import { createTheme, ThemeProvider } from '@mui/material/styles';
+import CssBaseline from '@mui/material/CssBaseline';
 
-const Dashboard = () => <h1>Bem-vindo ao Painel do Administrador!</h1>;
+const PrivateRoute = ({ children }: { children: ReactNode }) => {
+  const token = localStorage.getItem('phishguard_token');
+  return token ? children : <Navigate to="/login" replace />;
+};
+
+const theme = createTheme({
+  palette: {
+    primary: {
+      main: '#DAA520', 
+      contrastText: '#ffffff',
+    },
+    background: {
+      default: '#f4f6f8',
+    },
+  },
+  shape: {
+    borderRadius: 8,
+  },
+});
 
 function App() {
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<Navigate to="/login" replace />} />
-        
-        <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} /> 
-        
-        <Route path="/admin/dashboard" element={<Dashboard />} />
-      </Routes>
-    </BrowserRouter>
+    <ThemeProvider theme={theme}>
+      <CssBaseline />
+      <BrowserRouter>
+        <Routes>
+          <Route path="/" element={<Navigate to="/login" replace />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
+          <Route 
+            path="/admin" 
+            element={
+              <PrivateRoute>
+                <AdminLayout />
+              </PrivateRoute>
+            }
+          >
+            <Route path="dashboard" element={<DashboardHome />} />
+            <Route path="targets" element={<Targets />} />
+            <Route path="scenarios" element={<Scenarios />} />
+            <Route path="campaigns" element={<Campaigns />} />
+          </Route>
+        </Routes>
+      </BrowserRouter>
+    </ThemeProvider>
   );
 }
 

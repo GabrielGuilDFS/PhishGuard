@@ -14,12 +14,10 @@ import { useNavigate, Link as RouterLink } from 'react-router-dom';
 export default function Register() {
   const navigate = useNavigate();
   
-  // Estados para os campos do formulário
   const [nome, setNome] = useState('');
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
   
-  // Estados para feedback visual
   const [erro, setErro] = useState('');
   const [sucesso, setSucesso] = useState(false);
 
@@ -28,30 +26,25 @@ export default function Register() {
     setErro('');
     setSucesso(false);
 
-    // Validação simples antes de enviar
     if (senha.length < 3) {
       setErro('A senha deve ter pelo menos 3 caracteres.');
       return;
     }
 
     try {
-      // 1. Envia para o Backend na porta 5000
       const response = await fetch('http://localhost:5000/api/Auth/registrar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ nome, email, senha })
       });
 
-      // 2. Se a API retornar erro (ex: email já existe), lança exceção
       if (!response.ok) {
         const mensagemErro = await response.text();
         throw new Error(mensagemErro || 'Falha ao registrar.');
       }
 
-      // 3. Sucesso!
       setSucesso(true);
       
-      // Espera 2 segundos para o usuário ler a mensagem e redireciona para o Login
       setTimeout(() => {
         navigate('/login');
       }, 2000);
@@ -105,24 +98,27 @@ export default function Register() {
               onChange={(e) => setSenha(e.target.value)}
             />
             
-            {/* Mensagens de Erro ou Sucesso */}
             {erro && <Alert severity="error" sx={{ mt: 2 }}>{erro}</Alert>}
             {sucesso && <Alert severity="success" sx={{ mt: 2 }}>Cadastro realizado! Redirecionando...</Alert>}
 
             <Button
-              type="submit"
-              fullWidth
-              variant="contained"
-              sx={{ mt: 3, mb: 2 }}
-              disabled={sucesso} // Bloqueia o botão se já deu certo
-            >
-              CADASTRAR
-            </Button>
-
+            type="submit"
+            fullWidth
+            variant="contained"
+            sx={{ mt: 3, mb: 2 }}
+            disabled={sucesso} 
+          >
+            CADASTRAR
+          </Button>
             <Box sx={{ display: 'flex', justifyContent: 'center' }}>
-              <Link component={RouterLink} to="/login" variant="body2">
-                {"Já tem uma conta? Faça Login"}
-              </Link>
+            <Link 
+              component={RouterLink} 
+              to="/login" 
+              variant="body2"
+              sx={{ color: 'primary.main', fontWeight: 'bold' }}
+            >
+              {"Já tem uma conta? Faça Login"}
+            </Link>
             </Box>
           </Box>
         </Paper>
