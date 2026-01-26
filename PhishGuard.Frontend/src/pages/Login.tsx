@@ -7,14 +7,15 @@ import {
   Typography, 
   Paper, 
   Alert,
-  Link 
+  Link
 } from '@mui/material';
 import { useNavigate, Link as RouterLink } from 'react-router-dom';
-
+import { useNotify } from '../context/NotificationContext';
 
 export default function Login() {
   const navigate = useNavigate();
-  
+  const { showNotify } = useNotify();
+
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
   const [erro, setErro] = useState('');
@@ -35,14 +36,16 @@ export default function Login() {
       }
 
       const token = await response.text();
-
       localStorage.setItem('phishguard_token', token);
 
-      alert("Login realizado com sucesso!");
+      showNotify("Login realizado com sucesso!", "success");
+      
       navigate('/admin/dashboard');
 
     } catch (err: any) {
       setErro(err.message);
+
+      showNotify(err.message, "error");
     }
   };
 
@@ -82,17 +85,17 @@ export default function Login() {
               value={senha}
               onChange={(e) => setSenha(e.target.value)}
             />
-            
+
             {erro && <Alert severity="error" sx={{ mt: 2 }}>{erro}</Alert>}
 
-          <Button
-            type="submit"
-            fullWidth
-            variant="contained"
-            sx={{ mt: 3, mb: 2 }}
-          >
-            Entrar no Sistema
-          </Button>
+            <Button
+              type="submit"
+              fullWidth
+              variant="contained"
+              sx={{ mt: 3, mb: 2 }}
+            >
+              Entrar no Sistema
+            </Button>
           </Box>
           <Link 
             component={RouterLink} 
