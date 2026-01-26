@@ -8,5 +8,6 @@ namespace PhishGuard.Backend.Data
         public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
 
         public DbSet<Administrador> Administradores { get; set; }
+        public DbSet<Alvo> Alvos { get; set; }
     }
 }
