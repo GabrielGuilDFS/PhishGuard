@@ -111,12 +111,11 @@ npm run dev
 
 | Módulo | Descrição |
 | --- | --- |
-| **Dashboard** | Visão geral de campanhas, métricas de abertura e taxa de cliques. |
-| **Campanhas** | Wizard para criação de disparos em massa. |
+| **Visão Geral** | Visão geral de campanhas, métricas de abertura e taxa de cliques. |
+| **Gestão de Alvos** | Pagina para adicionar vitimas dos testes |
 | **Biblioteca** | Templates pré-definidos de e-mails e páginas falsas. |
-| **Phishing Page** | Página isolada sem menu de navegação, focada em realismo. |
-| **Educação** | Página de feedback que aponta os erros cometidos pelo usuário. |
-
+| **Nova Campanha** | Wizard para criação de disparos em massa. |
+| **Configurações** | Página dedicada a mudança de senha e configuração do SMTP. |
 ---
 
 ## 👤 Autor
