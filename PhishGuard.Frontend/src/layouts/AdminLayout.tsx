@@ -21,7 +21,8 @@ import {
   People as PeopleIcon, 
   Phishing as PhishingIcon, 
   Send as SendIcon,         
-  Logout as LogoutIcon 
+  Logout as LogoutIcon,
+  Settings as SettingsIcon
 } from '@mui/icons-material';
 
 const drawerWidth = 260;
@@ -46,6 +47,7 @@ export default function AdminLayout() {
     { text: 'Gestão de Alvos', icon: <PeopleIcon />, path: '/admin/targets' },
     { text: 'Biblioteca de Cenários', icon: <PhishingIcon />, path: '/admin/scenarios' },
     { text: 'Nova Campanha', icon: <SendIcon />, path: '/admin/campaigns' },
+    { text: 'Configurações', icon: <SettingsIcon />, path: '/admin/settings' }
   ];
 
   const drawer = (

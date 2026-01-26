@@ -10,6 +10,7 @@ import Campaigns from './pages/Campaigns';
 import { createTheme, ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import { NotificationProvider } from './context/NotificationContext';
+import Settings from './pages/Settings';
 
 const PrivateRoute = ({ children }: { children: ReactNode }) => {
   const token = localStorage.getItem('phishguard_token');
@@ -53,6 +54,7 @@ function App() {
             <Route path="targets" element={<Targets />} />
             <Route path="scenarios" element={<Scenarios />} />
             <Route path="campaigns" element={<Campaigns />} />
+            <Route path="settings" element={<Settings />} />
           </Route>
         </Routes>
       </BrowserRouter>
