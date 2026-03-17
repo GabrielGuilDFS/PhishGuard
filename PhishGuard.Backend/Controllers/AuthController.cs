@@ -23,25 +23,39 @@ public class AuthController : ControllerBase
 		_configuration = configuration;
 	}
 
-	[HttpPost("registrar")]
-	public async Task<ActionResult<Administrador>> Registrar(RegisterDto request)
+	[HttpPost("register")]
+	public async Task<IActionResult> Registrar(RegisterDto request)
 	{
-		if (await _context.Administradores.AnyAsync(u => u.Email == request.Email))
-			return BadRequest("Usuário já existe.");
-
-		string senhaHash = BCrypt.Net.BCrypt.HashPassword(request.Senha);
-
-		var admin = new Administrador
+		
+		var novoTenant = new Tenant
 		{
-			Nome = request.Nome,
-			Email = request.Email,
-			SenhaHash = senhaHash
+			Id = Guid.NewGuid(),
+			NomeEmpresa = request.NomeEmpresa, 
+			Cnpj = request.Cnpj,
+			Ativo = true,
+			CriadoEm = DateTime.UtcNow
 		};
 
-		_context.Administradores.Add(admin);
+		_context.Tenants.Add(novoTenant);
+
+		// 2. Cria o Administrador vinculado ao ID da empresa recï¿½m-criada
+		var novoAdmin = new Administrador
+		{
+			Id = Guid.NewGuid(),
+			TenantId = novoTenant.Id,  // Resolve o erro de Foreign Key!
+			Nome = request.Nome,       // O Nome que vocï¿½ definiu no DTO
+			Email = request.Email,
+			
+			// Substitua esta linha pela sua funï¿½ï¿½o real de Hash de Senha (ex: BCrypt)
+			SenhaHash = BCrypt.Net.BCrypt.HashPassword(request.Senha) 
+		};
+
+		_context.Administradores.Add(novoAdmin);
+
+		// 3. Salva os dois de uma vez sï¿½ no PostgreSQL
 		await _context.SaveChangesAsync();
 
-		return Ok("Administrador registrado com sucesso!");
+		return Ok(new { mensagem = "Empresa e conta administrativa criadas com sucesso!" });
 	}
 
 	[HttpPost("login")]
@@ -50,10 +64,10 @@ public class AuthController : ControllerBase
 		var admin = await _context.Administradores
 			.FirstOrDefaultAsync(u => u.Email == request.Email);
 
-		if (admin == null) return BadRequest("Usuário ou senha inválidos.");
+		if (admin == null) return BadRequest("Usuï¿½rio ou senha invï¿½lidos.");
 
 		if (!BCrypt.Net.BCrypt.Verify(request.Senha, admin.SenhaHash))
-			return BadRequest("Usuário ou senha inválidos.");
+			return BadRequest("Usuï¿½rio ou senha invï¿½lidos.");
 
 		string token = CriarToken(admin);
 		return Ok(token);
@@ -65,7 +79,8 @@ public class AuthController : ControllerBase
 		{
 			new Claim(ClaimTypes.NameIdentifier, admin.Id.ToString()),
 			new Claim(ClaimTypes.Name, admin.Nome),
-			new Claim(ClaimTypes.Email, admin.Email)
+			new Claim(ClaimTypes.Email, admin.Email),
+			new Claim("tenant_id", admin.TenantId.ToString())
 		};
 
 		var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(
