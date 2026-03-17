@@ -1,9 +1,12 @@
+using System.Text.Json.Serialization;
+
 namespace PhishGuard.Backend.Models
 {
     public class Alvo
     {
         public Guid Id { get; set; } 
-        
+
+        [JsonIgnore]
         public Guid TenantId { get; set; }
 
         public string Nome { get; set; }
