@@ -5,6 +5,7 @@ using System.Security.Claims;
 using System.Text;
 using System.IdentityModel.Tokens.Jwt;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.AspNetCore.Authorization;
 using PhishGuard.Backend.Data;  
 using PhishGuard.Backend.Models;
 using PhishGuard.Backend.DTOs;
@@ -23,6 +24,7 @@ public class AuthController : ControllerBase
 		_configuration = configuration;
 	}
 
+	[AllowAnonymous]
 	[HttpPost("register")]
 	public async Task<IActionResult> Registrar(RegisterDto request)
 	{
@@ -38,36 +40,37 @@ public class AuthController : ControllerBase
 
 		_context.Tenants.Add(novoTenant);
 
-		// 2. Cria o Administrador vinculado ao ID da empresa recÔøΩm-criada
+		// 2. Cria o Administrador vinculado ao ID da empresa recùm-criada
 		var novoAdmin = new Administrador
 		{
 			Id = Guid.NewGuid(),
 			TenantId = novoTenant.Id,  // Resolve o erro de Foreign Key!
-			Nome = request.Nome,       // O Nome que vocÔøΩ definiu no DTO
+			Nome = request.Nome,       // O Nome que vocù definiu no DTO
 			Email = request.Email,
 			
-			// Substitua esta linha pela sua funÔøΩÔøΩo real de Hash de Senha (ex: BCrypt)
+			// Substitua esta linha pela sua funùùo real de Hash de Senha (ex: BCrypt)
 			SenhaHash = BCrypt.Net.BCrypt.HashPassword(request.Senha) 
 		};
 
 		_context.Administradores.Add(novoAdmin);
 
-		// 3. Salva os dois de uma vez sÔøΩ no PostgreSQL
+		// 3. Salva os dois de uma vez sù no PostgreSQL
 		await _context.SaveChangesAsync();
 
 		return Ok(new { mensagem = "Empresa e conta administrativa criadas com sucesso!" });
 	}
 
+	[AllowAnonymous]
 	[HttpPost("login")]
 	public async Task<ActionResult<string>> Login(LoginDto request)
 	{
 		var admin = await _context.Administradores
 			.FirstOrDefaultAsync(u => u.Email == request.Email);
 
-		if (admin == null) return BadRequest("UsuÔøΩrio ou senha invÔøΩlidos.");
+		if (admin == null) return BadRequest("Usuùrio ou senha invùlidos.");
 
 		if (!BCrypt.Net.BCrypt.Verify(request.Senha, admin.SenhaHash))
-			return BadRequest("UsuÔøΩrio ou senha invÔøΩlidos.");
+			return BadRequest("Usuùrio ou senha invùlidos.");
 
 		string token = CriarToken(admin);
 		return Ok(token);
