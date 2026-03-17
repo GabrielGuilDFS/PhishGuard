@@ -7,6 +7,7 @@ using PhishGuard.Backend.Data;
 using PhishGuard.Backend.Models;
 using BCrypt.Net;
 using PhishGuard.Backend.DTOs;
+using PhishGuard.Backend.Security;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -80,6 +81,9 @@ builder.Services.AddCors(options =>
               .AllowAnyMethod();
     });
 });
+
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<ITenantProvider, TenantProvider>();
 
 var app = builder.Build();
 

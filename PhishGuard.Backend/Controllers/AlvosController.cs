@@ -33,21 +33,33 @@ namespace PhishGuard.Backend.Controllers
         }
 
         [HttpDelete("{id}")]
-        public async Task<IActionResult> DeleteAlvo(int id)
+        public async Task<IActionResult> DeleteAlvo(Guid id)
         {
-            var alvo = await _context.Alvos.FindAsync(id);
+            var alvo = await _context.Alvos.FirstOrDefaultAsync(a => a.Id == id);
+            
             if (alvo == null) return NotFound();
 
             _context.Alvos.Remove(alvo);
             await _context.SaveChangesAsync();
+            
             return NoContent();
         }
+
         [HttpPut("{id}")]
-        public async Task<IActionResult> PutAlvo(int id, Alvo alvo)
+        public async Task<IActionResult> PutAlvo(Guid id, Alvo alvo)
         {
             if (id != alvo.Id) return BadRequest();
-            _context.Entry(alvo).State = EntityState.Modified;
+
+            var alvoExistente = await _context.Alvos.FirstOrDefaultAsync(a => a.Id == id);
+            
+            if (alvoExistente == null) return NotFound();
+
+            alvoExistente.Nome = alvo.Nome;
+            alvoExistente.Email = alvo.Email;
+            alvoExistente.Departamento = alvo.Departamento;
+
             await _context.SaveChangesAsync();
+            
             return NoContent();
         }
     }
