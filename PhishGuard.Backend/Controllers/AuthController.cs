@@ -28,6 +28,16 @@ public class AuthController : ControllerBase
 	[HttpPost("register")]
 	public async Task<IActionResult> Registrar(RegisterDto request)
 	{
+		var emailNormalizado = request.Email.ToLower();
+
+		var emailJaUsado = await _context.Administradores
+			.IgnoreQueryFilters()
+			.AnyAsync(a => a.Email == emailNormalizado);
+
+		if (emailJaUsado)
+		{
+			return BadRequest("Este e-mail j· est· em uso");
+		}
 		
 		var novoTenant = new Tenant
 		{
@@ -46,7 +56,7 @@ public class AuthController : ControllerBase
 			Id = Guid.NewGuid(),
 			TenantId = novoTenant.Id,  // Resolve o erro de Foreign Key!
 			Nome = request.Nome,       // O Nome que vocù definiu no DTO
-			Email = request.Email,
+			Email = emailNormalizado,
 			
 			// Substitua esta linha pela sua funùùo real de Hash de Senha (ex: BCrypt)
 			SenhaHash = BCrypt.Net.BCrypt.HashPassword(request.Senha) 
@@ -64,8 +74,11 @@ public class AuthController : ControllerBase
 	[HttpPost("login")]
 	public async Task<ActionResult<string>> Login(LoginDto request)
 	{
+		var emailNormalizado = request.Email.ToLower();
+
 		var admin = await _context.Administradores
-			.FirstOrDefaultAsync(u => u.Email == request.Email);
+			.IgnoreQueryFilters()
+			.FirstOrDefaultAsync(u => u.Email == emailNormalizado);
 
 		if (admin == null) return BadRequest("Usuùrio ou senha invùlidos.");
 

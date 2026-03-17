@@ -42,6 +42,9 @@ namespace PhishGuard.Backend.Data
 
                 entity.Property(e => e.CriadoEm)
                     .IsRequired();
+
+                entity.HasIndex(e => e.Cnpj)
+                    .IsUnique();
             });
             base.OnModelCreating(modelBuilder);
 
@@ -57,7 +60,10 @@ namespace PhishGuard.Backend.Data
 
                 entity.Property(e => e.Email)
                     .IsRequired()
-                    .HasMaxLength(150); 
+                    .HasMaxLength(150);
+
+                entity.HasIndex(e => e.Email)
+                    .IsUnique();
 
                 entity.Property(e => e.SenhaHash)
                     .IsRequired()
