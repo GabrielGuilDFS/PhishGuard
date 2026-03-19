@@ -21,6 +21,7 @@ namespace PhishGuard.Backend.Data
         public DbSet<Tenant> Tenants { get; set; }
         public DbSet<Administrador> Administradores { get; set; }
         public DbSet<Alvo> Alvos { get; set; }
+        public DbSet<SmtpConfig> SmtpConfigs { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {   
@@ -85,6 +86,35 @@ namespace PhishGuard.Backend.Data
                 entity.Property(e => e.Departamento)
                     .IsRequired()
                     .HasMaxLength(80); 
+            });
+
+            modelBuilder.Entity<SmtpConfig>(entity =>
+            {
+                entity.ToTable("smtp_configs");
+
+                entity.HasQueryFilter(e => e.TenantId == currentTenantId);
+
+                entity.HasKey(e => e.Id);
+
+                entity.Property(e => e.Host)
+                    .IsRequired()
+                    .HasMaxLength(100);
+
+                entity.Property(e => e.Porta)
+                    .IsRequired();
+
+                entity.Property(e => e.Usuario)
+                    .IsRequired()
+                    .HasMaxLength(150);
+
+                entity.Property(e => e.Senha)
+                    .IsRequired()
+                    .HasMaxLength(255);
+
+                entity.HasOne(e => e.Tenant)
+                    .WithOne(t => t.SmtpConfig)
+                    .HasForeignKey<SmtpConfig>(e => e.TenantId)
+                    .IsRequired();
             });
         }
 

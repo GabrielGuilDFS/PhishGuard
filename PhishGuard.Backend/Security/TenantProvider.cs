@@ -18,6 +18,11 @@ namespace PhishGuard.Backend.Security
             var tenantIdValue = _httpContextAccessor.HttpContext?.User?.FindFirst("tenant_id")?.Value;
             return Guid.TryParse(tenantIdValue, out var tenantId) ? tenantId : Guid.Empty;
         }
+
+        public Guid GetTenantId()
+        {
+            return GetCurrentTenantId();
+        }
     }
 }
 

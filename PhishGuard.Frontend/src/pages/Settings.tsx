@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   Box, 
   Typography, 
@@ -9,8 +9,7 @@ import {
   Button, 
   Stack, 
   InputAdornment, 
-  Divider,
-  Alert
+  Divider
 } from '@mui/material';
 import { 
   Save as SaveIcon, 
@@ -60,9 +59,42 @@ export default function Settings() {
     port: '587',
     user: '',
     password: '',
-    senderName: 'Suporte TI (Falso)',
-    senderEmail: 'seguranca@empresa-alvo.com'
   });
+
+  useEffect(() => {
+    const fetchSmtpConfig = async () => {
+      try {
+        const token = localStorage.getItem('phishguard_token'); 
+        if (!token) {
+          showNotify("Sessão expirada. Faça login novamente.", "error");
+          return;
+        }
+        
+        const response = await fetch('http://localhost:5000/api/SmtpConfig', {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+  
+        if (response.ok) {
+          const data = await response.json();
+          setSmtp(prev => ({
+            ...prev,
+            host: data.Host || '',
+            port: data.Porta ? data.Porta.toString() : '587',
+            user: data.Usuario || '',
+            password: prev.password
+          }));
+        }
+      } catch (error) {
+        console.error("Erro ao carregar configurações de SMTP", error);
+      }
+    };
+
+    fetchSmtpConfig();
+  }, []);
 
   const handleChangeTab = (_event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
@@ -77,17 +109,80 @@ export default function Settings() {
     showNotify("Perfil atualizado com sucesso!");
   };
 
-  const handleSaveSmtp = (e: React.FormEvent) => {
+  const handleSaveSmtp = async (e: React.FormEvent) => {
     e.preventDefault();
-    showNotify("Configurações de SMTP salvas com sucesso!");
+    
+    try {
+      const token = localStorage.getItem('phishguard_token');
+      if (!token) {
+        showNotify("Sessão expirada. Faça login novamente.", "error");
+        return;
+      }
+
+      const porta = Number(smtp.port);
+      if (!Number.isInteger(porta) || porta <= 0 || porta > 65535) {
+        showNotify("A porta SMTP deve ser um número válido (1-65535).", "error");
+        return;
+      }
+      
+      const payload = {
+        Host: smtp.host,
+        Porta: porta,
+        Usuario: smtp.user,
+        Senha: smtp.password
+      };
+  
+      const response = await fetch('http://localhost:5000/api/SmtpConfig', {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      });
+  
+      if (response.ok) {
+        showNotify("Configurações de SMTP salvas com sucesso!", "success");
+        // Opcional: limpar o campo de senha da tela após salvar, já que o C# processou
+        setSmtp(prev => ({ ...prev, password: '' })); 
+      } else {
+        showNotify("Falha ao salvar as configurações. Verifique os dados.", "error");
+      }
+    } catch (error) {
+      showNotify("Erro de conexão com o servidor.", "error");
+    }
   };
 
-  const handleTestEmail = () => {
-    if (!smtp.user || !smtp.password) {
-      showNotify("Preencha usuário e senha para testar", "warning");
-      return;
+  const handleTestEmail = async () => {
+
+    const emailDestino = window.prompt("Digite o e-mail que receberá a mensagem de teste do PhishGuard:");
+    
+    if (!emailDestino) return; 
+  
+    showNotify("Tentando enviar e-mail de teste...", "info");
+  
+    try {
+      const token = localStorage.getItem('phishguard_token'); 
+      
+      const response = await fetch('http://localhost:5000/api/SmtpConfig/Testar', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ emailDestino: emailDestino }) 
+      });
+  
+      if (response.ok) {
+        showNotify("Teste de conexão bem-sucedido! Verifique a caixa de entrada.", "success");
+      } else {
+        // Se der erro (ex: senha errada), o backend vai mandar a mensagem no BadRequest
+        const errorText = await response.text(); 
+        showNotify(`Falha no envio: ${errorText}`, "error");
+      }
+    } catch (error) {
+      showNotify("Erro de rede ao tentar contatar o servidor.", "error");
     }
-    showNotify("E-mail de teste enviado para seu admin!", "info");
   };
 
   return (
@@ -169,14 +264,14 @@ export default function Settings() {
                   Defina qual servidor será usado para enviar os ataques simulados.
                 </Typography>
               </Box>
-              <Button color="secondary" onClick={handleTestEmail} startIcon={<SendIcon />}>
-                Testar Conexão
+              <Button 
+                onClick={handleTestEmail} 
+                color="secondary" 
+                startIcon={<SendIcon />} // Ou o ícone que você estiver usando
+              >
+                TESTAR CONEXÃO
               </Button>
             </Stack>
-
-            <Alert severity="info" sx={{ mb: 3 }}>
-              Recomendamos usar um servidor SMTP dedicado ou uma conta Gmail configurada com "App Password".
-            </Alert>
 
             <Stack direction="row" spacing={2}>
               <TextField
@@ -191,8 +286,10 @@ export default function Settings() {
                 sx={{ width: 150 }}
                 label="Porta"
                 placeholder="587"
+                type="number"
                 margin="normal"
                 value={smtp.port}
+                inputProps={{ min: 1, max: 65535, step: 1 }}
                 onChange={(e) => setSmtp({...smtp, port: e.target.value})}
               />
             </Stack>
@@ -214,31 +311,6 @@ export default function Settings() {
               InputProps={{
                 startAdornment: <InputAdornment position="start"><LockIcon fontSize="small" /></InputAdornment>,
               }}
-            />
-
-            <Divider sx={{ my: 3 }} />
-
-            <Typography variant="h6" gutterBottom>Identidade do Remetente (Spoofing)</Typography>
-            <Typography variant="body2" color="textSecondary" mb={2}>
-              Como o e-mail aparecerá na caixa de entrada da vítima.
-            </Typography>
-
-            <TextField
-              fullWidth
-              label="Nome do Remetente"
-              placeholder="Ex: Suporte Microsoft"
-              margin="normal"
-              value={smtp.senderName}
-              onChange={(e) => setSmtp({...smtp, senderName: e.target.value})}
-            />
-            <TextField
-              fullWidth
-              label="E-mail do Remetente (Reply-To)"
-              placeholder="Ex: nao-responda@microsoft-security.com"
-              margin="normal"
-              value={smtp.senderEmail}
-              onChange={(e) => setSmtp({...smtp, senderEmail: e.target.value})}
-              helperText="Alguns servidores SMTP forçam o remetente real para evitar spam."
             />
 
             <Box sx={{ mt: 3 }}>

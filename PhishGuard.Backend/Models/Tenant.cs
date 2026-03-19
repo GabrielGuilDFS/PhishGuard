@@ -11,7 +11,9 @@ namespace PhishGuard.Backend.Models
         public bool Ativo { get; set; }
         public DateTime CriadoEm { get; set; }
 
-          public ICollection<Administrador> Administradores { get; set; }
+        public ICollection<Administrador> Administradores { get; set; }
         public ICollection<Alvo> Alvos { get; set; }
+
+        public SmtpConfig? SmtpConfig { get; set; }
     }
 }

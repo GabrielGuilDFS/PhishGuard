@@ -19,7 +19,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 
 
 var jwtKey = builder.Configuration.GetSection("AppSettings:Token").Value
-             ?? throw new InvalidOperationException("Token Key não encontrada!");
+             ?? throw new InvalidOperationException("Token Key nï¿½o encontrada!");
 
 builder.Services.AddAuthentication(options =>
 {
@@ -94,7 +94,6 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-//app.UseHttpsRedirection();
 
 app.UseCors("AllowReactApp");
 

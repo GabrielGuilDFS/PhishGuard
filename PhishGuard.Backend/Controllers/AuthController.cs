@@ -36,7 +36,7 @@ public class AuthController : ControllerBase
 
 		if (emailJaUsado)
 		{
-			return BadRequest("Este e-mail já está em uso");
+			return BadRequest("Este e-mail jï¿½ estï¿½ em uso");
 		}
 		
 		var novoTenant = new Tenant
@@ -50,21 +50,21 @@ public class AuthController : ControllerBase
 
 		_context.Tenants.Add(novoTenant);
 
-		// 2. Cria o Administrador vinculado ao ID da empresa recm-criada
+		
 		var novoAdmin = new Administrador
 		{
 			Id = Guid.NewGuid(),
-			TenantId = novoTenant.Id,  // Resolve o erro de Foreign Key!
-			Nome = request.Nome,       // O Nome que voc definiu no DTO
+			TenantId = novoTenant.Id,  
+			Nome = request.Nome,      
 			Email = emailNormalizado,
 			
-			// Substitua esta linha pela sua funo real de Hash de Senha (ex: BCrypt)
+			
 			SenhaHash = BCrypt.Net.BCrypt.HashPassword(request.Senha) 
 		};
 
 		_context.Administradores.Add(novoAdmin);
 
-		// 3. Salva os dois de uma vez s no PostgreSQL
+		// 3. Salva os dois de uma vez sï¿½ no PostgreSQL
 		await _context.SaveChangesAsync();
 
 		return Ok(new { mensagem = "Empresa e conta administrativa criadas com sucesso!" });
@@ -80,10 +80,10 @@ public class AuthController : ControllerBase
 			.IgnoreQueryFilters()
 			.FirstOrDefaultAsync(u => u.Email == emailNormalizado);
 
-		if (admin == null) return BadRequest("Usurio ou senha invlidos.");
+		if (admin == null) return BadRequest("Usuï¿½rio ou senha invï¿½lidos.");
 
 		if (!BCrypt.Net.BCrypt.Verify(request.Senha, admin.SenhaHash))
-			return BadRequest("Usurio ou senha invlidos.");
+			return BadRequest("Usuï¿½rio ou senha invï¿½lidos.");
 
 		string token = CriarToken(admin);
 		return Ok(token);
