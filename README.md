@@ -16,11 +16,12 @@
 
 O projeto se diferencia por adotar uma **Arquitetura Multi-Tenant** escalável, permitindo que múltiplas organizações utilizem a plataforma de forma isolada e segura. Além disso, a ferramenta foi projetada com foco nos controles de conscientização da norma **ABNT NBR ISO/IEC 27001:2022**, automatizando a educação corporativa e promovendo a cultura de *Privacy by Design*.
 
-### 🎯 Diferenciais da Solução
-* **Arquitetura SaaS Real:** Modelagem de dados com isolamento lógico (*Shared Database*) baseada em `TenantId`.
-* **Simulação Realista:** Biblioteca de cenários baseada em ameaças reais (Financeiro, Corporativo, E-commerce).
-* **Gestão Eficiente:** Importação em massa de alvos via CSV e filtros de busca em tempo real.
-* **Feedback Imediato:** Redirecionamento automático para telas educativas ("Teachable Moments") após a detecção de falha humana.
+### 🎯 Diferenciais da Solução e Arquitetura
+* **Segurança e Prevenção de IDOR:** Modelagem de banco de dados utilizando UUIDs (Identificadores Únicos Universais) sequenciais como chaves primárias, garantindo segurança contra ataques de enumeração sem comprometer a performance de indexação (B-Tree) no banco relacional.
+* **Arquitetura SaaS Real (Isolamento de Dados):** Abordagem *Shared Database, Shared Schema*. O vazamento horizontal de dados (*cross-tenant data leakage*) é bloqueado na raiz da aplicação utilizando a chave discriminadora `TenantId` em conjunto com *Global Query Filters* no ORM.
+* **Gestão Eficiente:** Importação e exportação em massa de alvos (funcionários) otimizada via manipulação de arquivos CSV no *client-side*.
+* **Simulação e Feedback:** Biblioteca de cenários baseada em ameaças reais com redirecionamento automático para telas educativas (*Teachable Moments*) após a interação com a campanha maliciosa.
+* **Qualidade e Validação (UAT):** Sistema validado através de métricas quantitativas estritas, incluindo Taxa de Conformidade de Requisitos (TCR), *Pass Rate* para fluxos críticos e matriz de densidade de defeitos.
 
 ---
 
@@ -29,18 +30,19 @@ O projeto se diferencia por adotar uma **Arquitetura Multi-Tenant** escalável, 
 ### Backend (API Multi-Tenant)
 * **Linguagem:** C#
 * **Framework:** ASP.NET Core 8.0 Web API
-* **Segurança de Dados:** Entity Framework Core com **Global Query Filters** (para isolamento de dados entre empresas).
-* **Banco de Dados:** PostgreSQL.
+* **Acesso a Dados:** Entity Framework Core (configurado com *Global Query Filters* e geradores de UUIDs otimizados).
+* **Banco de Dados:** PostgreSQL
 
 ### Frontend (SPA)
-* **Framework:** React + TypeScript (Vite).
+* **Framework:** React + TypeScript (Vite)
 * **UI/UX:**
-    * **Material UI (MUI):** Painel Administrativo (Temática Dourada/Enterprise).
-    * **Tailwind CSS:** Landing Pages de Phishing (Clonagem pixel-perfect).
-* **Funcionalidades:** Context API para Notificações, PapaParse para CSV.
+  * **Material UI (MUI):** Painel Administrativo e *Dashboard* Corporativo.
+  * **Tailwind CSS:** Construção das *Landing Pages* de Phishing (Clonagem *pixel-perfect*).
+* **Funcionalidades:** Context API para gerenciamento de estado e notificações, PapaParse para processamento rápido de CSV.
 
 ### Infraestrutura & Ferramentas
-* **SMTP:** Suporte a SendGrid/Mailtrap para disparo de campanhas.
+* **Contêineres:** Docker e Docker Compose (Orquestração do ambiente de desenvolvimento local para o banco de dados e pgAdmin).
+* **Motor de E-mail:** Protocolo SMTP (Suporte a SendGrid/Mailtrap) para o disparo automatizado das campanhas.
 * **CI/CD:** GitHub Actions (Planejado).
 
 ---
@@ -50,26 +52,32 @@ O projeto se diferencia por adotar uma **Arquitetura Multi-Tenant** escalável, 
 O projeto encontra-se em desenvolvimento ativo. Abaixo, o status dos módulos principais:
 
 ### 🏢 1. Core Administrativo
-- [x] **Autenticação Segura:** Login com JWT.
+- [x] **Autenticação Segura:** Login com JWT e proteção de rotas privadas.
+- [x] **Isolamento de Dados:** Arquitetura Multi-Tenant com *Global Query Filters* garantindo que clientes não vejam dados uns dos outros.
 - [x] **Gestão de Alvos (Targets):**
     - CRUD completo (Criar, Editar, Excluir).
-    - **Importação em Massa:** Upload de arquivos `.csv` (Nome, Email, Setor).
-    - **Filtro Inteligente:** Busca em tempo real por nome, e-mail ou setor.
+    - **Importação em Massa:** Upload ágil via arquivos `.csv` (Nome, Email, Setor).
+    - **Filtro Inteligente:** Busca em tempo real na tabela de alvos.
+- [x] **Sistema de Notificações:** Feedback visual imersivo via Snackbars (Alertas de sucesso, erro e informação) em todas as ações.
 - [ ] **Configurações (Settings):**
     - Painel com Abas (Tabs).
     - Configuração de Servidor SMTP (Host, Porta, Usuários).
     - Gestão de Perfil do Administrador.
-- [ ] **Sistema de Notificações:** Feedback visual via Snackbars/Toasts para todas as ações.
 
-### 🎭 2. Biblioteca de Cenários (Em Desenvolvimento)
-- [ ] **Galeria Visual:** Grid de cards exibindo templates de ataque.
-- [ ] **Preview:** Modal de pré-visualização de como a vítima receberá o e-mail.
-- [ ] **Categorização:** Filtros visuais por dificuldade e tipo (Financeiro, RH, etc.).
+### 🎭 2. Biblioteca de Cenários (Iscas de E-mail) - Inicial
+- [x] **Gestão de Templates:** CRUD de cenários de phishing com armazenamento seguro de código HTML.
+- [x] **Assistente de Criação Rápida:** Construtor dinâmico que cruza Marcas (ex: Microsoft, Google, Intranet) com Gatilhos Mentais (ex: Senha Expirada, RH) para gerar iscas automaticamente.
+- [x] **Live Preview Seguro:** Renderização em tempo real do código HTML no painel para auditoria visual antes do disparo, utilizando `dangerouslySetInnerHTML` de forma controlada.
 
-### 📧 3. Motor de Disparo (Em Desenvolvimento)
-- [ ] Criação de Campanhas (Wizard).
-- [ ] Integração com serviço SMTP para envio real.
-- [ ] Rastreamento de Cliques (Tracking Pixel/Link).
+### 🕸️ 3. Páginas Simuladas (Armadilhas / Landing Pages) - Inicial
+- [x] **Gestão de Páginas Falsas:** Sistema para armazenar a interface onde a vítima cairá após o clique.
+- [x] **Moldes Corporativos:** Templates pré-fabricados de alto risco (ex: Login Microsoft 365, Portal de Intranet Genérico).
+- [x] **Isolamento de Visualização:** Live Preview do ataque rodando em ambiente seguro e contido utilizando `iframe` para evitar vazamento de CSS.
+
+### 📧 4. Campanhas para Disparo (Próximo Passo) 
+- [ ] Criação de Campanhas (Mapeamento: Alvos + e-mail falso + pagina falsa).
+- [ ] Integração com serviço SMTP para envio real dos e-mails.
+- [ ] Rastreamento de Ações (Abertura de E-mail, Clique no Link, Submissão de Dados Comprometedores).
 
 ---
 
