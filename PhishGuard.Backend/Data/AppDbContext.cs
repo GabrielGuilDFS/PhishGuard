@@ -21,6 +21,7 @@ namespace PhishGuard.Backend.Data
         public DbSet<Administrador> Administradores { get; set; }
         public DbSet<Target> Targets { get; set; }
         public DbSet<SmtpConfig> SmtpConfigs { get; set; }
+        public DbSet<Template> Templates { get; set; }
 
         public Guid TenantIdAtual => _tenantProvider.GetTenantId();
 
@@ -118,6 +119,19 @@ namespace PhishGuard.Backend.Data
                     .WithOne(t => t.SmtpConfig)
                     .HasForeignKey<SmtpConfig>(e => e.TenantId)
                     .IsRequired();
+            });
+
+            modelBuilder.Entity<Template>(entity =>
+            {
+                entity.ToTable("Templates");
+
+                entity.HasQueryFilter(t => t.TenantId == this.TenantIdAtual);
+
+                entity.Property(e => e.Nome).IsRequired().HasMaxLength(100);
+                entity.Property(e => e.Assunto).IsRequired().HasMaxLength(150);
+                entity.Property(e => e.RemetenteNome).IsRequired().HasMaxLength(100);
+                entity.Property(e => e.RemetenteEmail).IsRequired().HasMaxLength(150);
+                entity.Property(e => e.CorpoHtml).IsRequired();
             });
         }
 

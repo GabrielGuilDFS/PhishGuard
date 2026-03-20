@@ -45,7 +45,7 @@ export default function AdminLayout() {
   const menuItems = [
     { text: 'Visão Geral', icon: <DashboardIcon />, path: '/admin/dashboard' },
     { text: 'Gestão de Alvos', icon: <PeopleIcon />, path: '/admin/targets' },
-    { text: 'Biblioteca de Cenários', icon: <PhishingIcon />, path: '/admin/scenarios' },
+    { text: 'Biblioteca de Cenários', icon: <PhishingIcon />, path: '/admin/templates' },
     { text: 'Nova Campanha', icon: <SendIcon />, path: '/admin/campaigns' },
     { text: 'Configurações', icon: <SettingsIcon />, path: '/admin/settings' }
   ];
