@@ -16,6 +16,7 @@ import {
   CssBaseline 
 } from '@mui/material';
 import { 
+  Web as WebIcon,
   Menu as MenuIcon, 
   Dashboard as DashboardIcon, 
   People as PeopleIcon, 
@@ -46,6 +47,7 @@ export default function AdminLayout() {
     { text: 'Visão Geral', icon: <DashboardIcon />, path: '/admin/dashboard' },
     { text: 'Gestão de Alvos', icon: <PeopleIcon />, path: '/admin/targets' },
     { text: 'Biblioteca de Cenários', icon: <PhishingIcon />, path: '/admin/templates' },
+    { text: 'Paginas Falsas', icon: <WebIcon />, path: '/admin/phishingpages' },
     { text: 'Nova Campanha', icon: <SendIcon />, path: '/admin/campaigns' },
     { text: 'Configurações', icon: <SettingsIcon />, path: '/admin/settings' }
   ];

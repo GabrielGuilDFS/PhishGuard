@@ -5,7 +5,7 @@ import Register from './pages/Register';
 import AdminLayout from './layouts/AdminLayout'; 
 import DashboardHome from './pages/DashboardHome';
 import Targets from './pages/Targets';
-import Scenarios from './pages/Scenarios';
+import PhishingPages from './pages/PhishingPages';
 import Campaigns from './pages/Campaigns';
 import { createTheme, ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
@@ -53,7 +53,7 @@ function App() {
           >
             <Route path="dashboard" element={<DashboardHome />} />
             <Route path="targets" element={<Targets />} />
-            <Route path="scenarios" element={<Scenarios />} />
+            <Route path="PhishingPages" element={<PhishingPages />} />
             <Route path="campaigns" element={<Campaigns />} />
             <Route path="templates" element={<Templates />} />
             <Route path="settings" element={<Settings />} />
