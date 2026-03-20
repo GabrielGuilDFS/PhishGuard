@@ -3,54 +3,65 @@ using Microsoft.EntityFrameworkCore;
 using PhishGuard.Backend.Data;
 using PhishGuard.Backend.Models;
 using Microsoft.AspNetCore.Authorization;
+using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace PhishGuard.Backend.Controllers
 {
     [Authorize] 
     [Route("api/[controller]")]
     [ApiController]
-    public class AlvosController : ControllerBase
+    public class TargetsController : ControllerBase
     {
         private readonly AppDbContext _context;
+        private readonly ITenantProvider _tenantProvider; // 1. Adicionamos o Provider
 
-        public AlvosController(AppDbContext context)
+        public TargetsController(AppDbContext context, ITenantProvider tenantProvider)
         {
             _context = context;
+            _tenantProvider = tenantProvider;
         }
 
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<Alvo>>> GetAlvos()
+        public async Task<ActionResult<IEnumerable<Target>>> GetAlvos()
         {
-            return await _context.Alvos.ToListAsync();
+            return await _context.Targets.ToListAsync();
         }
 
         [HttpPost]
-        public async Task<ActionResult<Alvo>> PostAlvo(Alvo alvo)
+        public async Task<ActionResult<Target>> PostAlvo(Target alvo)
         {
-            _context.Alvos.Add(alvo);
+
+            alvo.TenantId = _tenantProvider.GetTenantId(); 
+
+            alvo.Id = Guid.NewGuid();
+
+            _context.Targets.Add(alvo);
             await _context.SaveChangesAsync();
-            return Ok(alvo);
+            
+            return CreatedAtAction(nameof(GetAlvos), new { id = alvo.Id }, alvo);
         }
 
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteAlvo(Guid id)
         {
-            var alvo = await _context.Alvos.FirstOrDefaultAsync(a => a.Id == id);
+            var alvo = await _context.Targets.FirstOrDefaultAsync(a => a.Id == id);
             
             if (alvo == null) return NotFound();
 
-            _context.Alvos.Remove(alvo);
+            _context.Targets.Remove(alvo);
             await _context.SaveChangesAsync();
             
             return NoContent();
         }
 
         [HttpPut("{id}")]
-        public async Task<IActionResult> PutAlvo(Guid id, Alvo alvo)
+        public async Task<IActionResult> PutAlvo(Guid id, Target alvo)
         {
             if (id != alvo.Id) return BadRequest();
 
-            var alvoExistente = await _context.Alvos.FirstOrDefaultAsync(a => a.Id == id);
+            var alvoExistente = await _context.Targets.FirstOrDefaultAsync(a => a.Id == id);
             
             if (alvoExistente == null) return NotFound();
 

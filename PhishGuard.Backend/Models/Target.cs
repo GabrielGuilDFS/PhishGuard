@@ -2,7 +2,7 @@ using System.Text.Json.Serialization;
 
 namespace PhishGuard.Backend.Models
 {
-    public class Alvo
+    public class Target
     {
         public Guid Id { get; set; } 
 

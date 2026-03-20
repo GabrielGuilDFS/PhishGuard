@@ -10,15 +10,16 @@ import {
   Edit as EditIcon, 
   PersonAdd as PersonAddIcon,
   FileUpload as UploadIcon,
-  Search as SearchIcon 
+  Search as SearchIcon,
+  Send as SendIcon
 } from '@mui/icons-material';
 import Papa from 'papaparse'; 
 
 interface Target {
-  id: number;
+  id: string; 
   nome: string;
   email: string;
-  setor: string;
+  departamento: string; 
 }
 
 export default function Targets() {
@@ -26,22 +27,23 @@ export default function Targets() {
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [open, setOpen] = useState(false);
-  const [editId, setEditId] = useState<number | null>(null);
-  const [novoAlvo, setNovoAlvo] = useState({ nome: '', email: '', setor: '' });
-  const [notify, setNotify] = useState({ open: false, message: '', type: 'success' as 'success' | 'error' });
+  const [editId, setEditId] = useState<string | null>(null); 
+  const [novoAlvo, setNewTarget] = useState({ nome: '', email: '', departamento: '' });
+  const [notify, setNotify] = useState({ open: false, message: '', type: 'success' as 'success' | 'error' | 'info' });  
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const filteredTargets = targets.filter((target) => 
     target.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
     target.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (target.setor || '').toLowerCase().includes(searchTerm.toLowerCase())
+    (target.departamento || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const fetchAlvos = async () => {
+  const fetchTargets = async () => {
     setLoading(true);
     const token = localStorage.getItem('phishguard_token');
     try {
-      const response = await fetch('http://localhost:5000/api/Alvos', {
+      // 1. URL ATUALIZADA PARA TARGETS
+      const response = await fetch('http://localhost:5000/api/Targets', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (response.ok) {
@@ -55,7 +57,7 @@ export default function Targets() {
     }
   };
 
-  const showNotify = (message: string, type: 'success' | 'error' = 'success') => {
+  const showNotify = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
     setNotify({ open: true, message, type });
   };
 
@@ -80,7 +82,8 @@ export default function Targets() {
         setLoading(true);
         for (const item of dadosCSV) {
           try {
-            await fetch('http://localhost:5000/api/Alvos', {
+            // 2. URL ATUALIZADA PARA TARGETS
+            await fetch('http://localhost:5000/api/Targets', {
               method: 'POST',
               headers: { 
                 'Content-Type': 'application/json',
@@ -89,7 +92,7 @@ export default function Targets() {
               body: JSON.stringify({
                 nome: item.nome,
                 email: item.email,
-                setor: item.setor || 'Geral' 
+                departamento: item.departamento || item.setor || 'Geral' 
               })
             });
             sucessos++;
@@ -99,7 +102,7 @@ export default function Targets() {
         }
         setLoading(false);
         showNotify(`${sucessos} alvos importados com sucesso!`);
-        fetchAlvos(); 
+        fetchTargets(); 
       }
     });
 
@@ -108,9 +111,10 @@ export default function Targets() {
 
   const handleSave = async () => {
     const token = localStorage.getItem('phishguard_token');
+    // 3. URLs ATUALIZADAS PARA TARGETS
     const url = editId 
-      ? `http://localhost:5000/api/Alvos/${editId}` 
-      : 'http://localhost:5000/api/Alvos';
+      ? `http://localhost:5000/api/Targets/${editId}` 
+      : 'http://localhost:5000/api/Targets';
     
     try {
       const response = await fetch(url, {
@@ -119,41 +123,77 @@ export default function Targets() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}` 
         },
-        body: JSON.stringify(novoAlvo)
+        body: JSON.stringify(editId ? { ...novoAlvo, id: editId } : novoAlvo)
       });
 
       if (response.ok) {
         showNotify(editId ? "Alvo atualizado!" : "Alvo cadastrado com sucesso!");
-        fetchAlvos();
+        fetchTargets();
         handleClose();
+      } else {
+        showNotify("Falha ao salvar. Verifique os dados.", "error");
       }
     } catch (error) {
       showNotify("Erro ao salvar alvo", "error");
     }
   };
 
-  const handleDelete = async (id: number) => {
+  const handleDelete = async (id: string) => { 
     const token = localStorage.getItem('phishguard_token');
     if (window.confirm("Deseja realmente excluir este alvo?")) {
-      await fetch(`http://localhost:5000/api/Alvos/${id}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      showNotify("Alvo removido");
-      fetchAlvos();
+      try {
+        const response = await fetch(`http://localhost:5000/api/Targets/${id}`, {
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (response.ok) {
+          showNotify("Alvo removido com sucesso!");
+          fetchTargets();
+        } else {
+          showNotify("Falha ao remover o alvo.", "error");
+        }
+      } catch (error) {
+        showNotify("Erro de rede ao remover alvo.", "error");
+      }
     }
   };
 
   const handleEdit = (target: Target) => {
     setEditId(target.id);
-    setNovoAlvo({ nome: target.nome, email: target.email, setor: target.setor });
+    setNewTarget({ nome: target.nome, email: target.email, departamento: target.departamento });
     setOpen(true);
   };
 
   const handleOpen = () => { setEditId(null); setOpen(true); };
-  const handleClose = () => { setOpen(false); setNovoAlvo({ nome: '', email: '', setor: '' }); };
+  const handleClose = () => { setOpen(false); setNewTarget({ nome: '', email: '', departamento: '' }); };
 
-  useEffect(() => { fetchAlvos(); }, []);
+  const handleTestTarget = async (emailDestino: string) => {
+    showNotify(`Enviando e-mail de teste para ${emailDestino}...`, "info");
+    const token = localStorage.getItem('phishguard_token');
+    
+    try {
+      const response = await fetch('http://localhost:5000/api/SmtpConfig/Testar', {
+        method: 'POST',
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ emailDestino }) 
+      });
+
+      if (response.ok) {
+        showNotify(`Disparo bem-sucedido para ${emailDestino}!`, "success");
+      } else {
+        const errorText = await response.text();
+        showNotify(`Falha no envio: ${errorText}`, "error");
+      }
+    } catch (error) {
+      showNotify("Erro de rede ao tentar contatar o servidor.", "error");
+    }
+  };
+
+  useEffect(() => { fetchTargets(); }, []);
 
   return (
     <Box>
@@ -185,7 +225,7 @@ export default function Targets() {
             onChange={handleFileUpload}
           />
           
-          <Tooltip title="CSV deve conter: nome, email, setor">
+          <Tooltip title="CSV deve conter as colunas: nome, email, departamento">
             <Button 
               variant="outlined" 
               startIcon={<UploadIcon />}
@@ -207,7 +247,7 @@ export default function Targets() {
             <TableRow>
               <TableCell><strong>Nome</strong></TableCell>
               <TableCell><strong>E-mail</strong></TableCell>
-              <TableCell><strong>Setor</strong></TableCell>
+              <TableCell><strong>Departamento</strong></TableCell>
               <TableCell align="right"><strong>Ações</strong></TableCell>
             </TableRow>
           </TableHead>
@@ -219,11 +259,18 @@ export default function Targets() {
                 <TableRow key={target.id} hover>
                   <TableCell>{target.nome}</TableCell>
                   <TableCell>{target.email}</TableCell>
-                  <TableCell>{target.setor}</TableCell>
+                  <TableCell>{target.departamento}</TableCell>
+                  
                   <TableCell align="right">
+                    <Tooltip title="Testar Disparo para este Alvo">
+                      <IconButton color="secondary" onClick={() => handleTestTarget(target.email)}>
+                        <SendIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
                     <IconButton color="primary" onClick={() => handleEdit(target)}><EditIcon fontSize="small" /></IconButton>
                     <IconButton color="error" onClick={() => handleDelete(target.id)}><DeleteIcon fontSize="small" /></IconButton>
                   </TableCell>
+
                 </TableRow>
               ))
             )}
@@ -243,9 +290,9 @@ export default function Targets() {
       <Dialog open={open} onClose={handleClose} fullWidth maxWidth="xs">
         <DialogTitle>{editId ? "Editar Alvo" : "Adicionar Novo Alvo"}</DialogTitle>
         <DialogContent>
-          <TextField margin="normal" fullWidth label="Nome Completo" value={novoAlvo.nome} onChange={(e) => setNovoAlvo({...novoAlvo, nome: e.target.value})} />
-          <TextField margin="normal" fullWidth label="E-mail Corporativo" value={novoAlvo.email} onChange={(e) => setNovoAlvo({...novoAlvo, email: e.target.value})} />
-          <TextField margin="normal" fullWidth label="Setor" value={novoAlvo.setor} onChange={(e) => setNovoAlvo({...novoAlvo, setor: e.target.value})} />
+          <TextField margin="normal" fullWidth label="Nome Completo" value={novoAlvo.nome} onChange={(e) => setNewTarget({...novoAlvo, nome: e.target.value})} />
+          <TextField margin="normal" fullWidth label="E-mail Corporativo" value={novoAlvo.email} onChange={(e) => setNewTarget({...novoAlvo, email: e.target.value})} />
+          <TextField margin="normal" fullWidth label="Departamento" value={novoAlvo.departamento} onChange={(e) => setNewTarget({...novoAlvo, departamento: e.target.value})} />
         </DialogContent>
         <DialogActions sx={{ p: 3 }}>
           <Button onClick={handleClose} color="inherit">Cancelar</Button>

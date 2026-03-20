@@ -4,7 +4,6 @@ using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using PhishGuard.Backend.Models;
  
-
 namespace PhishGuard.Backend.Data
 {
     public class AppDbContext : DbContext
@@ -20,8 +19,10 @@ namespace PhishGuard.Backend.Data
 
         public DbSet<Tenant> Tenants { get; set; }
         public DbSet<Administrador> Administradores { get; set; }
-        public DbSet<Alvo> Alvos { get; set; }
+        public DbSet<Target> Targets { get; set; }
         public DbSet<SmtpConfig> SmtpConfigs { get; set; }
+
+        public Guid TenantIdAtual => _tenantProvider.GetTenantId();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {   
@@ -47,13 +48,13 @@ namespace PhishGuard.Backend.Data
                 entity.HasIndex(e => e.Cnpj)
                     .IsUnique();
             });
+            
             base.OnModelCreating(modelBuilder);
 
-            var currentTenantId = _tenantProvider?.GetCurrentTenantId() ?? Guid.Empty;
 
             modelBuilder.Entity<Administrador>(entity =>
             {
-                entity.HasQueryFilter(a => a.TenantId == currentTenantId);
+                entity.HasQueryFilter(a => a.TenantId == this.TenantIdAtual);
 
                 entity.Property(e => e.Nome)
                     .IsRequired()
@@ -71,9 +72,11 @@ namespace PhishGuard.Backend.Data
                     .HasMaxLength(255); 
             });
 
-            modelBuilder.Entity<Alvo>(entity =>
+            modelBuilder.Entity<Target>(entity =>
             {
-                entity.HasQueryFilter(a => a.TenantId == currentTenantId);
+                entity.ToTable("Alvos"); 
+
+                entity.HasQueryFilter(a => a.TenantId == this.TenantIdAtual);
 
                 entity.Property(e => e.Nome)
                     .IsRequired()
@@ -92,7 +95,7 @@ namespace PhishGuard.Backend.Data
             {
                 entity.ToTable("smtp_configs");
 
-                entity.HasQueryFilter(e => e.TenantId == currentTenantId);
+                entity.HasQueryFilter(e => e.TenantId == this.TenantIdAtual);
 
                 entity.HasKey(e => e.Id);
 
@@ -118,10 +121,10 @@ namespace PhishGuard.Backend.Data
             });
         }
 
+
         public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
         {
-            var currentTenantId = _tenantProvider?.GetCurrentTenantId() ?? Guid.Empty;
-
+            var currentTenantId = this.TenantIdAtual; 
             if (currentTenantId != Guid.Empty)
             {
                 foreach (var entry in ChangeTracker.Entries())
