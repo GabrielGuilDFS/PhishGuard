@@ -16,7 +16,7 @@ export default function Register() {
   
   const [nome, setNome] = useState('');
   const [email, setEmail] = useState('');
-  const [senha, setSenha] = useState('');
+  const [password, setPassword] = useState('');
   
   const [erro, setErro] = useState('');
   const [sucesso, setSucesso] = useState(false);
@@ -26,7 +26,7 @@ export default function Register() {
     setErro('');
     setSucesso(false);
 
-    if (senha.length < 3) {
+    if (password.length < 3) {
       setErro('A senha deve ter pelo menos 3 caracteres.');
       return;
     }
@@ -35,7 +35,7 @@ export default function Register() {
       const response = await fetch('http://localhost:5000/api/Auth/registrar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nome, email, senha })
+        body: JSON.stringify({ nome, email, senha: password })
       });
 
       if (!response.ok) {
@@ -94,8 +94,8 @@ export default function Register() {
               fullWidth
               label="Senha"
               type="password"
-              value={senha}
-              onChange={(e) => setSenha(e.target.value)}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
             />
             
             {erro && <Alert severity="error" sx={{ mt: 2 }}>{erro}</Alert>}

@@ -5,7 +5,7 @@ namespace PhishGuard.Backend.DTOs
         string Cnpj,
         string Nome,
         string Email,
-        string Senha
+        string Password
     );
-    public record LoginDto(string Email, string Senha);
+    public record LoginDto(string Email, string Password);
 }

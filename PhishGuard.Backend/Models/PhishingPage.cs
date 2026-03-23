@@ -16,7 +16,7 @@ namespace PhishGuard.Backend.Models
         public string Nome { get; set; } 
 
         [Required]
-        public string ConteudoHtml { get; set; } 
+        public string HtmlCaptura { get; set; } 
 
         public DateTime CriadoEm { get; set; }
     }

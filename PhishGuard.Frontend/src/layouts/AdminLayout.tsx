@@ -13,7 +13,8 @@ import {
   ListItemButton, 
   ListItemIcon, 
   ListItemText,
-  CssBaseline 
+  CssBaseline,
+  Collapse 
 } from '@mui/material';
 import { 
   Web as WebIcon,
@@ -21,9 +22,13 @@ import {
   Dashboard as DashboardIcon, 
   People as PeopleIcon, 
   Phishing as PhishingIcon, 
-  Send as SendIcon,         
+  Send as SendIcon,        
   Logout as LogoutIcon,
-  Settings as SettingsIcon
+  Settings as SettingsIcon,
+  ExpandLess,        
+  ExpandMore,         
+  FolderCopy as FolderIcon, 
+  School as SchoolIcon      
 } from '@mui/icons-material';
 
 const drawerWidth = 260;
@@ -33,9 +38,15 @@ export default function AdminLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
+  
+  const [openResources, setOpenResources] = useState(false);
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
+  };
+
+  const handleResourcesClick = () => {
+    setOpenResources(!openResources);
   };
 
   const handleLogout = () => {
@@ -46,8 +57,16 @@ export default function AdminLayout() {
   const menuItems = [
     { text: 'Visão Geral', icon: <DashboardIcon />, path: '/admin/dashboard' },
     { text: 'Gestão de Alvos', icon: <PeopleIcon />, path: '/admin/targets' },
-    { text: 'Biblioteca de Cenários', icon: <PhishingIcon />, path: '/admin/templates' },
-    { text: 'Paginas Falsas', icon: <WebIcon />, path: '/admin/phishingpages' },
+    { 
+      text: 'Biblioteca de Recursos', 
+      icon: <FolderIcon />, 
+      isGroup: true, 
+      children: [
+        { text: 'Cenários (E-mails)', icon: <PhishingIcon />, path: '/admin/templates' },
+        { text: 'Páginas Falsas', icon: <WebIcon />, path: '/admin/phishingpages' },
+        { text: 'Páginas Educacionais', icon: <SchoolIcon />, path: '/admin/educationalpages' } // Rota que faremos a seguir
+      ]
+    },
     { text: 'Nova Campanha', icon: <SendIcon />, path: '/admin/campaigns' },
     { text: 'Configurações', icon: <SettingsIcon />, path: '/admin/settings' }
   ];
@@ -62,32 +81,72 @@ export default function AdminLayout() {
       <Divider />
       <List>
         {menuItems.map((item) => {
-            const isSelected = location.pathname === item.path;
-            
+          
+          if (item.isGroup) {
             return (
+              <div key={item.text}>
+                <ListItem disablePadding>
+                  <ListItemButton onClick={handleResourcesClick}>
+                    <ListItemIcon sx={{ color: primaryColor }}>
+                      {item.icon}
+                    </ListItemIcon>
+                    <ListItemText primary={item.text} />
+                    {openResources ? <ExpandLess /> : <ExpandMore />}
+                  </ListItemButton>
+                </ListItem>
+                
+                <Collapse in={openResources} timeout="auto" unmountOnExit>
+                  <List component="div" disablePadding>
+                    {item.children?.map((child) => {
+                      const isSelected = location.pathname === child.path;
+                      return (
+                        <ListItemButton 
+                          key={child.text}
+                          onClick={() => navigate(child.path)}
+                          selected={isSelected}
+                          sx={{ 
+                            pl: 4, // Dá um recuo (padding-left) para parecer um submenu
+                            '&.Mui-selected': {
+                              backgroundColor: `${primaryColor}15`,
+                              '&:hover': { backgroundColor: `${primaryColor}25` },
+                            },
+                          }}
+                        >
+                          <ListItemIcon sx={{ color: primaryColor }}>
+                            {child.icon}
+                          </ListItemIcon>
+                          <ListItemText primary={child.text} />
+                        </ListItemButton>
+                      );
+                    })}
+                  </List>
+                </Collapse>
+              </div>
+            );
+          }
+
+          const isSelected = location.pathname === item.path;
+          return (
             <ListItem key={item.text} disablePadding>
-                <ListItemButton 
-                onClick={() => navigate(item.path)}
+              <ListItemButton 
+                onClick={() => item.path && navigate(item.path)}
                 selected={isSelected}
                 sx={{
-                    '&.Mui-selected': {
+                  '&.Mui-selected': {
                     backgroundColor: `${primaryColor}15`,
-                    '&:hover': {
-                        backgroundColor: `${primaryColor}25`,
-                    },
-                    },
+                    '&:hover': { backgroundColor: `${primaryColor}25` },
+                  },
                 }}
-                >
+              >
                 <ListItemIcon sx={{ color: primaryColor }}>
-                    {item.icon}
+                  {item.icon}
                 </ListItemIcon>
-                
                 <ListItemText primary={item.text} />
-                </ListItemButton>
+              </ListItemButton>
             </ListItem>
-            );
+          );
         })}
-        </List>
+      </List>
       
       <Divider />
       <List>

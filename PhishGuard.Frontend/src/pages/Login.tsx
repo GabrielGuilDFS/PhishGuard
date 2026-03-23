@@ -17,7 +17,7 @@ export default function Login() {
   const { showNotify } = useNotify();
 
   const [email, setEmail] = useState('');
-  const [senha, setSenha] = useState('');
+  const [password, setPassword] = useState('');
   const [erro, setErro] = useState('');
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -28,7 +28,7 @@ export default function Login() {
       const response = await fetch('http://localhost:5000/api/Auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, senha })
+        body: JSON.stringify({ email, password})
       });
 
       if (!response.ok) {
@@ -82,8 +82,8 @@ export default function Login() {
               label="Senha"
               type="password"
               autoComplete="current-password"
-              value={senha}
-              onChange={(e) => setSenha(e.target.value)}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
             />
 
             {erro && <Alert severity="error" sx={{ mt: 2 }}>{erro}</Alert>}

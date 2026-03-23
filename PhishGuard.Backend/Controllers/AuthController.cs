@@ -59,7 +59,7 @@ public class AuthController : ControllerBase
 			Email = emailNormalizado,
 			
 			
-			SenhaHash = BCrypt.Net.BCrypt.HashPassword(request.Senha) 
+			PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password) 
 		};
 
 		_context.Administradores.Add(novoAdmin);
@@ -82,7 +82,7 @@ public class AuthController : ControllerBase
 
 		if (admin == null) return BadRequest("Usu�rio ou senha inv�lidos.");
 
-		if (!BCrypt.Net.BCrypt.Verify(request.Senha, admin.SenhaHash))
+		if (!BCrypt.Net.BCrypt.Verify(request.Password, admin.PasswordHash))
 			return BadRequest("Usu�rio ou senha inv�lidos.");
 
 		string token = CriarToken(admin);

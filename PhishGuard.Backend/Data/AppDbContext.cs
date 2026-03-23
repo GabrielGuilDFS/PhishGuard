@@ -23,6 +23,7 @@ namespace PhishGuard.Backend.Data
         public DbSet<SmtpConfig> SmtpConfigs { get; set; }
         public DbSet<Template> Templates { get; set; }
         public DbSet<PhishingPage> PhishingPages { get; set; }
+        public DbSet<EducationalPage> EducationalPages { get; set; }
 
         public Guid TenantIdAtual => _tenantProvider.GetTenantId();
 
@@ -69,7 +70,7 @@ namespace PhishGuard.Backend.Data
                 entity.HasIndex(e => e.Email)
                     .IsUnique();
 
-                entity.Property(e => e.SenhaHash)
+                entity.Property(e => e.PasswordHash)
                     .IsRequired()
                     .HasMaxLength(255); 
             });
@@ -142,7 +143,17 @@ namespace PhishGuard.Backend.Data
                 entity.HasQueryFilter(p => p.TenantId == this.TenantIdAtual);
 
                 entity.Property(e => e.Nome).IsRequired().HasMaxLength(100);
-                entity.Property(e => e.ConteudoHtml).IsRequired();
+                entity.Property(e => e.HtmlCaptura).IsRequired();
+            });
+
+            modelBuilder.Entity<EducationalPage>(entity =>
+            {
+                entity.ToTable("EducationalPages");
+
+                entity.HasQueryFilter(e => e.TenantId == this.TenantIdAtual);
+
+                entity.Property(e => e.Nome).IsRequired().HasMaxLength(100);
+                entity.Property(e => e.HtmlEducacional).IsRequired();
             });
         }
 
