@@ -1,0 +1,11 @@
+feat: Integração do MailKit e finalização do motor de disparo SMTP
+
+Substituição da biblioteca de e-mail padrão pelo MailKit e MimeKit no backend.
+
+Implementação do método IniciarDisparo no CampaignsController para envio real de e-mails, incluindo personalização da tag de nome do alvo.
+
+Adição de controle de fluxo (Throttling) no laço de repetição de disparo para evitar bloqueios por limites de taxa (Rate Limit) em provedores como Gmail e Mailtrap.
+
+Criação do DTO TestarSmtpDto com propriedades anuláveis no SmtpConfigController para resolver erros de validação (HTTP 400 Bad Request) durante o teste de conexão.
+
+Configuração de segurança SecureSocketOptions.StartTls / Auto para garantir compatibilidade de autenticação com provedores de e-mail externos (ex: Google SMTP).

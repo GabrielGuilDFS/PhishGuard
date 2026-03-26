@@ -12,5 +12,6 @@ namespace PhishGuard.Backend.Models
         public string Nome { get; set; }
         public string Email { get; set; }
         public string Departamento { get; set; }
+        public ICollection<Campaign> Campaigns { get; set; } = new List<Campaign>();
     }
 }

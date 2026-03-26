@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using PhishGuard.Backend.Data;
@@ -11,9 +12,11 @@ using PhishGuard.Backend.Data;
 namespace PhishGuard.Backend.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260323122442_RenomearHtmlEducacionalParaHtmlCaptura")]
+    partial class RenomearHtmlEducacionalParaHtmlCaptura
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -21,21 +24,6 @@ namespace PhishGuard.Backend.Migrations
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
-
-            modelBuilder.Entity("CampaignTarget", b =>
-                {
-                    b.Property<Guid>("CampaignsId")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("TargetsId")
-                        .HasColumnType("uuid");
-
-                    b.HasKey("CampaignsId", "TargetsId");
-
-                    b.HasIndex("TargetsId");
-
-                    b.ToTable("CampaignTarget");
-                });
 
             modelBuilder.Entity("PhishGuard.Backend.Models.Administrador", b =>
                 {
@@ -69,54 +57,6 @@ namespace PhishGuard.Backend.Migrations
                     b.HasIndex("TenantId");
 
                     b.ToTable("Administradores");
-                });
-
-            modelBuilder.Entity("PhishGuard.Backend.Models.Campaign", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTime>("CriadoEm")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<DateTime?>("DataFim")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<DateTime>("DataInicio")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<Guid>("EducationalPageId")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("EmailTemplateId")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("LandingPageId")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("NomeCampanha")
-                        .IsRequired()
-                        .HasMaxLength(150)
-                        .HasColumnType("character varying(150)");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)");
-
-                    b.Property<Guid>("TenantId")
-                        .HasColumnType("uuid");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("EducationalPageId");
-
-                    b.HasIndex("EmailTemplateId");
-
-                    b.HasIndex("LandingPageId");
-
-                    b.ToTable("Campaigns", (string)null);
                 });
 
             modelBuilder.Entity("PhishGuard.Backend.Models.EducationalPage", b =>
@@ -310,21 +250,6 @@ namespace PhishGuard.Backend.Migrations
                     b.ToTable("Tenants");
                 });
 
-            modelBuilder.Entity("CampaignTarget", b =>
-                {
-                    b.HasOne("PhishGuard.Backend.Models.Campaign", null)
-                        .WithMany()
-                        .HasForeignKey("CampaignsId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("PhishGuard.Backend.Models.Target", null)
-                        .WithMany()
-                        .HasForeignKey("TargetsId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-                });
-
             modelBuilder.Entity("PhishGuard.Backend.Models.Administrador", b =>
                 {
                     b.HasOne("PhishGuard.Backend.Models.Tenant", null)
@@ -332,33 +257,6 @@ namespace PhishGuard.Backend.Migrations
                         .HasForeignKey("TenantId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
-                });
-
-            modelBuilder.Entity("PhishGuard.Backend.Models.Campaign", b =>
-                {
-                    b.HasOne("PhishGuard.Backend.Models.EducationalPage", "EducationalPage")
-                        .WithMany()
-                        .HasForeignKey("EducationalPageId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("PhishGuard.Backend.Models.Template", "Template")
-                        .WithMany()
-                        .HasForeignKey("EmailTemplateId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("PhishGuard.Backend.Models.PhishingPage", "PhishingPage")
-                        .WithMany()
-                        .HasForeignKey("LandingPageId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("EducationalPage");
-
-                    b.Navigation("PhishingPage");
-
-                    b.Navigation("Template");
                 });
 
             modelBuilder.Entity("PhishGuard.Backend.Models.SmtpConfig", b =>

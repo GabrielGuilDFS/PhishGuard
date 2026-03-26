@@ -5,7 +5,9 @@ using PhishGuard.Backend.Data;
 using PhishGuard.Backend.DTOs;
 using PhishGuard.Backend.Models;
 using System.Net;
-using System.Net.Mail;
+using MailKit.Net.Smtp;
+using MailKit.Security;
+using MimeKit;
 
 namespace PhishGuard.Backend.Controllers
 {
@@ -78,39 +80,38 @@ namespace PhishGuard.Backend.Controllers
         }
 
         [HttpPost("Testar")]
-        public async Task<IActionResult> Testar([FromBody] TesteSmtpDto dto)
+        public async Task<IActionResult> TestarConexao([FromBody] TestarSmtpDto config)
         {
-            var config = await _context.SmtpConfigs.FirstOrDefaultAsync();
-
-            if (config == null)
-                return BadRequest("Configure o SMTP primeiro antes de testar.");
+            if (string.IsNullOrEmpty(config.Host)) return BadRequest("O campo Host é obrigatório.");
+            if (config.Porta <= 0) return BadRequest("A Porta é inválida.");
+            if (string.IsNullOrEmpty(config.Usuario) || string.IsNullOrEmpty(config.Senha)) 
+                return BadRequest("Usuário e Senha são obrigatórios para provedores reais.");
 
             try
             {
-                using var smtpClient = new SmtpClient(config.Host, config.Porta)
-                {
-                    EnableSsl = true,
-                    Credentials = new NetworkCredential(config.Usuario, config.Senha)
-                };
-
-                using var message = new MailMessage
-                {
-                    From = new MailAddress("teste@phishguard.com", "Sistema PhishGuard"), 
-                    Subject = "PhishGuard - Teste de Conexão SMTP",
-                    Body = "Se você está lendo isso, o motor de disparo do PhishGuard está funcionando perfeitamente!"
-                };
-
-                message.To.Add(dto.EmailDestino);
-
-                await smtpClient.SendMailAsync(message);
-
-                return Ok("E-mail de teste enviado com sucesso!");
+                using var client = new SmtpClient();
+                await client.ConnectAsync(config.Host, config.Porta, SecureSocketOptions.StartTls);
+                
+                // Tenta logar de verdade no Gmail/Outlook
+                await client.AuthenticateAsync(config.Usuario, config.Senha);
+                
+                await client.DisconnectAsync(true);
+                
+                return Ok(new { message = "Conexão estabelecida com segurança!" });
             }
             catch (Exception ex)
             {
-                return BadRequest($"Falha ao enviar: {ex.Message}");
+                return BadRequest($"Falha na autenticação SMTP: {ex.Message}");
             }
         }
+    }
+    public class TestarSmtpDto
+    {
+        public string? Host { get; set; }
+        public int Porta { get; set; }
+        public string? Usuario { get; set; }
+        public string? Senha { get; set; }
+        public string? EmailDestino { get; set; }
     }
 }
 

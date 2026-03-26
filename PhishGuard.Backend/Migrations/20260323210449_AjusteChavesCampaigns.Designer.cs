@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using PhishGuard.Backend.Data;
@@ -11,9 +12,11 @@ using PhishGuard.Backend.Data;
 namespace PhishGuard.Backend.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260323210449_AjusteChavesCampaigns")]
+    partial class AjusteChavesCampaigns
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -21,21 +24,6 @@ namespace PhishGuard.Backend.Migrations
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
-
-            modelBuilder.Entity("CampaignTarget", b =>
-                {
-                    b.Property<Guid>("CampaignsId")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("TargetsId")
-                        .HasColumnType("uuid");
-
-                    b.HasKey("CampaignsId", "TargetsId");
-
-                    b.HasIndex("TargetsId");
-
-                    b.ToTable("CampaignTarget");
-                });
 
             modelBuilder.Entity("PhishGuard.Backend.Models.Administrador", b =>
                 {
@@ -308,21 +296,6 @@ namespace PhishGuard.Backend.Migrations
                         .IsUnique();
 
                     b.ToTable("Tenants");
-                });
-
-            modelBuilder.Entity("CampaignTarget", b =>
-                {
-                    b.HasOne("PhishGuard.Backend.Models.Campaign", null)
-                        .WithMany()
-                        .HasForeignKey("CampaignsId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("PhishGuard.Backend.Models.Target", null)
-                        .WithMany()
-                        .HasForeignKey("TargetsId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
                 });
 
             modelBuilder.Entity("PhishGuard.Backend.Models.Administrador", b =>

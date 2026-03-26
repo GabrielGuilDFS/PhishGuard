@@ -170,7 +170,13 @@ export default function Settings() {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ emailDestino: emailDestino }) 
+        body: JSON.stringify({ 
+          host: smtp.host,
+          porta: Number(smtp.port) || 0,
+          usuario: smtp.user,
+          senha: smtp.password,
+          emailDestino: emailDestino 
+        }) 
       });
   
       if (response.ok) {
