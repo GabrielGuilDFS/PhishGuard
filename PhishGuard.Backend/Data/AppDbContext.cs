@@ -25,6 +25,7 @@ namespace PhishGuard.Backend.Data
         public DbSet<PhishingPage> PhishingPages { get; set; }
         public DbSet<EducationalPage> EducationalPages { get; set; }
         public DbSet<Campaign> Campaigns { get; set; }
+        public DbSet<SimulationLog> SimulationsLogs { get; set; }
 
         public Guid TenantIdAtual => _tenantProvider.GetTenantId();
 

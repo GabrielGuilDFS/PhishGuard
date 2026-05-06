@@ -41,9 +41,10 @@ namespace PhishGuard.Backend.Controllers
         }
 
         [HttpGet("{id}")]
+        [AllowAnonymous]
         public async Task<ActionResult<object>> GetPage(Guid id)
         {
-            var page = await _context.PhishingPages.FindAsync(id);
+            var page = await _context.PhishingPages.IgnoreQueryFilters().FirstOrDefaultAsync(p => p.Id == id);
             if (page == null) return NotFound();
 
             return Ok(new 

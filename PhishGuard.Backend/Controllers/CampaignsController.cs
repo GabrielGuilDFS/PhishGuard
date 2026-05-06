@@ -159,6 +159,14 @@ namespace PhishGuard.Backend.Controllers
 
                     // Personaliza o corpo do e-mail
                     var corpoPersonalizado = campaign.Template.CorpoHtml.Replace("{{NOME}}", target.Nome);
+
+                    var baseUrl = "http://localhost:5000/api/tracking";
+                    var linkClique = $"{baseUrl}/click/{campaign.Id}/{target.Id}";
+                    var linkPixel = $"{baseUrl}/open/{campaign.Id}/{target.Id}";
+
+                    corpoPersonalizado = corpoPersonalizado.Replace("{{LINK}}", linkClique);
+                    corpoPersonalizado += $"<img src='{linkPixel}' width='1' height='1' style='display:none;' />";
+
                     var builder = new BodyBuilder { HtmlBody = corpoPersonalizado };
                     message.Body = builder.ToMessageBody();
 

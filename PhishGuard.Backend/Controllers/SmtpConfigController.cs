@@ -92,7 +92,6 @@ namespace PhishGuard.Backend.Controllers
                 using var client = new SmtpClient();
                 await client.ConnectAsync(config.Host, config.Porta, SecureSocketOptions.StartTls);
                 
-                // Tenta logar de verdade no Gmail/Outlook
                 await client.AuthenticateAsync(config.Usuario, config.Senha);
                 
                 await client.DisconnectAsync(true);

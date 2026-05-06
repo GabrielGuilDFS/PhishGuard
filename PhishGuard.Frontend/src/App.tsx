@@ -13,6 +13,7 @@ import CssBaseline from '@mui/material/CssBaseline';
 import { NotificationProvider } from './context/NotificationContext';
 
 import HtmlEditorView from './components/HtmlEditorView';
+import LandingPage from './pages/LandingPage';
 
 const PrivateRoute = ({ children }: { children: ReactNode }) => {
   const token = localStorage.getItem('phishguard_token');
@@ -53,6 +54,7 @@ function App() {
             <Route path="/" element={<Navigate to="/login" replace />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
+            <Route path="/landing/:id" element={<LandingPage />} />
             <Route
               path="/admin"
               element={
