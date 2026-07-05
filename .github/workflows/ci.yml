@@ -27,6 +27,9 @@ jobs:
     - name: Compilar o Backend (Modo Release)
       run: dotnet build PhishGuard.Backend/PhishGuard.Backend.csproj --configuration Release --no-restore
 
+    - name: Executar Testes Unitários (.NET)
+      run: dotnet test PhishGuard.Tests/PhishGuard.Tests.csproj --configuration Release
+
   # --- ESTEIRA DO FRONTEND (REACT / TYPESCRIPT) ---
   build-frontend:
     name: Build & Lint Frontend
