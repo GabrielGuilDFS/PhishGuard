@@ -1,0 +1,57 @@
+name: PhishGuard CI Pipeline
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  # --- ESTEIRA DO BACKEND (.NET) ---
+  build-backend:
+    name: Build & Test Backend
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout do Código
+      uses: actions/checkout@v4
+
+    - name: Configurar .NET SDK
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '8.0' # Altere para a versão exata do seu .NET se for o caso
+
+    - name: Restaurar Dependências
+      run: dotnet restore PhishGuard.Backend/PhishGuard.Backend.csproj
+
+    - name: Compilar o Backend (Modo Release)
+      run: dotnet build PhishGuard.Backend/PhishGuard.Backend.csproj --configuration Release --no-restore
+
+  # --- ESTEIRA DO FRONTEND (REACT / TYPESCRIPT) ---
+  build-frontend:
+    name: Build & Lint Frontend
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout do Código
+      uses: actions/checkout@v4
+
+    - name: Configurar Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20' # Versão padrão recomendada para o ecossistema React atual
+
+    - name: Instalar Dependências
+      run: |
+        cd PhishGuard.Frontend
+        npm ci
+
+    - name: Checagem Estática do TypeScript (Mapeamento de Erros)
+      run: |
+        cd PhishGuard.Frontend
+        npx tsc --noEmit
+
+    - name: Compilar o Frontend (Build de Produção)
+      run: |
+        cd PhishGuard.Frontend
+        npm run build
