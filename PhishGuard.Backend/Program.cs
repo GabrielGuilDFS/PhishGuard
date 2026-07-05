@@ -102,4 +102,25 @@ app.UseAuthorization();
 
 app.MapControllers();
 
+// --- CÓDIGO DE AUTOMIGRAÇÃO PARA O DOCKER ---
+using (var scope = app.Services.CreateScope())
+{
+    var services = scope.ServiceProvider;
+    try
+    {
+        var context = services.GetRequiredService<AppDbContext>();
+        if (context.Database.GetPendingMigrations().Any())
+        {
+            Console.WriteLine("--> Aplicando migrações pendentes no banco de dados do Docker...");
+            context.Database.Migrate();
+            Console.WriteLine("--> Migrações aplicadas com sucesso!");
+        }
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"--> Erro ao aplicar migrações na inicialização: {ex.Message}");
+    }
+}
+// --------------------------------------------
+
 app.Run();

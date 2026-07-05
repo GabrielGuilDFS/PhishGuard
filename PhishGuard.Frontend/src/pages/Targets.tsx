@@ -168,7 +168,7 @@ export default function Targets() {
   const handleOpen = () => { setEditId(null); setOpen(true); };
   const handleClose = () => { setOpen(false); setNewTarget({ nome: '', email: '', departamento: '' }); };
 
-  const handleTestTarget = async (emailDestino: string) => {
+  const handleTestTarget = async (targetId: string, emailDestino: string) => {
     showNotify(`Enviando e-mail de teste para ${emailDestino}...`, "info");
     const token = localStorage.getItem('phishguard_token');
     
@@ -179,7 +179,7 @@ export default function Targets() {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ emailDestino }) 
+        body: JSON.stringify({ targetId }) 
       });
 
       if (response.ok) {
@@ -263,7 +263,7 @@ export default function Targets() {
                   
                   <TableCell align="right">
                     <Tooltip title="Testar Disparo para este Alvo">
-                      <IconButton color="secondary" onClick={() => handleTestTarget(target.email)}>
+                      <IconButton color="secondary" onClick={() => handleTestTarget(target.id, target.email)}>
                         <SendIcon fontSize="small" />
                       </IconButton>
                     </Tooltip>

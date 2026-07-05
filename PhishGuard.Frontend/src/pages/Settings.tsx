@@ -48,11 +48,54 @@ export default function Settings() {
   const [tabValue, setTabValue] = useState(0);
 
   const [profile, setProfile] = useState({
-    nome: 'Administrador',
-    email: 'admin@phishguard.com',
+    nome: '',
+    email: '',
     senhaAtual: '',
     novaSenha: ''
   });
+
+  useEffect(() => {
+    const fetchProfile = async () => {
+      const token = localStorage.getItem('phishguard_token');
+      if (!token) return;
+
+      try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        const nameClaim = payload["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name"] || payload.unique_name || payload.name;
+        const emailClaim = payload["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress"] || payload.email;
+        if (nameClaim || emailClaim) {
+          setProfile(prev => ({
+            ...prev,
+            nome: nameClaim || '',
+            email: emailClaim || ''
+          }));
+        }
+      } catch (e) {
+        console.error("Erro ao decodificar token JWT", e);
+      }
+
+      try {
+        const response = await fetch('http://localhost:5000/api/Auth/profile', {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        if (response.ok) {
+          const data = await response.json();
+          setProfile(prev => ({
+            ...prev,
+            nome: data.nome || prev.nome,
+            email: data.email || prev.email
+          }));
+        }
+      } catch (err) {
+        console.warn("Rota GET /api/Auth/profile não implementada. Usando claims do JWT.");
+      }
+    };
+
+    fetchProfile();
+  }, []);
 
   const [smtp, setSmtp] = useState({
     host: 'smtp.gmail.com',
@@ -100,13 +143,43 @@ export default function Settings() {
     setTabValue(newValue);
   };
 
-  const handleSaveProfile = (e: React.FormEvent) => {
+  const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     if (profile.novaSenha && profile.novaSenha.length < 6) {
       showNotify("A nova senha deve ter no mínimo 6 caracteres", "error");
       return;
     }
-    showNotify("Perfil atualizado com sucesso!");
+
+    try {
+      const token = localStorage.getItem('phishguard_token');
+      if (!token) {
+        showNotify("Sessão expirada. Faça login novamente.", "error");
+        return;
+      }
+
+      const response = await fetch('http://localhost:5000/api/Auth/profile', {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          nome: profile.nome,
+          senhaAtual: profile.senhaAtual,
+          novaSenha: profile.novaSenha
+        })
+      });
+
+      if (response.ok) {
+        showNotify("Perfil atualizado com sucesso!", "success");
+        setProfile(prev => ({ ...prev, senhaAtual: '', novaSenha: '' }));
+      } else {
+        const errorText = await response.text();
+        showNotify(`Erro ao atualizar perfil: ${errorText}`, "error");
+      }
+    } catch (err) {
+      showNotify("Erro de conexão ao salvar perfil.", "error");
+    }
   };
 
   const handleSaveSmtp = async (e: React.FormEvent) => {

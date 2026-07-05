@@ -1,0 +1,55 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: phishguard-db
+    restart: unless-stopped
+    command: -p 5433
+    ports:
+      - "5433:5433"
+    env_file:
+      - .env
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - phishguard-network
+
+  backend:
+    build:
+      context: ./PhishGuard.Backend
+      dockerfile: Dockerfile
+    container_name: phishguard-backend
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    environment:
+      ASPNETCORE_ENVIRONMENT: "Development"
+      ConnectionStrings__DefaultConnection: "Host=db;Port=5433;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}"
+    depends_on:
+      - db
+    networks:
+      - phishguard-network
+
+  frontend:
+    build:
+      context: ./PhishGuard.Frontend
+      dockerfile: Dockerfile
+    container_name: phishguard-frontend
+    restart: unless-stopped
+    ports:
+      - "5173:5173"
+    environment:
+      CHOKIDAR_USEPOLLING: "true"
+    volumes:
+      - ./PhishGuard.Frontend:/app
+      - /app/node_modules
+    depends_on:
+      - backend
+    networks:
+      - phishguard-network
+
+volumes:
+  postgres-data:
+
+networks:
+  phishguard-network:
+    driver: bridge

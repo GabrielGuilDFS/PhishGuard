@@ -82,28 +82,75 @@ namespace PhishGuard.Backend.Controllers
         [HttpPost("Testar")]
         public async Task<IActionResult> TestarConexao([FromBody] TestarSmtpDto config)
         {
-            if (string.IsNullOrEmpty(config.Host)) return BadRequest("O campo Host é obrigatório.");
-            if (config.Porta <= 0) return BadRequest("A Porta é inválida.");
-            if (string.IsNullOrEmpty(config.Usuario) || string.IsNullOrEmpty(config.Senha)) 
-                return BadRequest("Usuário e Senha são obrigatórios para provedores reais.");
+            var tenantId = _tenantProvider.GetTenantId();
+            string host;
+            int porta;
+            string usuario;
+            string senha;
+            string emailDestino;
+
+            if (config.TargetId.HasValue)
+            {
+                var target = await _context.Targets.FirstOrDefaultAsync(t => t.Id == config.TargetId.Value && t.TenantId == tenantId);
+                if (target == null) return NotFound("Alvo não encontrado.");
+
+                emailDestino = target.Email;
+
+                var smtpConfig = await _context.SmtpConfigs.FirstOrDefaultAsync(s => s.TenantId == tenantId);
+                if (smtpConfig == null) return BadRequest("Configuração SMTP não cadastrada no banco de dados.");
+
+                host = smtpConfig.Host;
+                porta = smtpConfig.Porta;
+                usuario = smtpConfig.Usuario;
+                senha = smtpConfig.Senha;
+            }
+            else
+            {
+                if (string.IsNullOrEmpty(config.Host)) return BadRequest("O campo Host é obrigatório.");
+                if (config.Porta <= 0) return BadRequest("A Porta é inválida.");
+                if (string.IsNullOrEmpty(config.Usuario) || string.IsNullOrEmpty(config.Senha)) 
+                    return BadRequest("Usuário e Senha são obrigatórios para provedores reais.");
+                if (string.IsNullOrEmpty(config.EmailDestino))
+                    return BadRequest("O campo EmailDestino é obrigatório.");
+
+                host = config.Host;
+                porta = config.Porta;
+                usuario = config.Usuario;
+                senha = config.Senha;
+                emailDestino = config.EmailDestino;
+            }
 
             try
             {
                 using var client = new SmtpClient();
-                await client.ConnectAsync(config.Host, config.Porta, SecureSocketOptions.StartTls);
+                await client.ConnectAsync(host, porta, SecureSocketOptions.StartTls);
                 
-                await client.AuthenticateAsync(config.Usuario, config.Senha);
+                await client.AuthenticateAsync(usuario, senha);
                 
+                // Envia de fato o e-mail de teste
+                var message = new MimeMessage();
+                message.From.Add(new MailboxAddress("PhishGuard (Teste)", usuario));
+                message.To.Add(new MailboxAddress(emailDestino, emailDestino));
+                message.Subject = "Teste de Conexão SMTP - PhishGuard";
+                
+                var bodyBuilder = new BodyBuilder
+                {
+                    HtmlBody = $"<h3>Teste de Envio</h3><p>Este é um e-mail de teste disparado pelo PhishGuard para confirmar que a conexão com o servidor SMTP (<strong>{host}</strong>) está funcionando perfeitamente.</p>"
+                };
+                message.Body = bodyBuilder.ToMessageBody();
+
+                await client.SendAsync(message);
                 await client.DisconnectAsync(true);
                 
-                return Ok(new { message = "Conexão estabelecida com segurança!" });
+                return Ok(new { message = $"Conexão e envio de teste realizados com sucesso para {emailDestino}!" });
             }
             catch (Exception ex)
             {
-                return BadRequest($"Falha na autenticação SMTP: {ex.Message}");
+                return BadRequest($"Falha no envio de teste SMTP: {ex.Message}");
             }
         }
     }
+
     public class TestarSmtpDto
     {
         public string? Host { get; set; }
@@ -111,6 +158,7 @@ namespace PhishGuard.Backend.Controllers
         public string? Usuario { get; set; }
         public string? Senha { get; set; }
         public string? EmailDestino { get; set; }
+        public Guid? TargetId { get; set; }
     }
 }
 
