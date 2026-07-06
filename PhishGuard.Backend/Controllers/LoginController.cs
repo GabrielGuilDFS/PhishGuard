@@ -6,68 +6,23 @@ using System.Text;
 using System.IdentityModel.Tokens.Jwt;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.AspNetCore.Authorization;
-using PhishGuard.Backend.Data;  
+using PhishGuard.Backend.Data;
 using PhishGuard.Backend.Models;
 using PhishGuard.Backend.DTOs;
 
+namespace PhishGuard.Backend.Controllers;
 
-[Route("api/[controller]")]
+[Route("api/auth")]
 [ApiController]
-public class AuthController : ControllerBase
+public class LoginController : ControllerBase
 {
 	private readonly AppDbContext _context;
 	private readonly IConfiguration _configuration;
 
-	public AuthController(AppDbContext context, IConfiguration configuration)
+	public LoginController(AppDbContext context, IConfiguration configuration)
 	{
 		_context = context;
 		_configuration = configuration;
-	}
-
-	[AllowAnonymous]
-	[HttpPost("register")]
-	public async Task<IActionResult> Registrar(RegisterDto request)
-	{
-		var emailNormalizado = request.Email.ToLower();
-
-		var emailJaUsado = await _context.Administradores
-			.IgnoreQueryFilters()
-			.AnyAsync(a => a.Email == emailNormalizado);
-
-		if (emailJaUsado)
-		{
-			return BadRequest("Este e-mail j� est� em uso");
-		}
-		
-		var novoTenant = new Tenant
-		{
-			Id = Guid.NewGuid(),
-			NomeEmpresa = request.NomeEmpresa, 
-			Cnpj = request.Cnpj,
-			Ativo = true,
-			CriadoEm = DateTime.UtcNow
-		};
-
-		_context.Tenants.Add(novoTenant);
-
-		
-		var novoAdmin = new Administrador
-		{
-			Id = Guid.NewGuid(),
-			TenantId = novoTenant.Id,  
-			Nome = request.Nome,      
-			Email = emailNormalizado,
-			
-			
-			PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password) 
-		};
-
-		_context.Administradores.Add(novoAdmin);
-
-		// 3. Salva os dois de uma vez s� no PostgreSQL
-		await _context.SaveChangesAsync();
-
-		return Ok(new { mensagem = "Empresa e conta administrativa criadas com sucesso!" });
 	}
 
 	[AllowAnonymous]
@@ -80,10 +35,10 @@ public class AuthController : ControllerBase
 			.IgnoreQueryFilters()
 			.FirstOrDefaultAsync(u => u.Email == emailNormalizado);
 
-		if (admin == null) return BadRequest("Usu�rio ou senha inv�lidos.");
+		if (admin == null) return BadRequest("Usuário ou senha inválidos.");
 
 		if (!BCrypt.Net.BCrypt.Verify(request.Password, admin.PasswordHash))
-			return BadRequest("Usu�rio ou senha inv�lidos.");
+			return BadRequest("Usuário ou senha inválidos.");
 
 		string token = CriarToken(admin);
 		return Ok(token);

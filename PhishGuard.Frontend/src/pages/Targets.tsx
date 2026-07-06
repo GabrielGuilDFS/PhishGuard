@@ -29,7 +29,8 @@ export default function Targets() {
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null); 
   const [novoAlvo, setNewTarget] = useState({ nome: '', email: '', departamento: '' });
-  const [notify, setNotify] = useState({ open: false, message: '', type: 'success' as 'success' | 'error' | 'info' });  
+  const [notify, setNotify] = useState({ open: false, message: '', type: 'success' as 'success' | 'error' | 'info' });
+  const [emailError, setEmailError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const filteredTargets = targets.filter((target) => 
@@ -110,18 +111,19 @@ export default function Targets() {
   };
 
   const handleSave = async () => {
+    setEmailError(null);
     const token = localStorage.getItem('phishguard_token');
     // 3. URLs ATUALIZADAS PARA TARGETS
-    const url = editId 
-      ? `http://localhost:5000/api/Targets/${editId}` 
+    const url = editId
+      ? `http://localhost:5000/api/Targets/${editId}`
       : 'http://localhost:5000/api/Targets';
-    
+
     try {
       const response = await fetch(url, {
         method: editId ? 'PUT' : 'POST',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}` 
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify(editId ? { ...novoAlvo, id: editId } : novoAlvo)
       });
@@ -130,6 +132,13 @@ export default function Targets() {
         showNotify(editId ? "Alvo atualizado!" : "Alvo cadastrado com sucesso!");
         fetchTargets();
         handleClose();
+      } else if (response.status === 400) {
+        const data = await response.json().catch(() => null);
+        const errosEmail = data?.errors?.Email ?? data?.Email;
+        if (Array.isArray(errosEmail) && errosEmail.length > 0) {
+          setEmailError(errosEmail[0]);
+        }
+        showNotify("Falha ao salvar. Verifique os dados.", "error");
       } else {
         showNotify("Falha ao salvar. Verifique os dados.", "error");
       }
@@ -162,11 +171,16 @@ export default function Targets() {
   const handleEdit = (target: Target) => {
     setEditId(target.id);
     setNewTarget({ nome: target.nome, email: target.email, departamento: target.departamento });
+    setEmailError(null);
     setOpen(true);
   };
 
-  const handleOpen = () => { setEditId(null); setOpen(true); };
-  const handleClose = () => { setOpen(false); setNewTarget({ nome: '', email: '', departamento: '' }); };
+  const handleOpen = () => { setEditId(null); setEmailError(null); setOpen(true); };
+  const handleClose = () => {
+    setOpen(false);
+    setNewTarget({ nome: '', email: '', departamento: '' });
+    setEmailError(null);
+  };
 
   const handleTestTarget = async (targetId: string, emailDestino: string) => {
     showNotify(`Enviando e-mail de teste para ${emailDestino}...`, "info");
@@ -292,6 +306,9 @@ export default function Targets() {
         <DialogContent>
           <TextField margin="normal" fullWidth label="Nome Completo" value={novoAlvo.nome} onChange={(e) => setNewTarget({...novoAlvo, nome: e.target.value})} />
           <TextField margin="normal" fullWidth label="E-mail Corporativo" value={novoAlvo.email} onChange={(e) => setNewTarget({...novoAlvo, email: e.target.value})} />
+          {emailError && (
+            <p className="text-xs text-red-500 font-medium">{emailError}</p>
+          )}
           <TextField margin="normal" fullWidth label="Departamento" value={novoAlvo.departamento} onChange={(e) => setNewTarget({...novoAlvo, departamento: e.target.value})} />
         </DialogContent>
         <DialogActions sx={{ p: 3 }}>

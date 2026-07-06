@@ -32,8 +32,12 @@ namespace PhishGuard.Backend.Controllers
         [HttpPost]
         public async Task<ActionResult<Target>> PostAlvo(Target alvo)
         {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
 
-            alvo.TenantId = _tenantProvider.GetTenantId(); 
+            alvo.TenantId = _tenantProvider.GetTenantId();
 
             alvo.Id = Guid.NewGuid();
 

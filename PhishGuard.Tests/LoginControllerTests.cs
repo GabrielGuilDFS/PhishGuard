@@ -1,13 +1,14 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using PhishGuard.Backend.Controllers;
 using PhishGuard.Backend.Data;
 using PhishGuard.Backend.DTOs;
 using PhishGuard.Backend.Models;
 
 namespace PhishGuard.Tests;
 
-public class AuthControllerTests
+public class LoginControllerTests
 {
     private const string SenhaValida = "SenhaForte@123";
     private const string ChaveTokenTeste = "chave-secreta-somente-para-testes-com-tamanho-suficiente-para-hmacsha512";
@@ -37,7 +38,7 @@ public class AuthControllerTests
             .Build();
     }
 
-    private static async Task<(AuthController controller, string email)> CriarControllerComAdminAsync()
+    private static async Task<(LoginController controller, string email)> CriarControllerComAdminAsync()
     {
         var context = CriarContexto();
         var configuration = CriarConfiguracao();
@@ -65,16 +66,16 @@ public class AuthControllerTests
         context.Administradores.Add(admin);
         await context.SaveChangesAsync();
 
-        var controller = new AuthController(context, configuration);
+        var controller = new LoginController(context, configuration);
         return (controller, email);
     }
 
     [Fact]
-    public async Task Login_ComCredenciaisValidas_DeveRetornarOkComToken()
+    public async Task Login_ComCredenciaisValidas_DeveRetornarTokenJwtOk()
     {
         var (controller, email) = await CriarControllerComAdminAsync();
 
-        var resultado = await controller.Login(new LoginDto(email, SenhaValida));
+        var resultado = await controller.Login(new LoginDto { Email = email, Password = SenhaValida });
 
         var okResult = Assert.IsType<OkObjectResult>(resultado.Result);
         Assert.Equal(200, okResult.StatusCode);
@@ -88,18 +89,18 @@ public class AuthControllerTests
     {
         var (controller, email) = await CriarControllerComAdminAsync();
 
-        var resultado = await controller.Login(new LoginDto(email, "SenhaErrada@000"));
+        var resultado = await controller.Login(new LoginDto { Email = email, Password = "SenhaErrada@000" });
 
         var badRequestResult = Assert.IsType<BadRequestObjectResult>(resultado.Result);
         Assert.Equal(400, badRequestResult.StatusCode);
     }
 
     [Fact]
-    public async Task Login_ComUsuarioInexistente_DeveRetornarBadRequest()
+    public async Task Login_ComEmailInexistente_DeveRetornarBadRequest()
     {
         var (controller, _) = await CriarControllerComAdminAsync();
 
-        var resultado = await controller.Login(new LoginDto("naoexiste@teste.com", SenhaValida));
+        var resultado = await controller.Login(new LoginDto { Email = "naoexiste@teste.com", Password = SenhaValida });
 
         var badRequestResult = Assert.IsType<BadRequestObjectResult>(resultado.Result);
         Assert.Equal(400, badRequestResult.StatusCode);

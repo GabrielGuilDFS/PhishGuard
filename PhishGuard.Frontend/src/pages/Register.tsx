@@ -24,6 +24,20 @@ export default function Register() {
   const [sucesso, setSucesso] = useState(false);
   const [loading, setLoading] = useState(false);
 
+  type CampoFormulario = 'nomeEmpresa' | 'cnpj' | 'nome' | 'email' | 'password';
+  const [fieldErrors, setFieldErrors] = useState<Partial<Record<CampoFormulario, string>>>({});
+
+  // Chaves em minúsculo para permitir busca case-insensitive.
+  // O ASP.NET Core pode serializar as chaves do ModelState em PascalCase (Email)
+  // ou camelCase (email) dependendo das JsonOptions, então normalizamos ambos.
+  const mapaCamposApi: Record<string, CampoFormulario> = {
+    nomeempresa: 'nomeEmpresa',
+    cnpj: 'cnpj',
+    nome: 'nome',
+    email: 'email',
+    password: 'password'
+  };
+
   const formatarCNPJ = (valor: string) => {
     let v = valor.replace(/\D/g, '');
 
@@ -39,18 +53,35 @@ export default function Register() {
     e.preventDefault();
     setErro('');
     setSucesso(false);
+    setFieldErrors({});
 
     const cnpjLimpo = cnpj.replace(/\D/g, '');
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-    // validação CNPJ
-    if (cnpjLimpo.length !== 14) {
-      setErro('CNPJ inválido.');
-      return;
+    const errosCliente: Partial<Record<CampoFormulario, string>> = {};
+
+    if (!nomeEmpresa.trim()) {
+      errosCliente.nomeEmpresa = 'O nome da empresa é obrigatório.';
     }
 
-    // validação senha
+    if (cnpjLimpo.length !== 14) {
+      errosCliente.cnpj = 'O CNPJ deve conter exatamente 14 dígitos.';
+    }
+
+    if (!nome.trim()) {
+      errosCliente.nome = 'O nome é obrigatório.';
+    }
+
+    if (!emailRegex.test(email)) {
+      errosCliente.email = 'O formato do e-mail é inválido.';
+    }
+
     if (password.length < 3) {
-      setErro('A senha deve ter pelo menos 3 caracteres.');
+      errosCliente.password = 'A senha deve ter pelo menos 3 caracteres.';
+    }
+
+    if (Object.keys(errosCliente).length > 0) {
+      setFieldErrors(errosCliente);
       return;
     }
 
@@ -73,23 +104,33 @@ export default function Register() {
         const contentType = response.headers.get("content-type");
         if (contentType && contentType.includes("application/json")) {
           const errData = await response.json();
-          let errorMessage = errData.title || errData.message || 'Falha ao validar os dados.';
+
           if (errData.errors) {
-            const validationErrors = Object.values(errData.errors).flat().join(' ');
-            errorMessage += ` ${validationErrors}`;
+            const errosApi: Partial<Record<CampoFormulario, string>> = {};
+            for (const [campo, mensagens] of Object.entries(errData.errors)) {
+              const chave = mapaCamposApi[campo.toLowerCase()];
+              if (chave && Array.isArray(mensagens) && mensagens.length > 0) {
+                errosApi[chave] = mensagens[0] as string;
+              }
+            }
+            setFieldErrors(errosApi);
+            if (Object.keys(errosApi).length === 0) {
+              throw new Error(errData.title || errData.message || 'Falha ao validar os dados.');
+            }
+          } else {
+            throw new Error(errData.title || errData.message || 'Falha ao validar os dados.');
           }
-          throw new Error(errorMessage);
         } else {
           const mensagemErro = await response.text();
           throw new Error(mensagemErro || 'Falha ao registrar.');
         }
+      } else {
+        setSucesso(true);
+
+        setTimeout(() => {
+          navigate('/login');
+        }, 2000);
       }
-
-      setSucesso(true);
-
-      setTimeout(() => {
-        navigate('/login');
-      }, 2000);
 
     } catch (err: any) {
       setErro(err.message);
@@ -113,7 +154,7 @@ export default function Register() {
             Crie sua conta Admin
           </Typography>
 
-          <Box component="form" onSubmit={handleRegister} sx={{ mt: 1, width: '100%' }}>
+          <Box component="form" onSubmit={handleRegister} noValidate sx={{ mt: 1, width: '100%' }}>
 
             <TextField
               margin="normal"
@@ -123,6 +164,8 @@ export default function Register() {
               autoFocus
               value={nomeEmpresa}
               onChange={(e) => setNomeEmpresa(e.target.value)}
+              error={!!fieldErrors.nomeEmpresa}
+              helperText={fieldErrors.nomeEmpresa || ''}
             />
 
             <TextField
@@ -132,8 +175,8 @@ export default function Register() {
               label="CNPJ"
               value={cnpj}
               onChange={(e) => setCNPJ(formatarCNPJ(e.target.value))}
-              error={!!erro && erro.includes('CNPJ')}
-              helperText={erro && erro.includes('CNPJ') ? erro : ''}
+              error={!!fieldErrors.cnpj}
+              helperText={fieldErrors.cnpj || ''}
             />
 
             <TextField
@@ -143,6 +186,8 @@ export default function Register() {
               label="Nome Completo"
               value={nome}
               onChange={(e) => setNome(e.target.value)}
+              error={!!fieldErrors.nome}
+              helperText={fieldErrors.nome || ''}
             />
 
             <TextField
@@ -150,9 +195,11 @@ export default function Register() {
               required
               fullWidth
               label="Endereço de Email"
-              type="email"
+              type="text"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              error={!!fieldErrors.email}
+              helperText={fieldErrors.email || ''}
             />
 
             <TextField
@@ -163,6 +210,8 @@ export default function Register() {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              error={!!fieldErrors.password}
+              helperText={fieldErrors.password || ''}
             />
 
             {erro && <Alert severity="error" sx={{ mt: 2 }}>{erro}</Alert>}
