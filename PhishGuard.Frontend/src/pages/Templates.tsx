@@ -1,17 +1,21 @@
 import { useState, useEffect } from 'react';
-import { 
-  Box, Button, Typography, Paper, Table, TableBody, TableCell, 
-  TableContainer, TableHead, TableRow, IconButton, Dialog, 
+import type { ReactNode } from 'react';
+import {
+  Box, Button, Typography, Paper, Table, TableBody, TableCell,
+  TableContainer, TableHead, TableRow, IconButton, Dialog,
   DialogTitle, DialogContent, DialogActions, TextField, Stack,
-  Snackbar, Alert, CircularProgress, InputAdornment, Grid, MenuItem
+  Snackbar, Alert, CircularProgress, InputAdornment, Grid, MenuItem,
+  Tabs, Tab
 } from '@mui/material';
-import { 
-  Delete as DeleteIcon, 
-  Edit as EditIcon, 
+import {
+  Delete as DeleteIcon,
+  Edit as EditIcon,
   PostAdd as PostAddIcon,
   Search as SearchIcon,
-  AutoAwesome as AutoAwesomeIcon
+  AutoAwesome as AutoAwesomeIcon,
+  MenuBook as MenuBookIcon
 } from '@mui/icons-material';
+import { templatesPredefinidos } from '../data/predefinedTemplates';
 
 interface Template {
   id: string; 
@@ -77,6 +81,15 @@ const gerarHtmlDinamico = (marca: any, ataque: any, nomeEmpresaInterna: string) 
 };
 // ----------------------------------------
 
+// Painel auxiliar que só renderiza o conteúdo da aba ativa
+function TabPanel({ children, value, index }: { children: ReactNode; value: number; index: number }) {
+  return (
+    <div role="tabpanel" hidden={value !== index}>
+      {value === index && <Box sx={{ pt: 3 }}>{children}</Box>}
+    </div>
+  );
+}
+
 export default function Templates() {
   const [templates, setTemplates] = useState<Template[]>([]);
   const [loading, setLoading] = useState(false);
@@ -89,6 +102,8 @@ export default function Templates() {
   const [marcaSelecionada, setMarcaSelecionada] = useState('');
   const [ataqueSelecionado, setAtaqueSelecionado] = useState('');
   const [nomeInterno, setNomeInterno] = useState('Departamento de TI');
+  const [predefinidoSelecionado, setPredefinidoSelecionado] = useState('');
+  const [tab, setTab] = useState(0);
 
   const [notify, setNotify] = useState({ open: false, message: '', type: 'success' as 'success' | 'error' | 'info' });
 
@@ -140,6 +155,21 @@ export default function Templates() {
       });
       showNotify("Isca gerada! Você pode ajustar os detalhes abaixo se quiser.", "success");
     }
+  };
+
+  const handleCarregarPredefinido = (id: string) => {
+    setPredefinidoSelecionado(id);
+    const predefinido = templatesPredefinidos.find((t) => t.id === id);
+    if (!predefinido) return;
+
+    setNovoTemplate({
+      nome: predefinido.nome,
+      assunto: predefinido.assunto,
+      remetenteNome: predefinido.remetenteNome,
+      remetenteEmail: predefinido.remetenteEmail,
+      corpoHtml: predefinido.corpoHtml
+    });
+    showNotify(`Template "${predefinido.nome}" carregado. Ajuste o que precisar antes de salvar.`, "success");
   };
 
   const handleSave = async () => {
@@ -197,7 +227,9 @@ export default function Templates() {
     setNovoTemplate({ nome: '', assunto: '', remetenteNome: '', remetenteEmail: '', corpoHtml: '' });
     setMarcaSelecionada('');
     setAtaqueSelecionado('');
-    setOpen(true); 
+    setPredefinidoSelecionado('');
+    setTab(0);
+    setOpen(true);
   };
   
   const handleClose = () => { setOpen(false); };
@@ -269,36 +301,64 @@ export default function Templates() {
         <DialogContent dividers>
           
           {!editId && (
-            <Box sx={{ mb: 4, p: 3, backgroundColor: '#f0f4f8', borderRadius: 2, border: '1px dashed #b0bec5' }}>
-              <Typography variant="subtitle1" color="primary" sx={{ fontWeight: 'bold', mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-                <AutoAwesomeIcon /> Assistente de Criação Rápida
-              </Typography>
-              <Grid container spacing={2} alignItems="center">
-                <Grid size={{ xs: 12, sm: marcaSelecionada === 'interna' ? 4 : 5 }}>
-                  <TextField select fullWidth label="1. Identidade (Marca)" value={marcaSelecionada} onChange={(e) => setMarcaSelecionada(e.target.value)} size="small">
-                    {marcas.map((m) => (<MenuItem key={m.id} value={m.id}>{m.nome}</MenuItem>))}
-                  </TextField>
-                </Grid>
-                
-                {marcaSelecionada === 'interna' && (
-                  <Grid size={{ xs: 12, sm: 3 }}>
-                    <TextField fullWidth label="Nome do Setor" value={nomeInterno} onChange={(e) => setNomeInterno(e.target.value)} size="small" />
-                  </Grid>
-                )}
+            <Paper variant="outlined" sx={{ mb: 4, borderRadius: 2, overflow: 'hidden' }}>
+              {/* Cabeçalho de abas */}
+              <Tabs
+                value={tab}
+                onChange={(_, newValue) => setTab(newValue)}
+                variant="fullWidth"
+                sx={{ borderBottom: 1, borderColor: 'divider' }}
+              >
+                <Tab icon={<MenuBookIcon />} iconPosition="start" label="Iscas de Mercado" />
+                <Tab icon={<AutoAwesomeIcon />} iconPosition="start" label="Assistente Rápido" />
+              </Tabs>
 
-                <Grid size={{ xs: 12, sm: marcaSelecionada === 'interna' ? 3 : 5 }}>
-                  <TextField select fullWidth label="2. Gatilho Mental (Ataque)" value={ataqueSelecionado} onChange={(e) => setAtaqueSelecionado(e.target.value)} size="small">
-                    {ataques.map((a) => (<MenuItem key={a.id} value={a.id}>{a.titulo}</MenuItem>))}
+              <Box sx={{ px: 3, pb: 3 }}>
+                {/* ABA 0 — Iscas de Mercado */}
+                <TabPanel value={tab} index={0}>
+                  <TextField
+                    select fullWidth size="small"
+                    label="Carregar isca de referência"
+                    value={predefinidoSelecionado}
+                    onChange={(e) => handleCarregarPredefinido(e.target.value)}
+                    helperText="Iscas mantidas pela plataforma, agrupadas por categoria. Preenchem o formulário abaixo prontas para revisão."
+                  >
+                    {templatesPredefinidos.map((t) => (
+                      <MenuItem key={t.id} value={t.id}>{t.categoria} — {t.nome}</MenuItem>
+                    ))}
                   </TextField>
-                </Grid>
-                
-                <Grid size={{ xs: 12, sm: 2 }}>
-                  <Button variant="contained" color="secondary" fullWidth onClick={handleGerarTemplateDinamico}>
-                    Gerar
-                  </Button>
-                </Grid>
-              </Grid>
-            </Box>
+                </TabPanel>
+
+                {/* ABA 1 — Assistente Rápido */}
+                <TabPanel value={tab} index={1}>
+                  <Grid container spacing={2} alignItems="center">
+                    <Grid size={{ xs: 12, sm: marcaSelecionada === 'interna' ? 4 : 5 }}>
+                      <TextField select fullWidth label="1. Identidade (Marca)" value={marcaSelecionada} onChange={(e) => setMarcaSelecionada(e.target.value)} size="small">
+                        {marcas.map((m) => (<MenuItem key={m.id} value={m.id}>{m.nome}</MenuItem>))}
+                      </TextField>
+                    </Grid>
+
+                    {marcaSelecionada === 'interna' && (
+                      <Grid size={{ xs: 12, sm: 3 }}>
+                        <TextField fullWidth label="Nome do Setor" value={nomeInterno} onChange={(e) => setNomeInterno(e.target.value)} size="small" />
+                      </Grid>
+                    )}
+
+                    <Grid size={{ xs: 12, sm: marcaSelecionada === 'interna' ? 3 : 5 }}>
+                      <TextField select fullWidth label="2. Gatilho Mental (Ataque)" value={ataqueSelecionado} onChange={(e) => setAtaqueSelecionado(e.target.value)} size="small">
+                        {ataques.map((a) => (<MenuItem key={a.id} value={a.id}>{a.titulo}</MenuItem>))}
+                      </TextField>
+                    </Grid>
+
+                    <Grid size={{ xs: 12, sm: 2 }}>
+                      <Button variant="contained" color="secondary" fullWidth onClick={handleGerarTemplateDinamico}>
+                        Gerar
+                      </Button>
+                    </Grid>
+                  </Grid>
+                </TabPanel>
+              </Box>
+            </Paper>
           )}
 
           <Grid container spacing={2}>
@@ -334,7 +394,7 @@ export default function Templates() {
                   border: '2px solid #e0e0e0', borderRadius: 2
                 }}
               >
-                <div dangerouslySetInnerHTML={{ __html: novoTemplate.corpoHtml.replace('{{LINK_PHISHING}}', '#') }} />
+                <div dangerouslySetInnerHTML={{ __html: novoTemplate.corpoHtml.replaceAll('{{LINK_PHISHING}}', '#') }} />
               </Paper>
             </Grid>
           </Grid>
