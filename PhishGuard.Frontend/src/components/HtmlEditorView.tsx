@@ -5,13 +5,11 @@ import {
   DialogTitle, DialogContent, DialogActions, TextField, Stack,
   Snackbar, Alert, CircularProgress, InputAdornment, Grid, MenuItem
 } from '@mui/material';
-import {
-  Delete as DeleteIcon,
-  Edit as EditIcon,
-  Search as SearchIcon,
-  AutoAwesome as AutoAwesomeIcon,
-  Code as CodeIcon
-} from '@mui/icons-material';
+import DeleteIcon from '@mui/icons-material/Delete';
+import EditIcon from '@mui/icons-material/Edit';
+import SearchIcon from '@mui/icons-material/Search';
+import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
+import CodeIcon from '@mui/icons-material/Code';
 
 export interface TemplateModel {
   id: string;
@@ -80,6 +78,12 @@ export default function HtmlEditorView({ title, apiEndpoint, emptyMessage, defau
   };
 
   const handleSave = async () => {
+    // Valida os campos obrigatórios antes de qualquer chamada de rede.
+    if (!novaPagina.nome.trim() || !novaPagina.conteudoHtml.trim()) {
+      showNotify("Preencha o nome e o código HTML antes de salvar.", "error");
+      return;
+    }
+
     const token = localStorage.getItem('phishguard_token');
     const url = editId ? `${apiEndpoint}/${editId}` : apiEndpoint;
 

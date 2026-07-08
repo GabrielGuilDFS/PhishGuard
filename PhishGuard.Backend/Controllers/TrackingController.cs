@@ -107,8 +107,35 @@ namespace PhishGuard.Backend.Controllers
                 return NotFound(new { message = "Campanha não encontrada ou link expirado." });
             }
 
-            // Devolve o destino real para a landing redirecionar o alvo (ilusão de "timeout").
-            return Ok(new { status = "Inseriu Dados", redirectUrl = "https://www.hbomax.com" });
+            // Devolve a rota educacional interna para a landing redirecionar o alvo:
+            // após "inserir dados", ele é levado ao treinamento de conscientização.
+            return Ok(new { status = "Inseriu Dados", redirectUrl = $"/educational-feedback?campaign={campaignId}" });
+        }
+
+        [HttpGet("educational/{campaignId}")]
+        public async Task<IActionResult> GetEducational(Guid campaignId)
+        {
+            // Resolve a campanha (sem sessão do alvo) para descobrir qual página
+            // educacional foi configurada como feedback do treinamento.
+            var campaign = await _context.Campaigns
+                .IgnoreQueryFilters()
+                .FirstOrDefaultAsync(c => c.Id == campaignId);
+
+            if (campaign == null)
+            {
+                return NotFound(new { message = "Campanha não encontrada ou link expirado." });
+            }
+
+            var pagina = await _context.EducationalPages
+                .IgnoreQueryFilters()
+                .FirstOrDefaultAsync(e => e.Id == campaign.EducationalPageId);
+
+            if (pagina == null)
+            {
+                return NotFound(new { message = "Página educacional não configurada para esta campanha." });
+            }
+
+            return Ok(new { conteudoHtml = pagina.HtmlEducacional });
         }
     }
 }

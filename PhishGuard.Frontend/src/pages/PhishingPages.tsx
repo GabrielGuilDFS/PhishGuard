@@ -1,6 +1,9 @@
 import HtmlEditorView, { type TemplateModel } from '../components/HtmlEditorView';
+import { landingTemplates } from '../data/landingTemplates';
 
 const phishingTemplates: TemplateModel[] = [
+  // Moldes de landing consolidados (inclui 'hbomax-redefinicao-senha').
+  ...landingTemplates,
   {
     id: 'microsoft',
     nome: 'Login Microsoft 365',

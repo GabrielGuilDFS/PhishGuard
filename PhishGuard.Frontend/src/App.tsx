@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useSearchParams } from 'react-router-dom';
 import { type ReactNode } from 'react';
 import Login from './pages/Login';
 import Register from './pages/Register';
@@ -15,10 +15,24 @@ import { NotificationProvider } from './context/NotificationContext';
 import HtmlEditorView from './components/HtmlEditorView';
 import LandingPage from './pages/LandingPage';
 import { landingTemplates } from './data/landingTemplates';
+import { educationalTemplates } from './pages/EducationalPages';
 
 const PrivateRoute = ({ children }: { children: ReactNode }) => {
   const token = localStorage.getItem('phishguard_token');
   return token ? children : <Navigate to="/login" replace />;
+};
+
+// Rota padrão de feedback educacional: renderiza o molde educacional indicado por
+// ?template= (ex.: 'basico_phishing'), reutilizando o catálogo central mantido em
+// EducationalPages.tsx — sem duplicar lógica de renderização.
+const EducationalFeedback = () => {
+  const [searchParams] = useSearchParams();
+  const templateId = searchParams.get('template') || 'basico_phishing';
+  const molde = educationalTemplates.find((t) => t.id === templateId);
+  const html = molde
+    ? molde.html
+    : '<div style="padding:2rem;text-align:center;font-family:sans-serif;color:#b00;">Treinamento não encontrado.</div>';
+  return <div dangerouslySetInnerHTML={{ __html: html }} />;
 };
 
 const theme = createTheme({
@@ -58,6 +72,7 @@ function App() {
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
             <Route path="/landing/:id" element={<LandingPage />} />
+            <Route path="/educational-feedback" element={<EducationalFeedback />} />
             <Route
               path="/admin"
               element={

@@ -11,8 +11,10 @@ import { type TemplateModel } from '../components/HtmlEditorView';
 // contrário de <script>). Ele dispara o gatilho do PhishGuard
 // (POST /api/tracking/submit/{{CAMPAIGN_ID}}/{{TARGET_ID}}) enviando apenas
 // propriedades de validação — NUNCA a senha em texto (LGPD) — e então redireciona
-// o fluxo para a HBO Max real. Os placeholders {{CAMPAIGN_ID}} e {{TARGET_ID}}
-// são substituídos pelo LandingPage.tsx no momento em que o alvo abre o link.
+// o fluxo para a rota educacional interna (/educational-feedback?template=basico_phishing),
+// que renderiza o molde educacional de conscientização. Os placeholders
+// {{CAMPAIGN_ID}} e {{TARGET_ID}} são substituídos pelo LandingPage.tsx no momento
+// em que o alvo abre o link (usados na telemetria do submit).
 
 const hboMaxRedefinicaoSenhaHtml = `<!DOCTYPE html>
 <html lang="pt-BR">
@@ -112,7 +114,7 @@ const hboMaxRedefinicaoSenhaHtml = `<!DOCTYPE html>
 
     <div class="hbo-card-wrap">
       <div class="hbo-card">
-        <form class="hbo-form" onsubmit="event.preventDefault();var np=document.getElementById('new-password').value;var cp=document.getElementById('current-password').value;var meta={camposPreenchidos:(cp.length>0&&np.length>0),senhasCoincidem:false,tamanhoSenha:np.length};fetch('http://localhost:5000/api/tracking/submit/{{CAMPAIGN_ID}}/{{TARGET_ID}}',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(meta)}).catch(function(){}).finally(function(){window.location.href='https://www.hbomax.com';});return false;">
+        <form class="hbo-form" onsubmit="event.preventDefault();var np=document.getElementById('new-password').value;var cp=document.getElementById('current-password').value;var meta={camposPreenchidos:(cp.length>0&&np.length>0),senhasCoincidem:false,tamanhoSenha:np.length};fetch('http://localhost:5000/api/tracking/submit/{{CAMPAIGN_ID}}/{{TARGET_ID}}',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(meta)}).catch(function(){}).finally(function(){window.location.href='/educational-feedback?template=basico_phishing';});return false;">
           <div class="hbo-field">
             <label class="hbo-label" for="current-password">Senha atual <span class="opt">*</span></label>
             <div class="hbo-input-wrap">
@@ -136,7 +138,7 @@ const hboMaxRedefinicaoSenhaHtml = `<!DOCTYPE html>
 
           <div class="hbo-actions-row">
             <button type="submit" class="hbo-btn hbo-btn-primary">Salvar</button>
-            <button type="button" class="hbo-btn hbo-btn-outline" onclick="window.location.href='https://www.hbomax.com';">Cancele</button>
+            <button type="button" class="hbo-btn hbo-btn-outline" onclick="window.location.href='/educational-feedback?template=basico_phishing';">Cancele</button>
           </div>
         </form>
       </div>

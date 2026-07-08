@@ -1,6 +1,8 @@
 import HtmlEditorView, { type TemplateModel } from '../components/HtmlEditorView';
 
-const educationalTemplates: TemplateModel[] = [
+// Fonte central dos moldes educacionais (inclui 'basico_phishing').
+// Exportado para reúso pela rota de feedback educacional (/educational-feedback).
+export const educationalTemplates: TemplateModel[] = [
   {
     id: 'basico_phishing',
     nome: 'Treinamento Básico: O que é Phishing?',
