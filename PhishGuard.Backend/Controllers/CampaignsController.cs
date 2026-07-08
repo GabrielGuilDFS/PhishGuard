@@ -164,7 +164,14 @@ namespace PhishGuard.Backend.Controllers
                     var linkClique = $"{baseUrl}/click/{campaign.Id}/{target.Id}";
                     var linkPixel = $"{baseUrl}/open/{campaign.Id}/{target.Id}";
 
-                    corpoPersonalizado = corpoPersonalizado.Replace("{{LINK}}", linkClique);
+                    // {{LINK_PHISHING}} é o placeholder padrão dos templates predefinidos
+                    // (HBO Max, Netflix, Amazon). {{LINK}} é mantido por compatibilidade.
+                    // Ambos apontam para o endpoint de rastreamento, que registra o "Clique"
+                    // e então redireciona dinamicamente para a landing page da campanha
+                    // (ex.: hbomax-redefinicao-senha) já carregando o token exclusivo do alvo.
+                    corpoPersonalizado = corpoPersonalizado
+                        .Replace("{{LINK_PHISHING}}", linkClique)
+                        .Replace("{{LINK}}", linkClique);
                     corpoPersonalizado += $"<img src='{linkPixel}' width='1' height='1' style='display:none;' />";
 
                     var builder = new BodyBuilder { HtmlBody = corpoPersonalizado };

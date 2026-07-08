@@ -17,6 +17,7 @@ export interface TemplateModel {
   id: string;
   nome: string;
   html: string;
+  categoria?: string;
 }
 
 interface HtmlEditorViewProps {

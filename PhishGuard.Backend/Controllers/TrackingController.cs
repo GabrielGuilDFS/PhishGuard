@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using PhishGuard.Backend.Data;
+using PhishGuard.Backend.DTOs;
 using PhishGuard.Backend.Models;
 using System;
 using System.Linq;
@@ -91,6 +92,23 @@ namespace PhishGuard.Backend.Controllers
             }
 
             return Redirect("http://localhost:5173/");
+        }
+
+        [HttpPost("submit/{campaignId}/{targetId}")]
+        public async Task<IActionResult> TrackSubmit(Guid campaignId, Guid targetId, [FromBody] CaptureMetadataDto metadata = null)
+        {
+            // Registra o evento "Submissão de Dados" (o alvo digitou credenciais na landing simulada).
+            // NOTA LGPD: 'metadata' contém apenas propriedades de validação (flags/tamanho).
+            // A senha real NÃO é recebida nem armazenada — só o evento em si é a métrica do TCC.
+            var campaign = await RegistrarAcao(campaignId, targetId, "Submissão de Dados");
+
+            if (campaign == null)
+            {
+                return NotFound(new { message = "Campanha não encontrada ou link expirado." });
+            }
+
+            // Devolve o destino real para a landing redirecionar o alvo (ilusão de "timeout").
+            return Ok(new { status = "Inseriu Dados", redirectUrl = "https://www.hbomax.com" });
         }
     }
 }
