@@ -1,0 +1,60 @@
+name: CI - Testes Unitarios
+
+# Dispara a esteira a cada push ou pull_request para as branches principais.
+on:
+  push:
+    branches: [main, master, develop]
+  pull_request:
+    branches: [main, master, develop]
+
+# Cancela execucoes antigas da mesma ref quando um novo commit chega.
+concurrency:
+  group: ci-tests-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ---------- BACKEND (.NET 8 / C#) ----------
+  backend-tests:
+    name: Testes Backend (.NET 8)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout do codigo
+        uses: actions/checkout@v4
+
+      - name: Configurar SDK do .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restaurar dependencias NuGet
+        run: dotnet restore PhishGuard.Tests/PhishGuard.Tests.csproj
+
+      - name: Executar suite de testes (xUnit)
+        run: dotnet test PhishGuard.Tests/PhishGuard.Tests.csproj --no-restore --verbosity normal
+
+  # ---------- FRONTEND (React / TypeScript / Vitest) ----------
+  frontend-tests:
+    name: Testes Frontend (Vitest)
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: PhishGuard.Frontend
+
+    steps:
+      - name: Checkout do codigo
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js (LTS)
+        uses: actions/setup-node@v4
+        with:
+          node-version: 'lts/*'
+          cache: npm
+          cache-dependency-path: PhishGuard.Frontend/package-lock.json
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Executar testes unitarios (Vitest, modo CI)
+        run: npm run test:run
