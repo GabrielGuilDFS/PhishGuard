@@ -50,6 +50,10 @@ namespace PhishGuard.Backend.Data
                 entity.Property(e => e.CriadoEm)
                     .IsRequired();
 
+                entity.Property(e => e.Plano)
+                    .IsRequired()
+                    .HasDefaultValue(PlanoTenant.Bronze);
+
                 entity.HasIndex(e => e.Cnpj)
                     .IsUnique();
             });

@@ -39,6 +39,25 @@ namespace PhishGuard.Backend.Controllers
 
             alvo.TenantId = _tenantProvider.GetTenantId();
 
+            // Trava de cota por plano: consulta o plano do Tenant e o total de alvos
+            // já cadastrados (a contagem é automaticamente isolada pelo filtro
+            // multi-tenant do AppDbContext) antes de aceitar um novo registro.
+            var tenant = await _context.Tenants.FirstOrDefaultAsync(t => t.Id == alvo.TenantId);
+            if (tenant is null)
+            {
+                return BadRequest("Tenant não encontrado para o usuário autenticado.");
+            }
+
+            var limiteDeAlvos = PlanoLimites.LimiteDeAlvos(tenant.Plano);
+            var totalDeAlvos = await _context.Targets.CountAsync();
+
+            if (totalDeAlvos >= limiteDeAlvos)
+            {
+                return BadRequest(
+                    $"Limite de {limiteDeAlvos} alvos do plano {tenant.Plano} atingido. " +
+                    "Faça um upgrade de plano para cadastrar mais colaboradores.");
+            }
+
             alvo.Id = Guid.NewGuid();
 
             _context.Targets.Add(alvo);

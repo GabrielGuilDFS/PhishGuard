@@ -15,6 +15,7 @@ import { NotificationProvider } from './context/NotificationContext';
 import HtmlEditorView from './components/HtmlEditorView';
 import LandingPage from './pages/LandingPage';
 import HomeLandingPage from './pages/HomeLandingPage';
+import CheckoutPage from './pages/CheckoutPage';
 import { landingTemplates } from './data/landingTemplates';
 import { educationalTemplates } from './pages/EducationalPages';
 
@@ -72,6 +73,7 @@ function App() {
             <Route path="/" element={<HomeLandingPage />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
+            <Route path="/checkout" element={<CheckoutPage />} />
             <Route path="/landing/:id" element={<LandingPage />} />
             <Route path="/educational-feedback" element={<EducationalFeedback />} />
             <Route

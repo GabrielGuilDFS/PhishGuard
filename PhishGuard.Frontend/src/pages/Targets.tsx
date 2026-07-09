@@ -31,7 +31,13 @@ export default function Targets() {
   const [novoAlvo, setNewTarget] = useState({ nome: '', email: '', departamento: '' });
   const [notify, setNotify] = useState({ open: false, message: '', type: 'success' as 'success' | 'error' | 'info' });
   const [emailError, setEmailError] = useState<string | null>(null);
+  // Cota de alvos do plano ativo do Tenant (Bronze: 50, Prata: 500).
+  const [limiteAlvos, setLimiteAlvos] = useState<number | null>(null);
+  const [planoNome, setPlanoNome] = useState<string>('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Trava de UI: bloqueia o cadastro quando o total de alvos atinge o limite do plano.
+  const limiteAtingido = limiteAlvos !== null && targets.length >= limiteAlvos;
 
   const filteredTargets = targets.filter((target) => 
     target.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -60,6 +66,23 @@ export default function Targets() {
 
   const showNotify = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
     setNotify({ open: true, message, type });
+  };
+
+  // Consulta a cota do plano ativo para saber o limite de alvos permitido.
+  const fetchQuota = async () => {
+    const token = localStorage.getItem('phishguard_token');
+    try {
+      const response = await fetch('http://localhost:5000/api/Tenant/quota', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setLimiteAlvos(data.limiteAlvos);
+        setPlanoNome(data.plano);
+      }
+    } catch {
+      // Silencioso: sem a cota, a UI apenas não aplica a trava preventiva.
+    }
   };
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -103,7 +126,8 @@ export default function Targets() {
         }
         setLoading(false);
         showNotify(`${sucessos} alvos importados com sucesso!`);
-        fetchTargets(); 
+        fetchTargets();
+        fetchQuota();
       }
     });
 
@@ -131,14 +155,25 @@ export default function Targets() {
       if (response.ok) {
         showNotify(editId ? "Alvo atualizado!" : "Alvo cadastrado com sucesso!");
         fetchTargets();
+        fetchQuota();
         handleClose();
       } else if (response.status === 400) {
-        const data = await response.json().catch(() => null);
-        const errosEmail = data?.errors?.Email ?? data?.Email;
-        if (Array.isArray(errosEmail) && errosEmail.length > 0) {
-          setEmailError(errosEmail[0]);
+        const raw = await response.text();
+        let mensagem = "Falha ao salvar. Verifique os dados.";
+        try {
+          // Erros de validação de modelo chegam como JSON ({ errors: { Email: [...] } }).
+          const data = JSON.parse(raw);
+          const errosEmail = data?.errors?.Email ?? data?.Email;
+          if (Array.isArray(errosEmail) && errosEmail.length > 0) {
+            setEmailError(errosEmail[0]);
+          } else if (typeof data === 'string') {
+            mensagem = data;
+          }
+        } catch {
+          // Corpo em texto puro (ex.: mensagem de limite de plano atingido).
+          if (raw) mensagem = raw;
         }
-        showNotify("Falha ao salvar. Verifique os dados.", "error");
+        showNotify(mensagem, "error");
       } else {
         showNotify("Falha ao salvar. Verifique os dados.", "error");
       }
@@ -159,6 +194,7 @@ export default function Targets() {
         if (response.ok) {
           showNotify("Alvo removido com sucesso!");
           fetchTargets();
+          fetchQuota();
         } else {
           showNotify("Falha ao remover o alvo.", "error");
         }
@@ -175,7 +211,13 @@ export default function Targets() {
     setOpen(true);
   };
 
-  const handleOpen = () => { setEditId(null); setEmailError(null); setOpen(true); };
+  const handleOpen = () => {
+    if (limiteAtingido) {
+      showNotify(`Limite de alvos do plano ${planoNome} atingido.`, "error");
+      return;
+    }
+    setEditId(null); setEmailError(null); setOpen(true);
+  };
   const handleClose = () => {
     setOpen(false);
     setNewTarget({ nome: '', email: '', departamento: '' });
@@ -207,13 +249,20 @@ export default function Targets() {
     }
   };
 
-  useEffect(() => { fetchTargets(); }, []);
+  useEffect(() => { fetchTargets(); fetchQuota(); }, []);
 
   return (
     <Box>
-      <Stack direction="row" justifyContent="space-between" alignItems="center" mb={3}>
-        <Typography variant="h4" sx={{ fontWeight: 'bold' }}>Gestão de Alvos</Typography>
-        
+      <Stack direction="row" justifyContent="space-between" alignItems="center" mb={limiteAtingido ? 1 : 3}>
+        <Box>
+          <Typography variant="h4" sx={{ fontWeight: 'bold' }}>Gestão de Alvos</Typography>
+          {limiteAlvos !== null && (
+            <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+              {targets.length} de {limiteAlvos} alvos · Plano {planoNome}
+            </Typography>
+          )}
+        </Box>
+
         <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
           
           <TextField
@@ -240,20 +289,38 @@ export default function Targets() {
           />
           
           <Tooltip title="CSV deve conter as colunas: nome, email, departamento">
-            <Button 
-              variant="outlined" 
-              startIcon={<UploadIcon />}
-              onClick={() => fileInputRef.current?.click()}
-            >
-              Importar CSV
-            </Button>
+            <span>
+              <Button
+                variant="outlined"
+                startIcon={<UploadIcon />}
+                onClick={() => fileInputRef.current?.click()}
+                disabled={limiteAtingido}
+              >
+                Importar CSV
+              </Button>
+            </span>
           </Tooltip>
 
-          <Button variant="contained" startIcon={<PersonAddIcon />} onClick={handleOpen}>
-            Novo Alvo
-          </Button>
+          <Tooltip title={limiteAtingido ? `Limite do plano ${planoNome} atingido` : 'Cadastrar novo alvo'}>
+            <span>
+              <Button
+                variant="contained"
+                startIcon={<PersonAddIcon />}
+                onClick={handleOpen}
+                disabled={limiteAtingido}
+              >
+                Novo Alvo
+              </Button>
+            </span>
+          </Tooltip>
         </Box>
       </Stack>
+
+      {limiteAtingido && (
+        <Typography variant="body2" sx={{ color: 'error.main', fontWeight: 500, mb: 3 }}>
+          Limite de alvos do seu plano atingido. Faça um upgrade para o Plano Prata.
+        </Typography>
+      )}
 
       <TableContainer component={Paper} elevation={2}>
         <Table>

@@ -57,7 +57,8 @@ public class RegisterController : ControllerBase
 		NomeEmpresa = request.NomeEmpresa,
 		Cnpj = request.Cnpj,
 		Ativo = true,
-		CriadoEm = DateTime.UtcNow
+		CriadoEm = DateTime.UtcNow,
+		Plano = PlanoLimites.DeTexto(request.Plano)
 	};
 
 	private static Administrador CriarAdministrador(RegisterDto request, Guid tenantId, string emailNormalizado) => new Administrador

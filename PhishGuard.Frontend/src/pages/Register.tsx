@@ -9,10 +9,13 @@ import {
   Alert,
   Link
 } from '@mui/material';
-import { useNavigate, Link as RouterLink } from 'react-router-dom';
+import { useNavigate, useSearchParams, Link as RouterLink } from 'react-router-dom';
 
 export default function Register() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  // Plano escolhido na landing (?plano=bronze|prata|ouro). Encaminhado ao checkout.
+  const planoSelecionado = searchParams.get('plano');
 
   const [nomeEmpresa, setNomeEmpresa] = useState('');
   const [cnpj, setCNPJ] = useState('');
@@ -96,7 +99,8 @@ export default function Register() {
           Cnpj: cnpjLimpo,
           Nome: nome,
           Email: email,
-          Password: password
+          Password: password,
+          Plano: planoSelecionado ?? undefined
         })
       });
 
@@ -128,7 +132,13 @@ export default function Register() {
         setSucesso(true);
 
         setTimeout(() => {
-          navigate('/login');
+          // Planos self-service (Bronze/Prata) seguem para o checkout de faturamento.
+          // Sem plano (ou Enterprise/Ouro), mantém o fluxo padrão de login.
+          if (planoSelecionado === 'bronze' || planoSelecionado === 'prata') {
+            navigate(`/checkout?plano=${planoSelecionado}`);
+          } else {
+            navigate('/login');
+          }
         }, 2000);
       }
 

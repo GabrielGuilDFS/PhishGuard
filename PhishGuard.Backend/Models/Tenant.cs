@@ -18,6 +18,10 @@ namespace PhishGuard.Backend.Models
         public bool Ativo { get; set; }
         public DateTime CriadoEm { get; set; }
 
+        // Plano comercial contratado. Define as cotas de recursos (ex.: limite de
+        // alvos). Novos tenants iniciam no Bronze até concluírem o checkout.
+        public PlanoTenant Plano { get; set; } = PlanoTenant.Bronze;
+
         public ICollection<Administrador> Administradores { get; set; }
         public ICollection<Target> Alvos { get; set; }
 

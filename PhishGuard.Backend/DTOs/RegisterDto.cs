@@ -21,4 +21,10 @@ public class RegisterDto
     [Required(ErrorMessage = "A senha é obrigatória.")]
     [StringLength(100, MinimumLength = 6, ErrorMessage = "A senha deve ter no mínimo 6 caracteres.")]
     public string Password { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Plano escolhido no onboarding ("bronze" | "prata" | "ouro"). Opcional:
+    /// quando ausente, o Tenant é criado no plano Bronze por padrão.
+    /// </summary>
+    public string? Plano { get; set; }
 }

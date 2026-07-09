@@ -32,7 +32,7 @@ public class TargetsControllerTests
         return (context, tenantProvider);
     }
 
-    private static Tenant CriarTenant(string cnpj)
+    private static Tenant CriarTenant(string cnpj, PlanoTenant plano = PlanoTenant.Bronze)
     {
         return new Tenant
         {
@@ -40,8 +40,26 @@ public class TargetsControllerTests
             NomeEmpresa = "Empresa Teste",
             Cnpj = cnpj,
             Ativo = true,
-            CriadoEm = DateTime.UtcNow
+            CriadoEm = DateTime.UtcNow,
+            Plano = plano
         };
+    }
+
+    // Popula o Tenant ativo com uma quantidade de alvos válidos, respeitando o
+    // isolamento multi-tenant (o TenantId é carimbado no SaveChangesAsync).
+    private static async Task SemearAlvosAsync(AppDbContext context, int quantidade)
+    {
+        for (var i = 0; i < quantidade; i++)
+        {
+            context.Targets.Add(new Target
+            {
+                Id = Guid.NewGuid(),
+                Nome = $"Alvo {i}",
+                Email = $"alvo{i}@teste.com",
+                Departamento = "TI"
+            });
+        }
+        await context.SaveChangesAsync();
     }
 
     [Fact]
@@ -199,5 +217,69 @@ public class TargetsControllerTests
             .IgnoreQueryFilters()
             .FirstOrDefaultAsync(a => a.Id == alvoDoTenantB.Id);
         Assert.NotNull(alvoAindaExiste);
+    }
+
+    [Fact]
+    public async Task PostAlvo_QuandoLimiteBronzeAtingido_DeveRetornarBadRequest()
+    {
+        // Arrange: Tenant Bronze já no limite máximo (50 alvos).
+        var (context, tenantProvider) = CriarContexto();
+
+        var tenantBronze = CriarTenant("11111111000191", PlanoTenant.Bronze);
+        context.Tenants.Add(tenantBronze);
+        await context.SaveChangesAsync();
+
+        tenantProvider.TenantIdAtivo = tenantBronze.Id;
+        await SemearAlvosAsync(context, PlanoLimites.LimiteAlvosBronze);
+
+        var controller = new TargetsController(context, tenantProvider);
+        var alvoExcedente = new Target
+        {
+            Nome = "Alvo Excedente",
+            Email = "excedente@teste.com",
+            Departamento = "TI"
+        };
+
+        // Act
+        var resultado = await controller.PostAlvo(alvoExcedente);
+
+        // Assert: rejeitado com 400 e o banco não recebe o 51º registro.
+        var badRequest = Assert.IsType<BadRequestObjectResult>(resultado.Result);
+        Assert.Equal(400, badRequest.StatusCode);
+
+        var total = await context.Targets.CountAsync();
+        Assert.Equal(PlanoLimites.LimiteAlvosBronze, total);
+    }
+
+    [Fact]
+    public async Task PostAlvo_NoPlanoPrata_DevePermitirAlemDoLimiteBronze()
+    {
+        // Arrange: Tenant Prata com 50 alvos (excederia o Bronze, mas não o Prata).
+        var (context, tenantProvider) = CriarContexto();
+
+        var tenantPrata = CriarTenant("22222222000172", PlanoTenant.Prata);
+        context.Tenants.Add(tenantPrata);
+        await context.SaveChangesAsync();
+
+        tenantProvider.TenantIdAtivo = tenantPrata.Id;
+        await SemearAlvosAsync(context, PlanoLimites.LimiteAlvosBronze);
+
+        var controller = new TargetsController(context, tenantProvider);
+        var novoAlvo = new Target
+        {
+            Nome = "Alvo 51",
+            Email = "alvo51@teste.com",
+            Departamento = "RH"
+        };
+
+        // Act
+        var resultado = await controller.PostAlvo(novoAlvo);
+
+        // Assert: aceito (201), pois o plano Prata comporta até 500 alvos.
+        var createdResult = Assert.IsType<CreatedAtActionResult>(resultado.Result);
+        Assert.Equal(201, createdResult.StatusCode);
+
+        var total = await context.Targets.CountAsync();
+        Assert.Equal(PlanoLimites.LimiteAlvosBronze + 1, total);
     }
 }
