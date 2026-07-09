@@ -14,6 +14,7 @@ import { NotificationProvider } from './context/NotificationContext';
 
 import HtmlEditorView from './components/HtmlEditorView';
 import LandingPage from './pages/LandingPage';
+import HomeLandingPage from './pages/HomeLandingPage';
 import { landingTemplates } from './data/landingTemplates';
 import { educationalTemplates } from './pages/EducationalPages';
 
@@ -68,7 +69,7 @@ function App() {
       <NotificationProvider>
         <BrowserRouter>
           <Routes>
-            <Route path="/" element={<Navigate to="/login" replace />} />
+            <Route path="/" element={<HomeLandingPage />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
             <Route path="/landing/:id" element={<LandingPage />} />
