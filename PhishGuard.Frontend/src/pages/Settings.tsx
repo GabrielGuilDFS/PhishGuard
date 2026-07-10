@@ -123,11 +123,13 @@ export default function Settings() {
   
         if (response.ok) {
           const data = await response.json();
+          // A API serializa em camelCase (host/porta/usuario), não PascalCase.
+          // A senha nunca volta do backend (por segurança), então preserva a digitada.
           setSmtp(prev => ({
             ...prev,
-            host: data.Host || '',
-            port: data.Porta ? data.Porta.toString() : '587',
-            user: data.Usuario || '',
+            host: data.host || '',
+            port: data.porta ? data.porta.toString() : '587',
+            user: data.usuario || '',
             password: prev.password
           }));
         }

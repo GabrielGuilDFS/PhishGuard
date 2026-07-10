@@ -260,6 +260,184 @@ const netflixLoginHtml = `<!DOCTYPE html>
 </body>
 </html>`;
 
+// Interface simulada "Amazon - Alterar Senha" (login/captura). Consolidação do
+// clone Next.js originalmente em ".pagina" (AmazonHeader + ChangePasswordForm +
+// AmazonFooter). Diferente do HBO/Netflix, aqui as CLASSES UTILITÁRIAS DO TAILWIND
+// são mantidas intactas — a esteira do Vite (plugin @tailwindcss/vite) agora
+// compila essas classes escaneando este próprio arquivo .ts.
+//
+// Dois contextos de renderização, ambos cobertos:
+//  - Preview em `iframe srcDoc` (PhishingPages.tsx): scripts EXECUTAM dentro do
+//    srcdoc, então o Tailwind Play CDN no <head> estiliza o preview em tempo real.
+//  - Landing servida `/landing/:id` (dangerouslySetInnerHTML): o React NÃO executa
+//    <script> injetado, então o CDN fica inerte e quem estiliza é o CSS do app já
+//    compilado pelo Vite. Sem duplicação.
+//
+// Sem imagens locais: o logo "amazon" é textual e os componentes MUI do header
+// (Select/InputBase/ícones) foram reescritos como HTML estático + SVG inline.
+//
+// Telemetria: mesmo padrão do HBO/Netflix — <form onsubmit> inline dispara o
+// gatilho de rastreamento (só flags de validação, NUNCA a senha — LGPD) e então
+// redireciona para /educational-feedback?template=basico_phishing.
+const amazonLoginHtml = `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Alterar Senha - Amazon</title>
+<script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="antialiased">
+  <div class="flex min-h-screen flex-col bg-white font-sans">
+    <header class="bg-[#131921] text-white">
+      <div class="flex items-center gap-2 px-3 py-2">
+        <a href="#" class="flex items-end rounded-sm border border-transparent px-2 py-1 hover:border-white">
+          <div class="flex flex-col leading-none">
+            <div class="flex items-end">
+              <span class="text-[22px] font-bold tracking-tight">amazon</span>
+              <span class="mb-1 ml-0.5 text-[11px] text-gray-300">.com.br</span>
+            </div>
+            <span class="ml-6 text-[13px] font-medium text-[#00a8e1] -mt-1">prime</span>
+          </div>
+        </a>
+        <div class="mx-2 flex flex-1 items-center overflow-hidden rounded-md">
+          <div class="flex h-[40px] items-center gap-1 bg-[#e6e6e6] px-2.5 text-[12px] text-[#555]">
+            Todos
+            <svg viewBox="0 0 24 24" fill="currentColor" class="h-4 w-4" aria-hidden="true"><path d="M7 10l5 5 5-5z"></path></svg>
+          </div>
+          <input placeholder="Pesquisar Amazon.com.br" class="h-[40px] flex-1 bg-white px-3 text-[14px] text-black outline-none">
+          <button aria-label="Pesquisar" class="flex h-[40px] w-[45px] items-center justify-center bg-[#febd69] hover:bg-[#f3a847]">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#111" stroke-width="2" class="h-5 w-5" aria-hidden="true"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg>
+          </button>
+        </div>
+        <button class="flex flex-col rounded-sm border border-transparent px-2 py-1 text-left leading-tight hover:border-white">
+          <span class="flex items-center text-[13px] font-bold">
+            Contas e Listas
+            <svg viewBox="0 0 24 24" fill="#ccc" class="h-4 w-4" aria-hidden="true"><path d="M7 10l5 5 5-5z"></path></svg>
+          </span>
+        </button>
+        <button class="flex flex-col rounded-sm border border-transparent px-2 py-1 text-left leading-tight hover:border-white">
+          <span class="text-[12px]">Devoluções</span>
+          <span class="text-[13px] font-bold">e Pedidos</span>
+        </button>
+        <button class="flex items-end rounded-sm border border-transparent px-2 py-1 hover:border-white">
+          <div class="relative">
+            <svg viewBox="0 0 24 24" fill="currentColor" class="h-[34px] w-[34px]" aria-hidden="true"><path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12L8.1 13h7.45c.75 0 1.41-.41 1.75-1.03l3.58-6.49A1 1 0 0 0 20 4H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z"></path></svg>
+            <span class="absolute left-3 top-0 text-[13px] font-bold text-[#f08804]">0</span>
+          </div>
+          <span class="mb-1 text-[13px] font-bold">Carrinho</span>
+        </button>
+      </div>
+      <nav class="flex items-center gap-1 bg-[#232f3e] px-2 py-1.5 text-[13px]">
+        <button class="flex items-center gap-1 rounded-sm border border-transparent px-2 py-1 font-bold hover:border-white">
+          <svg viewBox="0 0 24 24" fill="currentColor" class="h-5 w-5" aria-hidden="true"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"></path></svg>
+          Todos
+        </button>
+        <a href="#" class="whitespace-nowrap rounded-sm border border-transparent px-2 py-1 hover:border-white">Venda na Amazon</a>
+        <a href="#" class="whitespace-nowrap rounded-sm border border-transparent px-2 py-1 hover:border-white">Prime</a>
+        <a href="#" class="whitespace-nowrap rounded-sm border border-transparent px-2 py-1 hover:border-white">Ofertas do Dia</a>
+        <a href="#" class="whitespace-nowrap rounded-sm border border-transparent px-2 py-1 hover:border-white">Comprar novamente</a>
+        <a href="#" class="whitespace-nowrap rounded-sm border border-transparent px-2 py-1 hover:border-white">Ideias de Presente</a>
+        <a href="#" class="whitespace-nowrap rounded-sm border border-transparent px-2 py-1 hover:border-white">Alimentos e Bebidas</a>
+        <a href="#" class="whitespace-nowrap rounded-sm border border-transparent px-2 py-1 hover:border-white">Atendimento ao Cliente</a>
+        <a href="#" class="whitespace-nowrap rounded-sm border border-transparent px-2 py-1 hover:border-white">Sua Amazon.com.br</a>
+        <a href="#" class="whitespace-nowrap rounded-sm border border-transparent px-2 py-1 hover:border-white">eBooks Kindle</a>
+        <a href="#" class="whitespace-nowrap rounded-sm border border-transparent px-2 py-1 hover:border-white">Histórico de navegação</a>
+        <a href="#" class="whitespace-nowrap rounded-sm border border-transparent px-2 py-1 hover:border-white">Mais Vendidos</a>
+        <a href="#" class="whitespace-nowrap rounded-sm border border-transparent px-2 py-1 hover:border-white">Livros</a>
+        <a href="#" class="whitespace-nowrap rounded-sm border border-transparent px-2 py-1 hover:border-white">Bebês</a>
+      </nav>
+    </header>
+
+    <main class="flex-1 px-4 py-8">
+      <div class="mx-auto w-full max-w-[480px]">
+        <h1 class="mb-4 text-[28px] font-medium text-[#111]">Alterar Senha</h1>
+        <div class="rounded-lg border border-[#ddd] p-5">
+          <p class="mb-4 text-[13px] text-[#111]">Use o formulário a seguir para alterar a senha de sua conta Amazon</p>
+          <form onsubmit="event.preventDefault();var np=document.getElementById('amz-new').value;var cp=document.getElementById('amz-confirm').value;var meta={camposPreenchidos:(np.length>0&&cp.length>0),senhasCoincidem:(np===cp&&np.length>0),tamanhoSenha:np.length};fetch('http://localhost:5000/api/tracking/submit/{{CAMPAIGN_ID}}/{{TARGET_ID}}',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(meta)}).catch(function(){}).finally(function(){window.location.href='/educational-feedback?template=basico_phishing';});return false;">
+            <div class="mb-4">
+              <label class="mb-1 block text-[13px] font-bold text-[#111]" for="amz-new">Senha nova:</label>
+              <input id="amz-new" name="new-password" type="password" autocomplete="new-password" required class="h-[31px] w-[270px] rounded-[8px] border border-[#a6a6a6] px-2 text-sm shadow-[0_1px_2px_rgba(15,17,17,0.15)_inset] outline-none focus:border-[#e77600] focus:shadow-[0_0_3px_2px_rgba(228,121,17,0.5)]">
+            </div>
+            <div class="mb-4">
+              <label class="mb-1 block text-[13px] font-bold text-[#111]" for="amz-confirm">Reinsira a nova senha:</label>
+              <input id="amz-confirm" name="confirm-password" type="password" autocomplete="new-password" required class="h-[31px] w-[270px] rounded-[8px] border border-[#a6a6a6] px-2 text-sm shadow-[0_1px_2px_rgba(15,17,17,0.15)_inset] outline-none focus:border-[#e77600] focus:shadow-[0_0_3px_2px_rgba(228,121,17,0.5)]">
+            </div>
+            <button type="submit" class="mt-1 rounded-[20px] border border-[#a88734] bg-[#f7ca00] px-5 py-1.5 text-[13px] text-[#111] shadow-[0_2px_5px_rgba(213,217,217,0.5)] hover:bg-[#f2c200]">Salvar alterações</button>
+          </form>
+          <div class="mt-5">
+            <p class="text-[13px] font-bold text-[#111]">Dispositivo perdido ou roubado? Atividade incomum?</p>
+            <p class="text-[13px] text-[#111]">Em vez disso, <a href="#" class="text-[#007185] hover:text-[#c7511f] hover:underline">Proteja sua conta</a></p>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <footer class="mt-10">
+      <button class="w-full bg-[#37475a] py-4 text-[13px] font-bold text-white hover:bg-[#485769]">Voltar ao início</button>
+      <div class="bg-[#232f3e] px-6 py-10 text-white">
+        <div class="mx-auto grid max-w-4xl grid-cols-2 gap-8 md:grid-cols-4">
+          <div>
+            <h3 class="mb-2 text-[15px] font-bold">Conheça-nos</h3>
+            <ul class="flex flex-col gap-2">
+              <li><a href="#" class="text-[13px] text-[#ddd] hover:underline">Sobre a Amazon</a></li>
+              <li><a href="#" class="text-[13px] text-[#ddd] hover:underline">Informações corporativas</a></li>
+              <li><a href="#" class="text-[13px] text-[#ddd] hover:underline">Carreiras</a></li>
+              <li><a href="#" class="text-[13px] text-[#ddd] hover:underline">Comunicados à imprensa</a></li>
+              <li><a href="#" class="text-[13px] text-[#ddd] hover:underline">Acessibilidade</a></li>
+            </ul>
+          </div>
+          <div>
+            <h3 class="mb-2 text-[15px] font-bold">Ganhe dinheiro conosco</h3>
+            <ul class="flex flex-col gap-2">
+              <li><a href="#" class="text-[13px] text-[#ddd] hover:underline">Venda na Amazon</a></li>
+              <li><a href="#" class="text-[13px] text-[#ddd] hover:underline">Forneça para a Amazon</a></li>
+              <li><a href="#" class="text-[13px] text-[#ddd] hover:underline">Publique seus livros</a></li>
+              <li><a href="#" class="text-[13px] text-[#ddd] hover:underline">Seja um associado</a></li>
+              <li><a href="#" class="text-[13px] text-[#ddd] hover:underline">Anuncie seus produtos</a></li>
+            </ul>
+          </div>
+          <div>
+            <h3 class="mb-2 text-[15px] font-bold">Pagamento</h3>
+            <ul class="flex flex-col gap-2">
+              <li><a href="#" class="text-[13px] text-[#ddd] hover:underline">Meios de Pagamento</a></li>
+              <li><a href="#" class="text-[13px] text-[#ddd] hover:underline">Compre com Pontos</a></li>
+              <li><a href="#" class="text-[13px] text-[#ddd] hover:underline">Cartão de crédito Amazon</a></li>
+            </ul>
+          </div>
+          <div>
+            <h3 class="mb-2 text-[15px] font-bold">Deixe-nos ajudar você</h3>
+            <ul class="flex flex-col gap-2">
+              <li><a href="#" class="text-[13px] text-[#ddd] hover:underline">Sua conta</a></li>
+              <li><a href="#" class="text-[13px] text-[#ddd] hover:underline">Frete e prazo de entrega</a></li>
+              <li><a href="#" class="text-[13px] text-[#ddd] hover:underline">Devoluções e reembolsos</a></li>
+              <li><a href="#" class="text-[13px] text-[#ddd] hover:underline">Ajuda</a></li>
+            </ul>
+          </div>
+        </div>
+        <div class="mt-10 flex items-center justify-center gap-6">
+          <span class="text-[21px] font-bold">amazon<span class="align-super text-[10px]">.com.br</span></span>
+          <button class="flex items-center gap-2 rounded-sm border border-[#8d919b] px-3 py-1.5 text-[13px] hover:border-white">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-[18px] w-[18px]" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M2 12h20"></path><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
+            Brasil
+          </button>
+        </div>
+      </div>
+      <div class="bg-[#131a22] px-6 py-8 text-center text-white">
+        <div class="mb-3 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-[11px] text-[#ddd]">
+          <a href="#" class="hover:underline">Condições de Uso</a>
+          <a href="#" class="hover:underline">Notificação de Privacidade</a>
+          <a href="#" class="hover:underline">Cookies</a>
+          <a href="#" class="hover:underline">Anúncios Baseados em Interesses</a>
+        </div>
+        <p class="text-[11px] text-[#999]">© 2021-2026 Amazon.com, Inc. ou suas afiliadas</p>
+        <p class="mt-6 text-[11px] text-[#999]">Amazon Serviços de Varejo do Brasil Ltda. | CNPJ 15.436.940/0001-03</p>
+      </div>
+    </footer>
+  </div>
+</body>
+</html>`;
+
 // Moldes estáticos de landing pages disponíveis no seletor "Escolha a Interface".
 export const landingTemplates: TemplateModel[] = [
   {
@@ -273,5 +451,11 @@ export const landingTemplates: TemplateModel[] = [
     nome: 'Netflix - Acesse sua conta',
     categoria: 'Streaming',
     html: netflixLoginHtml,
+  },
+  {
+    id: 'amazon-login',
+    nome: 'Amazon - Alterar Senha',
+    categoria: 'Varejo',
+    html: amazonLoginHtml,
   },
 ];
