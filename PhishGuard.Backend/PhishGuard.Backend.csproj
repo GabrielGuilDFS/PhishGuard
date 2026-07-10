@@ -20,8 +20,14 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- Corpos HTML das iscas oficiais resolvidos por ID no disparo (OfficialBaitCatalog). -->
-    <EmbeddedResource Include="Resources\OfficialBaits\*.html" />
+    <!-- Corpos HTML das iscas oficiais resolvidos por ID no disparo (OfficialBaitCatalog).
+         Incluídos EXPLICITAMENTE (um por arquivo) para garantir o embutimento de cada
+         recurso — em especial 'amazon-notificacao-seguranca.html'. Ao adicionar uma nova
+         isca, inclua a linha correspondente aqui. -->
+    <EmbeddedResource Include="Resources\OfficialBaits\hbomax-redefinicao-senha.html" />
+    <EmbeddedResource Include="Resources\OfficialBaits\netflix-atualizacao-cobranca.html" />
+    <EmbeddedResource Include="Resources\OfficialBaits\amazon-notificacao-geral.html" />
+    <EmbeddedResource Include="Resources\OfficialBaits\amazon-notificacao-seguranca.html" />
   </ItemGroup>
 
 </Project>

@@ -93,6 +93,19 @@ describe('PhishingPages (Páginas Simuladas)', () => {
     expect(iframe.getAttribute('srcdoc')).toContain('/netflix-bg.png');
   });
 
+  it('disponibiliza o molde Amazon (Tailwind) e renderiza sua captura no preview', async () => {
+    const combobox = await abrirDialogo();
+    fireEvent.mouseDown(combobox);
+    const opcao = await screen.findByRole('option', { name: 'Amazon - Alterar Senha' });
+    fireEvent.click(opcao);
+    fireEvent.click(screen.getByRole('button', { name: /Carregar HTML/i }));
+
+    const iframe = screen.getByTitle('Live Preview') as HTMLIFrameElement;
+    await waitFor(() => expect(iframe.getAttribute('srcdoc')).toContain('Alterar Senha'));
+    // As classes utilitárias do Tailwind são mantidas intactas no molde.
+    expect(iframe.getAttribute('srcdoc')).toContain('bg-[#131921]');
+  });
+
   it('ao submeter, envia ao backend apenas o identificador do molde (não o HTML)', async () => {
     await carregarMoldeHbo();
 

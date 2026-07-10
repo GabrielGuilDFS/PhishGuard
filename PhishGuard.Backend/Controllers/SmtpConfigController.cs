@@ -106,18 +106,27 @@ namespace PhishGuard.Backend.Controllers
             }
             else
             {
-                if (string.IsNullOrEmpty(config.Host)) return BadRequest("O campo Host é obrigatório.");
-                if (config.Porta <= 0) return BadRequest("A Porta é inválida.");
-                if (string.IsNullOrEmpty(config.Usuario) || string.IsNullOrEmpty(config.Senha)) 
-                    return BadRequest("Usuário e Senha são obrigatórios para provedores reais.");
-                if (string.IsNullOrEmpty(config.EmailDestino))
-                    return BadRequest("O campo EmailDestino é obrigatório.");
+                // Teste manual da tela de Configurações. Os campos podem vir do
+                // formulário OU, quando o usuário já salvou, do registro persistido:
+                // a senha NUNCA é recarregada na tela por segurança (o GET devolve
+                // Senha vazia) e ainda é limpa após salvar, então o formulário
+                // frequentemente envia a senha em branco mesmo com a config salva.
+                // Faz o merge (formulário tem prioridade; cai para o salvo quando
+                // vazio) para o teste ser resiliente após salvar/recarregar.
+                var smtpSalvo = await _context.SmtpConfigs.FirstOrDefaultAsync(s => s.TenantId == tenantId);
 
-                host = config.Host;
-                porta = config.Porta;
-                usuario = config.Usuario;
-                senha = config.Senha;
-                emailDestino = config.EmailDestino;
+                host = !string.IsNullOrWhiteSpace(config.Host) ? config.Host : (smtpSalvo?.Host ?? "");
+                porta = config.Porta > 0 ? config.Porta : (smtpSalvo?.Porta ?? 0);
+                usuario = !string.IsNullOrWhiteSpace(config.Usuario) ? config.Usuario : (smtpSalvo?.Usuario ?? "");
+                senha = !string.IsNullOrWhiteSpace(config.Senha) ? config.Senha : (smtpSalvo?.Senha ?? "");
+                emailDestino = config.EmailDestino ?? "";
+
+                if (string.IsNullOrEmpty(host)) return BadRequest("O campo Host é obrigatório.");
+                if (porta <= 0) return BadRequest("A Porta é inválida.");
+                if (string.IsNullOrEmpty(usuario) || string.IsNullOrEmpty(senha))
+                    return BadRequest("Usuário e Senha são obrigatórios para provedores reais.");
+                if (string.IsNullOrEmpty(emailDestino))
+                    return BadRequest("O campo EmailDestino é obrigatório.");
             }
 
             try

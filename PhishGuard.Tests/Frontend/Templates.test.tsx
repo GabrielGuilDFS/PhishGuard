@@ -4,9 +4,11 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 // separado do código de produção e mora em PhishGuard.Tests/Frontend.
 import Templates from '../../PhishGuard.Frontend/src/pages/Templates';
 
-// Isca oficial Amazon (deve existir no seletor "Escolha a Isca").
-const AMAZON_ISCA = 'Amazon - Notificação Geral';
-const AMAZON_ID = 'amazon-notificacao-geral';
+// Isca oficial Amazon (deve existir no seletor "Escolha a Isca"). A "Notificação
+// Geral" foi aposentada por duplicidade; a isca oficial da Amazon agora é a de
+// segurança, cujo id o backend resolve para o HTML embutido no disparo.
+const AMAZON_ISCA = 'Amazon - Notificação de Segurança';
+const AMAZON_ID = 'amazon-notificacao-seguranca';
 const API = 'http://localhost:5000/api/Templates';
 
 // Mock global de fetch: GET (listagem) devolve [], POST/PUT devolvem ok.
