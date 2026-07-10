@@ -1,93 +1,38 @@
 import { useState, useEffect } from 'react';
-import type { ReactNode } from 'react';
 import {
   Box, Button, Typography, Paper, Table, TableBody, TableCell,
   TableContainer, TableHead, TableRow, IconButton, Dialog,
   DialogTitle, DialogContent, DialogActions, TextField, Stack,
-  Snackbar, Alert, CircularProgress, InputAdornment, Grid, MenuItem,
-  Tabs, Tab
+  Snackbar, Alert, CircularProgress, InputAdornment, Grid, MenuItem, Chip
 } from '@mui/material';
-import {
-  Delete as DeleteIcon,
-  Edit as EditIcon,
-  PostAdd as PostAddIcon,
-  Search as SearchIcon,
-  AutoAwesome as AutoAwesomeIcon,
-  MenuBook as MenuBookIcon
-} from '@mui/icons-material';
+import DeleteIcon from '@mui/icons-material/Delete';
+import EditIcon from '@mui/icons-material/Edit';
+import PostAddIcon from '@mui/icons-material/PostAdd';
+import SearchIcon from '@mui/icons-material/Search';
+import MenuBookIcon from '@mui/icons-material/MenuBook';
 import { templatesPredefinidos } from '../data/predefinedTemplates';
 
+// Biblioteca de Cenários (templates de e-mail) — fluxo simplificado do MVP.
+//
+// Mesma estratégia das Armadilhas: sem criação por código livre. Foi removido o
+// "Assistente Rápido" (geração dinâmica marca+ataque) e o TextArea de HTML bruto.
+// O administrador apenas seleciona uma ISCA OFICIAL homologada; a campanha persiste
+// somente o IDENTIFICADOR da isca (ex.: 'amazon-notificacao-geral') no campo
+// corpoHtml — nunca a string massiva de HTML. O backend (CampaignsController.
+// IniciarDisparo) resolve esse ID de volta para o HTML real no momento do disparo.
+
+const API_ENDPOINT = 'http://localhost:5000/api/Templates';
+
+// Iscas oficiais disponíveis no seletor.
+const iscasOficiais = templatesPredefinidos;
+
 interface Template {
-  id: string; 
+  id: string;
   nome: string;
   assunto: string;
   remetenteNome: string;
   remetenteEmail: string;
-  corpoHtml: string;
-}
-
-const marcas = [
-  { id: 'microsoft', nome: 'Microsoft 365', cor: '#0078d4', remetente: 'suporte@microsoft-seguranca.com' },
-  { id: 'google', nome: 'Google Workspace', cor: '#ea4335', remetente: 'alerts@google-security-noreply.com' },
-  { id: 'interna', nome: 'Comunicação Interna', cor: '#2e7d32', remetente: 'ti@comunicado-interno.com' }
-];
-
-const ataques = [
-  { id: 'senha_expira', titulo: 'Alerta de Senha Expirando', assunto: 'Ação Exigida: Sua senha expira em 24h' },
-  { id: 'atividade_suspeita', titulo: 'Conta Invadida', assunto: 'ALERTA: Novo login não reconhecido na sua conta' },
-  { id: 'documento_rh', titulo: 'Documento do RH', assunto: 'CONFIDENCIAL: Atualização de Política Salarial' }
-];
-
-const gerarHtmlDinamico = (marca: any, ataque: any, nomeEmpresaInterna: string) => {
-  const nomeExibicao = marca.id === 'interna' ? nomeEmpresaInterna : marca.nome;
-  
-  if (ataque.id === 'senha_expira') {
-    return `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #ddd; padding: 20px;">
-  <h2 style="color: ${marca.cor};">${nomeExibicao}</h2>
-  <p>Prezado(a) colaborador(a),</p>
-  <p>Sua senha de acesso à rede expirará em <strong>24 horas</strong>.</p>
-  <p>Para evitar o bloqueio da sua conta, atualize suas credenciais imediatamente no portal de segurança.</p>
-  <div style="text-align: center; margin: 30px 0;">
-    <a href="{{LINK_PHISHING}}" style="background-color: ${marca.cor}; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold;">Manter minha senha atual</a>
-  </div>
-  <p style="font-size: 12px; color: #666;">Equipe de TI - ${nomeExibicao}<br>Este é um e-mail automático.</p>
-</div>`;
-  }
-  
-  if (ataque.id === 'atividade_suspeita') {
-    return `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #f44336; border-top: 5px solid #f44336;">
-  <h2 style="color: #d32f2f;">Alerta de Segurança - ${nomeExibicao}</h2>
-  <p>Detectamos um login suspeito na sua conta a partir de um dispositivo não reconhecido.</p>
-  <p>Se não foi você, clique no botão abaixo imediatamente para bloquear o acesso e rever a atividade.</p>
-  <div style="text-align: center; margin: 30px 0;">
-    <a href="{{LINK_PHISHING}}" style="background-color: #d32f2f; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold;">Revisar Atividade Recente</a>
-  </div>
-</div>`;
-  }
-
-  return `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f9f9f9;">
-  <div style="background-color: ${marca.cor}; color: white; padding: 15px; text-align: center;">
-    <h2>Comunicado Oficial</h2>
-  </div>
-  <div style="padding: 20px; background-color: white; border: 1px solid #eee;">
-    <p>Olá,</p>
-    <p>Um novo documento confidencial foi compartilhado com você via <strong>${nomeExibicao}</strong>.</p>
-    <p>Por favor, revise o documento e assine o termo de ciência até o final do dia.</p>
-    <div style="text-align: center; margin: 25px 0;">
-      <a href="{{LINK_PHISHING}}" style="background-color: ${marca.cor}; color: white; padding: 10px 20px; text-decoration: none; font-weight: bold; border-radius: 5px;">Acessar Documento Seguro</a>
-    </div>
-  </div>
-</div>`;
-};
-// ----------------------------------------
-
-// Painel auxiliar que só renderiza o conteúdo da aba ativa
-function TabPanel({ children, value, index }: { children: ReactNode; value: number; index: number }) {
-  return (
-    <div role="tabpanel" hidden={value !== index}>
-      {value === index && <Box sx={{ pt: 3 }}>{children}</Box>}
-    </div>
-  );
+  corpoHtml: string; // Passa a carregar o ID da isca (não mais HTML bruto).
 }
 
 export default function Templates() {
@@ -95,28 +40,30 @@ export default function Templates() {
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [open, setOpen] = useState(false);
-  const [editId, setEditId] = useState<string | null>(null); 
-  
-  // Estados do Formulário e do Gerador
-  const [novoTemplate, setNovoTemplate] = useState({ nome: '', assunto: '', remetenteNome: '', remetenteEmail: '', corpoHtml: '' });
-  const [marcaSelecionada, setMarcaSelecionada] = useState('');
-  const [ataqueSelecionado, setAtaqueSelecionado] = useState('');
-  const [nomeInterno, setNomeInterno] = useState('Departamento de TI');
-  const [predefinidoSelecionado, setPredefinidoSelecionado] = useState('');
-  const [tab, setTab] = useState(0);
+  const [editId, setEditId] = useState<string | null>(null);
 
+  // Valor atual do seletor (ainda não confirmado).
+  const [iscaSelecionada, setIscaSelecionada] = useState('');
+  // Isca efetivamente carregada — dirige o preview e o salvamento.
+  const [iscaCarregada, setIscaCarregada] = useState('');
   const [notify, setNotify] = useState({ open: false, message: '', type: 'success' as 'success' | 'error' | 'info' });
 
-  const filteredTemplates = templates.filter((t) => 
+  const iscaAtiva = iscasOficiais.find((i) => i.id === iscaCarregada);
+
+  const filteredTemplates = templates.filter((t) =>
     t.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
     t.assunto.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const showNotify = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
+    setNotify({ open: true, message, type });
+  };
 
   const fetchTemplates = async () => {
     setLoading(true);
     const token = localStorage.getItem('phishguard_token');
     try {
-      const response = await fetch('http://localhost:5000/api/Templates', {
+      const response = await fetch(API_ENDPOINT, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (response.ok) {
@@ -124,123 +71,111 @@ export default function Templates() {
         setTemplates(data);
       }
     } catch (error) {
-      showNotify("Erro ao conectar com o servidor", "error");
+      showNotify('Erro ao conectar com o servidor', 'error');
     } finally {
       setLoading(false);
     }
   };
 
-  const showNotify = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
-    setNotify({ open: true, message, type });
-  };
-
-  const handleGerarTemplateDinamico = () => {
-    if (!marcaSelecionada || !ataqueSelecionado) {
-      showNotify("Selecione uma Marca e um Tipo de Isca primeiro!", "info");
+  // "Carregar Isca": apenas confirma no estado local a isca escolhida no seletor.
+  const handleCarregarIsca = () => {
+    if (!iscaSelecionada) {
+      showNotify('Escolha uma isca oficial na lista antes de carregar.', 'info');
       return;
     }
-    
-    const marca = marcas.find(m => m.id === marcaSelecionada);
-    const ataque = ataques.find(a => a.id === ataqueSelecionado);
-    
-    if (marca && ataque) {
-      const htmlGerado = gerarHtmlDinamico(marca, ataque, nomeInterno);
-      
-      setNovoTemplate({
-        nome: `[Gerador] ${marca.nome} - ${ataque.titulo}`,
-        assunto: ataque.assunto,
-        remetenteNome: marca.id === 'interna' ? nomeInterno : `Suporte ${marca.nome}`,
-        remetenteEmail: marca.remetente,
-        corpoHtml: htmlGerado
-      });
-      showNotify("Isca gerada! Você pode ajustar os detalhes abaixo se quiser.", "success");
-    }
-  };
-
-  const handleCarregarPredefinido = (id: string) => {
-    setPredefinidoSelecionado(id);
-    const predefinido = templatesPredefinidos.find((t) => t.id === id);
-    if (!predefinido) return;
-
-    setNovoTemplate({
-      nome: predefinido.nome,
-      assunto: predefinido.assunto,
-      remetenteNome: predefinido.remetenteNome,
-      remetenteEmail: predefinido.remetenteEmail,
-      corpoHtml: predefinido.corpoHtml
-    });
-    showNotify(`Template "${predefinido.nome}" carregado. Ajuste o que precisar antes de salvar.`, "success");
+    setIscaCarregada(iscaSelecionada);
+    showNotify('Isca carregada! Confira o preview ao lado.', 'success');
   };
 
   const handleSave = async () => {
+    const isca = iscasOficiais.find((i) => i.id === iscaCarregada);
+    if (!isca) {
+      showNotify('Selecione e carregue uma isca oficial antes de salvar.', 'error');
+      return;
+    }
+
     const token = localStorage.getItem('phishguard_token');
-    const url = editId ? `http://localhost:5000/api/Templates/${editId}` : 'http://localhost:5000/api/Templates';
-    
+    const url = editId ? `${API_ENDPOINT}/${editId}` : API_ENDPOINT;
+
+    // Persistência via identificador: envia os metadados curtos (nome/assunto/
+    // remetente) + apenas o ID da isca em corpoHtml — nunca a string de HTML.
+    const payload = {
+      nome: isca.nome,
+      assunto: isca.assunto,
+      remetenteNome: isca.remetenteNome,
+      remetenteEmail: isca.remetenteEmail,
+      corpoHtml: isca.id,
+    };
+
     try {
       const response = await fetch(url, {
         method: editId ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify(editId ? { ...novoTemplate, id: editId } : novoTemplate)
+        body: JSON.stringify(editId ? { ...payload, id: editId } : payload)
       });
 
       if (response.ok) {
-        showNotify(editId ? "Cenário atualizado!" : "Cenário salvo com sucesso!");
+        showNotify(editId ? 'Cenário atualizado!' : 'Cenário salvo com sucesso!');
         fetchTemplates();
         handleClose();
       } else {
-        showNotify("Falha ao salvar. Verifique os dados.", "error");
+        showNotify('Falha ao salvar. Verifique os dados.', 'error');
       }
     } catch (error) {
-      showNotify("Erro ao salvar cenário", "error");
+      showNotify('Erro ao salvar cenário', 'error');
     }
   };
 
-  const handleDelete = async (id: string) => { 
+  const handleDelete = async (id: string) => {
     const token = localStorage.getItem('phishguard_token');
-    if (window.confirm("Deseja realmente excluir este cenário de phishing?")) {
+    if (window.confirm('Deseja realmente excluir este cenário de phishing?')) {
       try {
-        const response = await fetch(`http://localhost:5000/api/Templates/${id}`, {
+        const response = await fetch(`${API_ENDPOINT}/${id}`, {
           method: 'DELETE',
           headers: { 'Authorization': `Bearer ${token}` }
         });
         if (response.ok) {
-          showNotify("Cenário removido com sucesso!");
+          showNotify('Cenário removido com sucesso!');
           fetchTemplates();
         }
       } catch (error) {
-        showNotify("Erro de rede ao remover cenário.", "error");
+        showNotify('Erro de rede ao remover cenário.', 'error');
       }
     }
   };
 
   const handleEdit = (template: Template) => {
     setEditId(template.id);
-    setNovoTemplate({ 
-      nome: template.nome, assunto: template.assunto, remetenteNome: template.remetenteNome,
-      remetenteEmail: template.remetenteEmail, corpoHtml: template.corpoHtml
-    });
+    // Registros novos guardam o ID da isca; se casar com uma isca conhecida,
+    // pré-seleciona (registros legados com HTML bruto ficam sem seleção).
+    const id = iscasOficiais.some((i) => i.id === template.corpoHtml) ? template.corpoHtml : '';
+    setIscaSelecionada(id);
+    setIscaCarregada(id);
     setOpen(true);
   };
 
-  const handleOpen = () => { 
-    setEditId(null); 
-    setNovoTemplate({ nome: '', assunto: '', remetenteNome: '', remetenteEmail: '', corpoHtml: '' });
-    setMarcaSelecionada('');
-    setAtaqueSelecionado('');
-    setPredefinidoSelecionado('');
-    setTab(0);
+  const handleOpen = () => {
+    setEditId(null);
+    setIscaSelecionada('');
+    setIscaCarregada('');
     setOpen(true);
   };
-  
+
   const handleClose = () => { setOpen(false); };
 
   useEffect(() => { fetchTemplates(); }, []);
+
+  // Preview do e-mail em iframe isolado (o HTML das iscas traz <head>/<style>
+  // próprios). Placeholders de disparo são neutralizados para a visualização.
+  const previewSrcDoc = iscaAtiva
+    ? iscaAtiva.corpoHtml.replaceAll('{{LINK_PHISHING}}', '#').replaceAll('{{LINK}}', '#').replaceAll('{{NOME}}', 'Colaborador(a)')
+    : '<div style="padding: 24px; color: #999; font-family: sans-serif;">Selecione uma isca oficial e clique em "Carregar Isca" para visualizar o e-mail.</div>';
 
   return (
     <Box>
       <Stack direction="row" justifyContent="space-between" alignItems="center" mb={3}>
         <Typography variant="h4" sx={{ fontWeight: 'bold' }}>Biblioteca de Cenários</Typography>
-        
+
         <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
           <TextField
             placeholder="Buscar cenário..."
@@ -296,105 +231,69 @@ export default function Templates() {
         </Table>
       </TableContainer>
 
-      <Dialog open={open} onClose={handleClose} fullWidth maxWidth="md">
-        <DialogTitle>{editId ? "Editar Cenário" : "Construir Novo Cenário de Phishing"}</DialogTitle>
+      <Dialog open={open} onClose={handleClose} fullWidth maxWidth="lg">
+        <DialogTitle>{editId ? 'Editar Cenário' : 'Novo Cenário de Phishing'}</DialogTitle>
         <DialogContent dividers>
-          
-          {!editId && (
-            <Paper variant="outlined" sx={{ mb: 4, borderRadius: 2, overflow: 'hidden' }}>
-              {/* Cabeçalho de abas */}
-              <Tabs
-                value={tab}
-                onChange={(_, newValue) => setTab(newValue)}
-                variant="fullWidth"
-                sx={{ borderBottom: 1, borderColor: 'divider' }}
-              >
-                <Tab icon={<MenuBookIcon />} iconPosition="start" label="Iscas de Mercado" />
-                <Tab icon={<AutoAwesomeIcon />} iconPosition="start" label="Assistente Rápido" />
-              </Tabs>
 
-              <Box sx={{ px: 3, pb: 3 }}>
-                {/* ABA 0 — Iscas de Mercado */}
-                <TabPanel value={tab} index={0}>
-                  <TextField
-                    select fullWidth size="small"
-                    label="Carregar isca de referência"
-                    value={predefinidoSelecionado}
-                    onChange={(e) => handleCarregarPredefinido(e.target.value)}
-                    helperText="Iscas mantidas pela plataforma, agrupadas por categoria. Preenchem o formulário abaixo prontas para revisão."
-                  >
-                    {templatesPredefinidos.map((t) => (
-                      <MenuItem key={t.id} value={t.id}>{t.categoria} — {t.nome}</MenuItem>
-                    ))}
-                  </TextField>
-                </TabPanel>
+          <Grid container spacing={3}>
+            {/* Coluna esquerda: seleção da isca oficial (fluxo único). */}
+            <Grid size={{ xs: 12, md: 5 }}>
+              <Box sx={{ p: 3, backgroundColor: '#f0f4f8', borderRadius: 2, border: '1px dashed #b0bec5' }}>
+                <Typography variant="subtitle1" color="primary" sx={{ fontWeight: 'bold', mb: 0.5, display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <MenuBookIcon /> Carregar Isca Oficial
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                  Escolha uma isca homologada da plataforma. A campanha persiste apenas o identificador da isca.
+                </Typography>
 
-                {/* ABA 1 — Assistente Rápido */}
-                <TabPanel value={tab} index={1}>
-                  <Grid container spacing={2} alignItems="center">
-                    <Grid size={{ xs: 12, sm: marcaSelecionada === 'interna' ? 4 : 5 }}>
-                      <TextField select fullWidth label="1. Identidade (Marca)" value={marcaSelecionada} onChange={(e) => setMarcaSelecionada(e.target.value)} size="small">
-                        {marcas.map((m) => (<MenuItem key={m.id} value={m.id}>{m.nome}</MenuItem>))}
-                      </TextField>
-                    </Grid>
+                <TextField
+                  select fullWidth label="Escolha a Isca"
+                  value={iscaSelecionada}
+                  onChange={(e) => setIscaSelecionada(e.target.value)}
+                  size="small"
+                  sx={{ mb: 2, backgroundColor: 'white' }}
+                >
+                  {iscasOficiais.map((i) => (
+                    <MenuItem key={i.id} value={i.id}>{i.categoria} — {i.nome}</MenuItem>
+                  ))}
+                </TextField>
 
-                    {marcaSelecionada === 'interna' && (
-                      <Grid size={{ xs: 12, sm: 3 }}>
-                        <TextField fullWidth label="Nome do Setor" value={nomeInterno} onChange={(e) => setNomeInterno(e.target.value)} size="small" />
-                      </Grid>
-                    )}
-
-                    <Grid size={{ xs: 12, sm: marcaSelecionada === 'interna' ? 3 : 5 }}>
-                      <TextField select fullWidth label="2. Gatilho Mental (Ataque)" value={ataqueSelecionado} onChange={(e) => setAtaqueSelecionado(e.target.value)} size="small">
-                        {ataques.map((a) => (<MenuItem key={a.id} value={a.id}>{a.titulo}</MenuItem>))}
-                      </TextField>
-                    </Grid>
-
-                    <Grid size={{ xs: 12, sm: 2 }}>
-                      <Button variant="contained" color="secondary" fullWidth onClick={handleGerarTemplateDinamico}>
-                        Gerar
-                      </Button>
-                    </Grid>
-                  </Grid>
-                </TabPanel>
+                <Button variant="contained" color="secondary" fullWidth onClick={handleCarregarIsca}>
+                  Carregar Isca
+                </Button>
               </Box>
-            </Paper>
-          )}
 
-          <Grid container spacing={2}>
-            <Grid size={{ xs: 12 }}>
-              <TextField fullWidth label="Nome de Identificação Interna" value={novoTemplate.nome} onChange={(e) => setNovoTemplate({...novoTemplate, nome: e.target.value})} />
+              {iscaAtiva && (
+                <Paper variant="outlined" sx={{ mt: 3, p: 2.5, borderRadius: 2 }}>
+                  <Stack direction="row" spacing={1} alignItems="center" sx={{ flexWrap: 'wrap', gap: 1, mb: 1.5 }}>
+                    <Typography variant="body1" sx={{ fontWeight: 600 }}>{iscaAtiva.nome}</Typography>
+                    <Chip label={iscaAtiva.categoria} size="small" color="primary" variant="outlined" />
+                  </Stack>
+                  <Typography variant="body2" color="text.secondary"><strong>Assunto:</strong> {iscaAtiva.assunto}</Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                    <strong>Remetente:</strong> {iscaAtiva.remetenteNome} &lt;{iscaAtiva.remetenteEmail}&gt;
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1.5 }}>
+                    Identificador enviado ao backend: <strong>{iscaAtiva.id}</strong>
+                  </Typography>
+                </Paper>
+              )}
             </Grid>
-            <Grid size={{ xs: 12, sm: 6 }}>
-              <TextField fullWidth label="Nome do Remetente Falso" value={novoTemplate.remetenteNome} onChange={(e) => setNovoTemplate({...novoTemplate, remetenteNome: e.target.value})} />
-            </Grid>
-            <Grid size={{ xs: 12, sm: 6 }}>
-              <TextField fullWidth label="E-mail do Remetente Falso" value={novoTemplate.remetenteEmail} onChange={(e) => setNovoTemplate({...novoTemplate, remetenteEmail: e.target.value})} />
-            </Grid>
-            <Grid size={{ xs: 12 }}>
-              <TextField fullWidth label="Assunto do E-mail" value={novoTemplate.assunto} onChange={(e) => setNovoTemplate({...novoTemplate, assunto: e.target.value})} />
-            </Grid>
-            <Grid size={{ xs: 12 }}>
-              <TextField 
-                fullWidth label="Corpo do E-mail (HTML)" multiline rows={8} 
-                value={novoTemplate.corpoHtml} 
-                onChange={(e) => setNovoTemplate({...novoTemplate, corpoHtml: e.target.value})} 
-                helperText="O placeholder {{LINK_PHISHING}} será substituído automaticamente pela URL maliciosa na hora do disparo."
-              />
-            </Grid>
-            <Grid size={{ xs: 12 }}>
-              <Typography variant="subtitle2" gutterBottom sx={{ mt: 2, color: 'text.secondary' }}>
+
+            {/* Coluna direita: preview do e-mail (visão do alvo). */}
+            <Grid size={{ xs: 12, md: 7 }}>
+              <Typography variant="subtitle2" gutterBottom sx={{ color: 'text.secondary' }}>
                 Visualização Prévia (Como o alvo verá o e-mail):
               </Typography>
-              <Paper 
-                variant="outlined" 
-                sx={{ 
-                  p: 2, backgroundColor: '#fff', 
-                  minHeight: '200px', maxHeight: '400px', overflowY: 'auto',
-                  border: '2px solid #e0e0e0', borderRadius: 2
-                }}
+              <Paper
+                variant="outlined"
+                sx={{ height: '520px', backgroundColor: '#fff', border: '2px solid #e0e0e0', borderRadius: 2, overflow: 'hidden' }}
               >
-                <div dangerouslySetInnerHTML={{ __html: novoTemplate.corpoHtml.replaceAll('{{LINK_PHISHING}}', '#') }} />
+                <iframe
+                  title="Email Preview"
+                  srcDoc={previewSrcDoc}
+                  style={{ width: '100%', height: '100%', border: 'none' }}
+                />
               </Paper>
             </Grid>
           </Grid>

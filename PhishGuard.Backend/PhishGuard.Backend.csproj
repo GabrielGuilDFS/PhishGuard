@@ -19,4 +19,9 @@
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.5.0" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Corpos HTML das iscas oficiais resolvidos por ID no disparo (OfficialBaitCatalog). -->
+    <EmbeddedResource Include="Resources\OfficialBaits\*.html" />
+  </ItemGroup>
+
 </Project>

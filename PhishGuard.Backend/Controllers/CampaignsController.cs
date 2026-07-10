@@ -3,7 +3,8 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using PhishGuard.Backend.Data;
 using PhishGuard.Backend.Models;
-using PhishGuard.Backend.DTOs; 
+using PhishGuard.Backend.DTOs;
+using PhishGuard.Backend.Content;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -157,8 +158,13 @@ namespace PhishGuard.Backend.Controllers
                     message.To.Add(new MailboxAddress(target.Nome, target.Email));
                     message.Subject = campaign.Template.Assunto;
 
+                    // A tela de Templates persiste apenas o IDENTIFICADOR da isca oficial
+                    // em CorpoHtml (ex.: "amazon-notificacao-geral"). Resolve para o HTML
+                    // real via catálogo; registros legados com HTML bruto passam intactos.
+                    var corpoBase = OfficialBaitCatalog.ResolveHtml(campaign.Template.CorpoHtml);
+
                     // Personaliza o corpo do e-mail
-                    var corpoPersonalizado = campaign.Template.CorpoHtml.Replace("{{NOME}}", target.Nome);
+                    var corpoPersonalizado = corpoBase.Replace("{{NOME}}", target.Nome);
 
                     var baseUrl = "http://localhost:5000/api/tracking";
                     var linkClique = $"{baseUrl}/click/{campaign.Id}/{target.Id}";
