@@ -13,10 +13,10 @@ import CssBaseline from '@mui/material/CssBaseline';
 import { NotificationProvider } from './context/NotificationContext';
 
 import HtmlEditorView from './components/HtmlEditorView';
+import PhishingPages from './pages/PhishingPages';
 import LandingPage from './pages/LandingPage';
 import HomeLandingPage from './pages/HomeLandingPage';
 import CheckoutPage from './pages/CheckoutPage';
-import { landingTemplates } from './data/landingTemplates';
 import { educationalTemplates } from './pages/EducationalPages';
 
 const PrivateRoute = ({ children }: { children: ReactNode }) => {
@@ -44,16 +44,6 @@ const theme = createTheme({
   },
   shape: { borderRadius: 8 },
 });
-
-const moldesPhishing = [
-  {
-    id: 'ms365',
-    nome: 'Login Microsoft 365 (Tailwind)',
-    html: `<!DOCTYPE html><html><head><script src="https://cdn.tailwindcss.com"></script></head><body class="bg-[#f4f4f4] flex items-center justify-center h-screen font-sans"><div class="bg-white p-11 w-full max-w-[380px] shadow-md"><img src="https://logincdn.msauth.net/shared/1.0/content/images/microsoft_logo_ee5c8d9fb6248c938fd0dc19370e90bd.svg" class="h-6 mb-6" alt="Microsoft"><h2 class="text-2xl font-semibold text-[#1b1b1b] mb-4">Entrar</h2><form action="{{POST_URL}}" method="POST" class="flex flex-col"><input type="email" name="email" placeholder="Email, telefone ou Skype" class="w-full p-2 border border-gray-400 focus:border-[#0067b8] focus:outline-none mb-4" required><input type="password" name="senha" placeholder="Senha" class="w-full p-2 border border-gray-400 focus:border-[#0067b8] focus:outline-none mb-4" required><div class="mt-6 flex justify-end"><button type="submit" class="bg-[#0067b8] hover:bg-[#005da6] text-white px-8 py-2 font-medium">Avançar</button></div></form></div></body></html>`
-  },
-  // Moldes estáticos de landing consolidados (HTML unificado + telemetria embutida)
-  ...landingTemplates,
-];
 
 const moldesEducacionais = [
   {
@@ -90,14 +80,7 @@ function App() {
               <Route path="templates" element={<Templates />} />
               <Route path="settings" element={<Settings />} />
 
-              <Route path="phishingpages" element={
-                <HtmlEditorView
-                  title="Páginas Simuladas (Armadilhas)"
-                  apiEndpoint="http://localhost:5000/api/PhishingPages"
-                  emptyMessage="Nenhuma página de captura cadastrada. Crie a sua primeira armadilha!"
-                  defaultTemplates={moldesPhishing}
-                />
-              } />
+              <Route path="phishingpages" element={<PhishingPages />} />
 
               <Route path="educationalpages" element={
                 <HtmlEditorView

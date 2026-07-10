@@ -27,10 +27,13 @@ import {
 // O dourado (#DAA520) é a cor primária do tema (ver App.tsx / AdminLayout),
 // reservado para pontos estratégicos de conversão e destaque.
 const GOLD = '#DAA520';
+const SILVER = '#878787ff';
+const BRONZE = '#CD7F32';
 const GOLD_HOVER = '#c6941c';
+const FOOTER_BG = "#e1e1e1ff"
 const PAGE_BG = '#F4F5F7'; // cinza bem suave para o fundo geral
 const SURFACE = '#F4F5F7'; // cards e superfícies elevadas
-const BORDER = '#E2E8F0'; // borda fina e discreta
+const BORDER = '#c5c5c5ff'; // borda fina e discreta
 const GOLD_BORDER = 'rgba(218,165,32,0.35)'; // borda dourada sutil (destaques)
 const TEXT_DARK = '#0F172A'; // títulos e textos de alta legibilidade
 const TEXT_MUTED = '#475569'; // textos de apoio / subtítulos
@@ -97,7 +100,7 @@ const planos: Plano[] = [
       'Relatório básico de cliques',
     ],
     cta: 'Escolher Plano',
-    cor: '#CD7F32',
+    cor: BRONZE,
   },
   {
     id: 'prata',
@@ -115,7 +118,7 @@ const planos: Plano[] = [
     ],
     cta: 'Escolher Plano',
     destaque: true,
-    cor: GOLD,
+    cor: SILVER,
   },
   {
     id: 'ouro',
@@ -132,7 +135,7 @@ const planos: Plano[] = [
       'SLA e suporte prioritário',
     ],
     cta: 'Falar com Consultor',
-    cor: '#C0C0C0',
+    cor: GOLD,
   },
 ];
 
@@ -219,7 +222,6 @@ export default function HomeLandingPage() {
           position: 'relative',
           overflow: 'hidden',
           background: `radial-gradient(1200px 500px at 50% -10%, rgba(218,165,32,0.16), transparent 60%), ${SURFACE}`,
-          borderBottom: `1px solid ${BORDER}`,
         }}
       >
         <Container maxWidth="md" sx={{ textAlign: 'center', py: { xs: 8, md: 14 } }}>
@@ -369,7 +371,7 @@ export default function HomeLandingPage() {
       </Container>
 
       {/* ---------- PRICING ---------- */}
-      <Box id="precos" sx={{ backgroundColor: SURFACE, py: { xs: 8, md: 12 }, scrollMarginTop: 80, borderTop: `1px solid ${BORDER}` }}>
+      <Box id="precos" sx={{ backgroundColor: SURFACE, py: { xs: 8, md: 12 }, scrollMarginTop: 80 }}>
         <Container maxWidth="lg">
           <Box sx={{ textAlign: 'center', mb: 6 }}>
             <Typography variant="overline" sx={{ color: GOLD, fontWeight: 700, letterSpacing: 2 }}>
@@ -505,7 +507,7 @@ export default function HomeLandingPage() {
       </Box>
 
       {/* ---------- RODAPÉ ---------- */}
-      <Box component="footer" sx={{ backgroundColor: SURFACE, borderTop: `1px solid ${BORDER}`, py: 5 }}>
+      <Box component="footer" sx={{ backgroundColor: FOOTER_BG, borderTop: `1px solid ${BORDER}`, py: 2 }}>
         <Container maxWidth="lg">
           <Stack
             direction={{ xs: 'column', md: 'row' }}

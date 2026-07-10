@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
+import { landingTemplates } from '../data/landingTemplates';
 
 export default function LandingPage() {
     const { id } = useParams(); // ID da PhishingPage salva no banco
@@ -22,10 +23,17 @@ export default function LandingPage() {
             })
             .then(data => {
                 if (data && data.conteudoHtml) {
+                    // Persistência simplificada: as armadilhas passam a guardar apenas o
+                    // ID do molde oficial. Resolve o ID para o HTML do catálogo; se não
+                    // casar, trata o valor como HTML bruto (compatibilidade com registros
+                    // legados criados antes da refatoração do MVP).
+                    const molde = landingTemplates.find((t) => t.id === data.conteudoHtml);
+                    const rawHtml = molde ? molde.html : data.conteudoHtml;
+
                     // Preenche os placeholders dinamicamente com os dados da vítima.
                     // {{CAMPAIGN_ID}} e {{TARGET_ID}} alimentam o gatilho de telemetria
                     // embutido no <form> dos moldes (ex.: HBO Max - Redefinição de Senha).
-                    const processedHtml = data.conteudoHtml
+                    const processedHtml = rawHtml
                         .replace(/{{CAMPAIGN_ID}}/g, campaignId)
                         .replace(/{{TARGET_ID}}/g, targetId);
 
