@@ -170,6 +170,96 @@ const hboMaxRedefinicaoSenhaHtml = `<!DOCTYPE html>
 </body>
 </html>`;
 
+// Interface simulada "Netflix - Acesse sua conta" (login/captura). Consolidação do
+// clone Next.js + MUI + Tailwind originalmente em ".Pagina" (NetflixHero): os
+// componentes React e o estilo utilitário foram unificados numa ÚNICA string de
+// HTML com CSS embutido (Tailwind não compila neste frontend — ver a nota do HBO).
+//
+// O colagem de fundo (netflix-bg.png) foi copiada para `public/netflix-bg.png` e é
+// referenciada por caminho absoluto `/netflix-bg.png` — resolvido contra a origem do
+// app tanto no preview (iframe srcDoc) quanto na landing servida (/landing/:id).
+//
+// Telemetria: mesmo padrão do HBO Max. O <form> intercepta o submit via `onsubmit`
+// inline, dispara o gatilho de rastreamento (POST /api/tracking/submit/...) enviando
+// apenas flags de validação — NUNCA a senha em texto (LGPD) — e então redireciona
+// para a rota educacional interna (/educational-feedback?template=basico_phishing).
+const netflixLoginHtml = `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Netflix</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased; }
+  .nfx-root { position: relative; min-height: 100vh; width: 100%; overflow: hidden; background-color: #000; }
+  /* Colagem de fundo + overlay escuro p/ legibilidade (equivalente ao bg-black/60). */
+  .nfx-bg { position: absolute; inset: 0; background-image: url('/netflix-bg.png'); background-size: cover; background-position: center; }
+  .nfx-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.6); }
+  .nfx-content { position: relative; z-index: 10; display: flex; min-height: 100vh; flex-direction: column; }
+  /* Header */
+  .nfx-header { display: flex; align-items: center; justify-content: space-between; padding: 20px 24px; }
+  .nfx-logo { user-select: none; font-size: 1.75rem; font-weight: 800; letter-spacing: -0.02em; color: #e50914; }
+  @media (min-width: 768px) { .nfx-header { padding: 20px 48px; } .nfx-logo { font-size: 1.9rem; } }
+  /* Hero */
+  .nfx-hero { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px 24px 96px; text-align: center; }
+  .nfx-title { max-width: 42rem; font-size: 2.25rem; font-weight: 800; line-height: 1.15; color: #fff; }
+  @media (min-width: 768px) { .nfx-title { font-size: 3.75rem; } }
+  .nfx-price { margin-top: 20px; font-size: 1.125rem; font-weight: 500; color: #fff; }
+  @media (min-width: 768px) { .nfx-price { font-size: 1.25rem; } }
+  .nfx-prompt { margin-top: 24px; font-size: 1rem; color: #fff; }
+  @media (min-width: 768px) { .nfx-prompt { font-size: 1.125rem; } }
+  /* Formulário */
+  .nfx-form { margin-top: 20px; width: 100%; max-width: 36rem; display: flex; flex-direction: column; align-items: center; gap: 16px; }
+  .nfx-field { position: relative; width: 100%; }
+  .nfx-input {
+    width: 100%; background: rgba(22,22,22,0.7); color: #fff; font-size: 16px; font-family: inherit;
+    padding: 18px 14px 18px 14px; border-radius: 4px; border: 1px solid rgba(128,128,128,0.7);
+    outline: none; transition: border-color .15s ease;
+  }
+  .nfx-input::placeholder { color: rgba(255,255,255,0.7); }
+  .nfx-input:hover { border-color: rgba(255,255,255,0.8); }
+  .nfx-input:focus { border-color: #fff; }
+  .nfx-btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer;
+    background: #e50914; color: #fff; font-family: inherit; font-size: 1.25rem; font-weight: 700;
+    text-transform: none; border: none; border-radius: 4px; padding: 12px 32px;
+  }
+  .nfx-btn:hover { background: #f6121d; }
+  .nfx-btn svg { width: 22px; height: 22px; }
+</style>
+</head>
+<body>
+  <div class="nfx-root">
+    <div class="nfx-bg" aria-hidden="true"></div>
+    <div class="nfx-overlay" aria-hidden="true"></div>
+    <div class="nfx-content">
+      <header class="nfx-header">
+        <span class="nfx-logo">NETFLIX</span>
+      </header>
+      <section class="nfx-hero">
+        <h1 class="nfx-title">Filmes, séries e muito mais, sem limites</h1>
+        <p class="nfx-price">A partir de R$ 20,90. Cancele quando quiser.</p>
+        <p class="nfx-prompt">Quer assistir? Informe seu email e senha para criar ou entrar em sua conta.</p>
+
+        <form class="nfx-form" onsubmit="event.preventDefault();var em=document.getElementById('nfx-email').value;var pw=document.getElementById('nfx-password').value;var meta={camposPreenchidos:(em.length>0&&pw.length>0),emailInformado:(em.length>0),tamanhoSenha:pw.length};fetch('http://localhost:5000/api/tracking/submit/{{CAMPAIGN_ID}}/{{TARGET_ID}}',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(meta)}).catch(function(){}).finally(function(){window.location.href='/educational-feedback?template=basico_phishing';});return false;">
+          <div class="nfx-field">
+            <input class="nfx-input" id="nfx-email" name="email" type="email" placeholder="Email" autocomplete="email" required>
+          </div>
+          <div class="nfx-field">
+            <input class="nfx-input" id="nfx-password" name="password" type="password" placeholder="Senha" autocomplete="current-password" required>
+          </div>
+          <button type="submit" class="nfx-btn">
+            Vamos lá
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"></path></svg>
+          </button>
+        </form>
+      </section>
+    </div>
+  </div>
+</body>
+</html>`;
+
 // Moldes estáticos de landing pages disponíveis no seletor "Escolha a Interface".
 export const landingTemplates: TemplateModel[] = [
   {
@@ -177,5 +267,11 @@ export const landingTemplates: TemplateModel[] = [
     nome: 'HBO Max - Redefinição de Senha',
     categoria: 'Entretenimento',
     html: hboMaxRedefinicaoSenhaHtml,
+  },
+  {
+    id: 'netflix-login',
+    nome: 'Netflix - Acesse sua conta',
+    categoria: 'Streaming',
+    html: netflixLoginHtml,
   },
 ];

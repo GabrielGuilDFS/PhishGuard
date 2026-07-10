@@ -78,6 +78,21 @@ describe('PhishingPages (Páginas Simuladas)', () => {
     expect(iframe.getAttribute('srcdoc')).toContain('radial-gradient(120% 90% at 50% -10%');
   });
 
+  it('disponibiliza o molde Netflix e renderiza sua captura no preview', async () => {
+    const combobox = await abrirDialogo();
+    fireEvent.mouseDown(combobox);
+    const opcao = await screen.findByRole('option', { name: 'Netflix - Acesse sua conta' });
+    fireEvent.click(opcao);
+    fireEvent.click(screen.getByRole('button', { name: /Carregar HTML/i }));
+
+    const iframe = screen.getByTitle('Live Preview') as HTMLIFrameElement;
+    await waitFor(() =>
+      expect(iframe.getAttribute('srcdoc')).toContain('Filmes, séries e muito mais, sem limites'),
+    );
+    // A colagem de fundo é referenciada por caminho absoluto do app.
+    expect(iframe.getAttribute('srcdoc')).toContain('/netflix-bg.png');
+  });
+
   it('ao submeter, envia ao backend apenas o identificador do molde (não o HTML)', async () => {
     await carregarMoldeHbo();
 

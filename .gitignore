@@ -6,7 +6,7 @@ obj/
 *.pdb
 *.cache
 
-
+.pagina
 node_modules/
 dist/
 build/
