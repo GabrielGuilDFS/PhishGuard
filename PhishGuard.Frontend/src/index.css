@@ -1,3 +1,8 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/* Tailwind CSS v4 — diretiva única de importação (substitui as diretivas v3
+   @tailwind base/components/utilities, que não compilavam neste projeto).
+   Compilado pela esteira do Vite via plugin @tailwindcss/vite.
+
+   O painel administrativo usa MUI (CSS-in-JS via ThemeProvider/emotion), que não
+   depende deste arquivo — nenhuma configuração de MUI vive aqui, então habilitar
+   o Tailwind não altera os estilos existentes do painel. */
+@import "tailwindcss";
