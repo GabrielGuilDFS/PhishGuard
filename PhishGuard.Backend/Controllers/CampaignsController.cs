@@ -4,14 +4,11 @@ using Microsoft.EntityFrameworkCore;
 using PhishGuard.Backend.Data;
 using PhishGuard.Backend.Models;
 using PhishGuard.Backend.DTOs;
-using PhishGuard.Backend.Content;
+using PhishGuard.Backend.Services;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using MailKit.Net.Smtp;
-using MailKit.Security;
-using MimeKit;
 
 namespace PhishGuard.Backend.Controllers
 {
@@ -22,11 +19,16 @@ namespace PhishGuard.Backend.Controllers
     {
         private readonly AppDbContext _context;
         private readonly ITenantProvider _tenantProvider;
+        private readonly ICampaignDispatchService _dispatchService;
 
-        public CampaignsController(AppDbContext context, ITenantProvider tenantProvider)
+        public CampaignsController(
+            AppDbContext context,
+            ITenantProvider tenantProvider,
+            ICampaignDispatchService dispatchService)
         {
             _context = context;
             _tenantProvider = tenantProvider;
+            _dispatchService = dispatchService;
         }
 
         [HttpGet]
@@ -107,7 +109,7 @@ namespace PhishGuard.Backend.Controllers
                 EmailTemplateId = input.EmailTemplateId,
                 LandingPageId = input.LandingPageId,
                 EducationalPageId = input.EducationalPageId,
-                Status = "Rascunho",
+                Status = CampaignStatus.Rascunho,
                 CriadoEm = DateTime.UtcNow,
                 Targets = targetsSelecionados 
             };
@@ -123,83 +125,43 @@ namespace PhishGuard.Backend.Controllers
             });
         }
 
-        [HttpPost("{id}/iniciar")]
-        public async Task<IActionResult> IniciarDisparo(Guid id)
+        // Ativa (homologa) uma campanha em Rascunho. Decide entre AGENDAR ou DISPARAR JÁ
+        // conforme a DataInicio, implementando a transição Rascunho → Agendada/Em Andamento.
+        [HttpPost("{id}/ativar")]
+        public async Task<IActionResult> AtivarCampanha(Guid id)
         {
             var tenantId = _tenantProvider.GetTenantId();
 
-            // 1. Busca a Campanha com TUDO que ela precisa
+            // Busca a campanha (escopada ao tenant) com o que o disparo precisa.
             var campaign = await _context.Campaigns
                 .Include(c => c.Template)
                 .Include(c => c.Targets)
                 .FirstOrDefaultAsync(c => c.Id == id && c.TenantId == tenantId);
 
             if (campaign == null) return NotFound("Campanha não encontrada.");
-            if (campaign.Status != "Rascunho") return BadRequest("Esta campanha já foi iniciada.");
+            if (campaign.Status != CampaignStatus.Rascunho)
+                return BadRequest("Apenas campanhas em Rascunho podem ser ativadas.");
             if (!campaign.Targets.Any()) return BadRequest("A campanha não possui alvos selecionados.");
 
-            // 2. Busca o SMTP do Tenant
-            var smtpConfig = await _context.SmtpConfigs.FirstOrDefaultAsync(s => s.TenantId == tenantId);
-            if (smtpConfig == null) return BadRequest("Configuração SMTP não encontrada. Configure o servidor de e-mail primeiro.");
+            // Início no FUTURO: apenas agenda. O CampaignSchedulerWorker faz o disparo
+            // automaticamente quando a DataInicio for atingida.
+            if (campaign.DataInicio > DateTime.UtcNow)
+            {
+                campaign.Status = CampaignStatus.Agendada;
+                await _context.SaveChangesAsync();
+                return Ok(new { message = "Campanha agendada. O disparo ocorrerá no horário de início.", status = campaign.Status });
+            }
 
+            // Início já alcançado: dispara IMEDIATAMENTE, reutilizando o mesmo serviço do
+            // worker (PASSO 3). O serviço move o status para "Em Andamento".
             try
             {
-                using var client = new SmtpClient();
-                // "Auto" escolhe a melhor criptografia disponível (TLS) automaticamente
-                await client.ConnectAsync(smtpConfig.Host, smtpConfig.Porta, SecureSocketOptions.StartTls);
-                
-                // Na versão final, a autenticação é OBRIGATÓRIA
-                await client.AuthenticateAsync(smtpConfig.Usuario, smtpConfig.Senha);
-
-                foreach (var target in campaign.Targets)
-                {
-                    var message = new MimeMessage();
-                    message.From.Add(new MailboxAddress(campaign.Template.RemetenteNome, campaign.Template.RemetenteEmail));
-                    message.To.Add(new MailboxAddress(target.Nome, target.Email));
-                    message.Subject = campaign.Template.Assunto;
-
-                    // A tela de Templates persiste apenas o IDENTIFICADOR da isca oficial
-                    // em CorpoHtml (ex.: "amazon-notificacao-geral"). Resolve para o HTML
-                    // real via catálogo; registros legados com HTML bruto passam intactos.
-                    var corpoBase = OfficialBaitCatalog.ResolveHtml(campaign.Template.CorpoHtml);
-
-                    // Personaliza o corpo do e-mail
-                    var corpoPersonalizado = corpoBase.Replace("{{NOME}}", target.Nome);
-
-                    var baseUrl = "http://localhost:5000/api/tracking";
-                    var linkClique = $"{baseUrl}/click/{campaign.Id}/{target.Id}";
-                    var linkPixel = $"{baseUrl}/open/{campaign.Id}/{target.Id}";
-
-                    // {{LINK_PHISHING}} é o placeholder padrão dos templates predefinidos
-                    // (HBO Max, Netflix, Amazon). {{LINK}} é mantido por compatibilidade.
-                    // Ambos apontam para o endpoint de rastreamento, que registra o "Clique"
-                    // e então redireciona dinamicamente para a landing page da campanha
-                    // (ex.: hbomax-redefinicao-senha) já carregando o token exclusivo do alvo.
-                    corpoPersonalizado = corpoPersonalizado
-                        .Replace("{{LINK_PHISHING}}", linkClique)
-                        .Replace("{{LINK}}", linkClique);
-                    corpoPersonalizado += $"<img src='{linkPixel}' width='1' height='1' style='display:none;' />";
-
-                    var builder = new BodyBuilder { HtmlBody = corpoPersonalizado };
-                    message.Body = builder.ToMessageBody();
-
-                    // Dispara
-                    await client.SendAsync(message);
-
-                    // THROTTLING: Pausa de 1 segundo para o Gmail/Outlook não te banir por spam
-                    await Task.Delay(1000); 
-                }
-
-                await client.DisconnectAsync(true);
-
-                campaign.Status = "Em Andamento";
-                await _context.SaveChangesAsync();
-
-                return Ok(new { message = "Disparo iniciado com sucesso!" });
+                await _dispatchService.DispatchAsync(campaign);
+                return Ok(new { message = "Disparo iniciado com sucesso!", status = campaign.Status });
             }
             catch (Exception ex)
             {
-                return StatusCode(500, $"Erro SMTP: {ex.Message}");
+                return StatusCode(500, $"Erro no disparo: {ex.Message}");
             }
         }
 

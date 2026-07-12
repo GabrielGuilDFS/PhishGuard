@@ -807,3 +807,54 @@ Amazon.com, Amazon.com.br, a logo de Amazon.com são marcas comerciais registrad
 export const templatesPredefinidos: TemplatePredefinido[] = catalogoIscasOficiais.filter(
   (isca) => isca.id !== 'amazon-notificacao-geral',
 );
+
+// ---------------------------------------------------------------------------
+// CENÁRIOS DE SIMULAÇÃO (catálogo unificado)
+//
+// Um Cenário amarra de forma ESTRITA uma isca de e-mail (emailTemplateId, que casa
+// com TemplatePredefinido.id) à sua respectiva página falsa (landingTemplateId, que
+// casa com um id de landingTemplates). Essa amarração garante coerência de marca no
+// disparo: o e-mail da Amazon só leva à página da Amazon, Netflix com Netflix, etc.
+//
+// O formulário de campanhas passa a oferecer um único seletor de Cenário; a tela de
+// gerenciamento (Biblioteca de Modelos) usa a mesma amarração para exibir o preview
+// emparelhado (E-mail SMTP ⇄ Página Falsa) e para persistir o par no backend.
+// ---------------------------------------------------------------------------
+export interface SimulationScenario {
+  id: string;
+  nome: string;
+  categoria: string;
+  descricao: string;
+  emailTemplateId: string; // -> TemplatePredefinido.id (isca de e-mail)
+  landingTemplateId: string; // -> landingTemplates[].id (página falsa)
+}
+
+export const simulationScenarios: SimulationScenario[] = [
+  {
+    id: 'cenario-amazon',
+    nome: 'Amazon — Alerta de Segurança',
+    categoria: 'Varejo',
+    descricao:
+      'E-mail de alerta de acesso incomum que direciona o alvo à página falsa de alteração de senha da Amazon.',
+    emailTemplateId: 'amazon-notificacao-seguranca',
+    landingTemplateId: 'amazon-login',
+  },
+  {
+    id: 'cenario-netflix',
+    nome: 'Netflix — Atualização de Cobrança',
+    categoria: 'Streaming',
+    descricao:
+      'E-mail solicitando atualização de dados de cobrança que leva ao login falso da Netflix.',
+    emailTemplateId: 'netflix-atualizacao-cobranca',
+    landingTemplateId: 'netflix-login',
+  },
+  {
+    id: 'cenario-hbomax',
+    nome: 'HBO Max — Redefinição de Senha',
+    categoria: 'Entretenimento',
+    descricao:
+      'E-mail de redefinição de senha que abre a página falsa de captura de nova senha do HBO Max.',
+    emailTemplateId: 'hbomax-redefinicao-senha',
+    landingTemplateId: 'hbomax-redefinicao-senha',
+  },
+];

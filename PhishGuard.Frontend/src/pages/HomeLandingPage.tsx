@@ -162,19 +162,19 @@ export default function HomeLandingPage() {
         position="sticky"
         elevation={0}
         sx={{
-          backgroundColor: 'rgba(255,255,255,0.85)',
+          backgroundColor: '#c6941c',
           backdropFilter: 'blur(8px)',
           borderBottom: `1px solid ${BORDER}`,
         }}
       >
         <Container maxWidth="lg">
-          <Toolbar disableGutters sx={{ gap: 2 }}>
-            <SecurityIcon sx={{ color: GOLD, mr: 1 }} />
+          <Toolbar>
+            <SecurityIcon sx={{ mr: 1 }} />
             <Typography
               variant="h6"
               sx={{ fontWeight: 800, letterSpacing: 0.5, flexGrow: 1, color: TEXT_DARK }}
             >
-              Phish<span style={{ color: GOLD }}>Guard</span>
+              <span>PhishGuard</span>
             </Typography>
 
             <Stack
@@ -186,7 +186,7 @@ export default function HomeLandingPage() {
                 component="button"
                 underline="none"
                 onClick={() => scrollPara('recursos')}
-                sx={{ color: TEXT_MUTED, fontWeight: 500, '&:hover': { color: GOLD } }}
+                sx={{ color: 'Black', fontWeight: 500, '&:hover': { color: '#000000' } }}
               >
                 Recursos
               </Link>
@@ -194,7 +194,7 @@ export default function HomeLandingPage() {
                 component="button"
                 underline="none"
                 onClick={() => scrollPara('precos')}
-                sx={{ color: TEXT_MUTED, fontWeight: 500, '&:hover': { color: GOLD } }}
+                sx={{ color: 'Black', fontWeight: 500, '&:hover': { color: GOLD } }}
               >
                 Preços
               </Link>
@@ -205,9 +205,8 @@ export default function HomeLandingPage() {
               to="/login"
               variant="outlined"
               sx={{
-                color: TEXT_DARK,
-                borderColor: BORDER,
-                '&:hover': { borderColor: GOLD, backgroundColor: 'rgba(218,165,32,0.08)' },
+                color: 'black',
+                border: 'none',
               }}
             >
               Login
@@ -562,6 +561,6 @@ export default function HomeLandingPage() {
           </Typography>
         </Container>
       </Box>
-    </Box>
+    </Box >
   );
 }

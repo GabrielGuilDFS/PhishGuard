@@ -8,6 +8,8 @@ using PhishGuard.Backend.Models;
 using BCrypt.Net;
 using PhishGuard.Backend.DTOs;
 using PhishGuard.Backend.Security;
+using PhishGuard.Backend.Services;
+using PhishGuard.Backend.BackgroundServices;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -84,6 +86,11 @@ builder.Services.AddCors(options =>
 
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ITenantProvider, TenantProvider>();
+
+// Serviço de disparo (reutilizado pelo botão manual e pelo worker de agendamento)
+// e worker em segundo plano que dispara campanhas quando a DataInicio é atingida.
+builder.Services.AddScoped<ICampaignDispatchService, CampaignDispatchService>();
+builder.Services.AddHostedService<CampaignSchedulerWorker>();
 
 var app = builder.Build();
 

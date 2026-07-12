@@ -1,4 +1,4 @@
-import { type TemplateModel } from '../components/HtmlEditorView';
+import { type TemplateModel } from './templateTypes';
 
 // Moldes estáticos de LANDING PAGES (páginas de captura) do PhishGuard.
 //

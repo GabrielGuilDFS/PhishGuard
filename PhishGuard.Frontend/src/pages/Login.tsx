@@ -1,11 +1,11 @@
 import { useState } from 'react';
-import { 
-  Box, 
-  Button, 
-  Container, 
-  TextField, 
-  Typography, 
-  Paper, 
+import {
+  Box,
+  Button,
+  Container,
+  TextField,
+  Typography,
+  Paper,
   Alert,
   Link
 } from '@mui/material';
@@ -28,7 +28,7 @@ export default function Login() {
       const response = await fetch('http://localhost:5000/api/Auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password})
+        body: JSON.stringify({ email, password })
       });
 
       if (!response.ok) {
@@ -39,7 +39,7 @@ export default function Login() {
       localStorage.setItem('phishguard_token', token);
 
       showNotify("Login realizado com sucesso!", "success");
-      
+
       navigate('/admin/dashboard');
 
     } catch (err: any) {
@@ -61,9 +61,9 @@ export default function Login() {
       >
         <Paper elevation={3} sx={{ p: 4, display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
           <Typography component="h1" variant="h5">
-            PhishGuard Admin
+            Phish<span style={{ color: '#DAA520' }}>Guard</span> Admin
           </Typography>
-          
+
           <Box component="form" onSubmit={handleLogin} sx={{ mt: 1, width: '100%' }}>
             <TextField
               margin="normal"
@@ -97,11 +97,11 @@ export default function Login() {
               Entrar no Sistema
             </Button>
           </Box>
-          <Link 
-            component={RouterLink} 
-            to="/Register" 
-            variant="body2" 
-            sx={{ color: 'primary.main', fontWeight: 'bold' }} 
+          <Link
+            component={RouterLink}
+            to="/Register"
+            variant="body2"
+            sx={{ color: 'primary.main', fontWeight: 'bold' }}
           >
             {"Sem conta? Cadastre-se"}
           </Link>

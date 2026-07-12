@@ -4,14 +4,17 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 // separado do código de produção e mora em PhishGuard.Tests/Frontend.
 import Templates from '../../PhishGuard.Frontend/src/pages/Templates';
 
-// Isca oficial Amazon (deve existir no seletor "Escolha a Isca"). A "Notificação
-// Geral" foi aposentada por duplicidade; a isca oficial da Amazon agora é a de
-// segurança, cujo id o backend resolve para o HTML embutido no disparo.
-const AMAZON_ISCA = 'Amazon - Notificação de Segurança';
-const AMAZON_ID = 'amazon-notificacao-seguranca';
-const API = 'http://localhost:5000/api/Templates';
+// Refatoração "Cenários de Simulação": a Biblioteca de Modelos tem duas abas
+// (Cenários de Simulação / Páginas Educativas). Um Cenário amarra a isca de e-mail
+// à sua página falsa. Registrar um cenário persiste o PAR: uma linha em Templates
+// (corpoHtml = id da isca) e uma em PhishingPages (conteudoHtml = id da landing).
+const CENARIO_AMAZON = 'Amazon — Alerta de Segurança';
+const ISCA_AMAZON_ID = 'amazon-notificacao-seguranca';
+const LANDING_AMAZON_ID = 'amazon-login';
+const API_TEMPLATES = 'http://localhost:5000/api/Templates';
+const API_PHISHING = 'http://localhost:5000/api/PhishingPages';
 
-// Mock global de fetch: GET (listagem) devolve [], POST/PUT devolvem ok.
+// GET (listagens) devolve [] (nada registrado); POST/DELETE devolvem ok.
 const fetchMock = vi.fn((_url: string, options?: { method?: string }) => {
   const method = options?.method ?? 'GET';
   if (method === 'GET') {
@@ -31,81 +34,94 @@ afterEach(() => {
   localStorage.clear();
 });
 
-// Abre o diálogo "Novo Cenário" clicando no botão do cabeçalho.
-async function abrirDialogo() {
+async function renderTela() {
   render(<Templates />);
-  await screen.findByText('Biblioteca de Cenários');
-  fireEvent.click(screen.getByRole('button', { name: /Novo Cenário/i }));
-  // O diálogo (MUI) renderiza em portal — aguarda o seletor aparecer.
-  return await screen.findByRole('combobox');
+  await screen.findByText('Biblioteca de Modelos');
 }
 
-// Seleciona a isca Amazon no seletor e a carrega no estado local.
-async function carregarIscaAmazon() {
-  const combobox = await abrirDialogo();
-  fireEvent.mouseDown(combobox); // MUI Select abre no mousedown
-  const opcao = await screen.findByRole('option', { name: new RegExp(AMAZON_ISCA, 'i') });
-  fireEvent.click(opcao);
-  fireEvent.click(screen.getByRole('button', { name: /Carregar Isca/i }));
-}
+describe('Templates (Biblioteca de Modelos)', () => {
+  it('renderiza as duas abas e lista os cenários amarrados, sem entrada livre de HTML', async () => {
+    await renderTela();
 
-describe('Templates (Biblioteca de Cenários)', () => {
-  it('renderiza a tela base e o seletor de iscas, sem campos de entrada livre', async () => {
-    await abrirDialogo();
+    expect(screen.getByRole('tab', { name: /Cenários de Simulação/i })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /Páginas Educativas/i })).toBeInTheDocument();
 
-    // O seletor de isca oficial está presente.
-    expect(screen.getByLabelText('Escolha a Isca')).toBeInTheDocument();
+    // Cenários do catálogo aparecem na tabela.
+    expect(screen.getByText(CENARIO_AMAZON)).toBeInTheDocument();
+    expect(screen.getByText('Netflix — Atualização de Cobrança')).toBeInTheDocument();
+    expect(screen.getByText('HBO Max — Redefinição de Senha')).toBeInTheDocument();
 
-    // Entradas livres foram REMOVIDAS no MVP: nada de "Assistente Rápido" nem TextArea de HTML.
-    expect(screen.queryByText(/Assistente Rápido/i)).not.toBeInTheDocument();
-    expect(screen.queryByLabelText(/Corpo do E-mail/i)).not.toBeInTheDocument();
+    // Nada de editor de HTML bruto (removido na refatoração).
+    expect(screen.queryByLabelText(/Código Fonte/i)).not.toBeInTheDocument();
     expect(screen.queryByLabelText(/Nome de Identificação Interna/i)).not.toBeInTheDocument();
+  });
 
-    // Salvar sem carregar uma isca deve barrar e avisar.
-    fireEvent.click(screen.getByRole('button', { name: /Salvar Cenário/i }));
-    expect(await screen.findByText(/carregue uma isca oficial antes de salvar/i)).toBeInTheDocument();
+  it('abre o preview emparelhado e alterna entre E-mail (SMTP) e Página Falsa', async () => {
+    await renderTela();
 
-    // Nenhuma requisição de salvamento (POST) deve ter sido disparada.
-    expect(fetchMock).not.toHaveBeenCalledWith(
-      expect.anything(),
-      expect.objectContaining({ method: 'POST' }),
+    fireEvent.click(screen.getByRole('button', { name: `Visualizar ${CENARIO_AMAZON}` }));
+
+    // Começa no modo E-mail: o iframe traz o corpo da isca da Amazon.
+    const emailFrame = await screen.findByTitle('Email Preview') as HTMLIFrameElement;
+    await waitFor(() => expect(emailFrame.getAttribute('srcdoc')).toContain('Alerta de segurança'));
+
+    // Alterna para a Página Falsa (molde Amazon com Tailwind intacto).
+    fireEvent.click(screen.getByRole('button', { name: /Página Falsa/i }));
+    const landingFrame = await screen.findByTitle('Landing Preview') as HTMLIFrameElement;
+    await waitFor(() => expect(landingFrame.getAttribute('srcdoc')).toContain('bg-[#131921]'));
+  });
+
+  it('ao registrar um cenário, persiste o PAR (Templates + PhishingPages) por identificador', async () => {
+    await renderTela();
+
+    fireEvent.click(screen.getByRole('button', { name: `Registrar ${CENARIO_AMAZON}` }));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(API_TEMPLATES, expect.objectContaining({ method: 'POST' }));
+      expect(fetchMock).toHaveBeenCalledWith(API_PHISHING, expect.objectContaining({ method: 'POST' }));
+    });
+
+    const postTemplate = fetchMock.mock.calls.find(
+      (c) => c[0] === API_TEMPLATES && (c[1] as { method?: string })?.method === 'POST',
     );
+    const postPhishing = fetchMock.mock.calls.find(
+      (c) => c[0] === API_PHISHING && (c[1] as { method?: string })?.method === 'POST',
+    );
+    expect(postTemplate).toBeTruthy();
+    expect(postPhishing).toBeTruthy();
+
+    const corpoTemplate = JSON.parse((postTemplate![1] as { body: string }).body);
+    const corpoPhishing = JSON.parse((postPhishing![1] as { body: string }).body);
+
+    // Persistência por identificador: nunca o HTML bruto.
+    expect(corpoTemplate.corpoHtml).toBe(ISCA_AMAZON_ID);
+    expect(corpoTemplate.corpoHtml).not.toContain('<html');
+    expect(corpoPhishing.conteudoHtml).toBe(LANDING_AMAZON_ID);
+    expect(corpoPhishing.conteudoHtml).not.toContain('<html');
   });
 
-  it('ao carregar a isca Amazon, renderiza o e-mail no preview (iframe)', async () => {
-    await carregarIscaAmazon();
+  it('na aba Páginas Educativas, mostra o previewer dos moldes fixos sem edição de HTML', async () => {
+    await renderTela();
 
-    const iframe = screen.getByTitle('Email Preview') as HTMLIFrameElement;
-    await waitFor(() => expect(iframe.getAttribute('srcdoc')).toContain('Amazon'));
-  });
+    fireEvent.click(screen.getByRole('tab', { name: /Páginas Educativas/i }));
 
-  it('ao submeter, envia ao backend apenas o identificador da isca (não o HTML)', async () => {
-    await carregarIscaAmazon();
+    // Seletor de molde fixo + previewer presentes; nenhum textarea de código.
+    const seletor = await screen.findByLabelText('Escolha o molde educativo');
+    expect(seletor).toBeInTheDocument();
+    expect(screen.getByTitle('Educational Preview')).toBeInTheDocument();
+    expect(screen.queryByLabelText(/Código Fonte/i)).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: /Salvar Cenário/i }));
+    // Preview inicial carrega o primeiro molde do catálogo.
+    const eduFrame = screen.getByTitle('Educational Preview') as HTMLIFrameElement;
+    expect(eduFrame.getAttribute('srcdoc')).toContain('Phishing');
 
-    // A chamada POST ao endpoint de Templates deve ocorrer.
+    // Registrar persiste apenas o molde escolhido no endpoint educacional.
+    fireEvent.click(screen.getByRole('button', { name: /Registrar molde/i }));
     await waitFor(() =>
       expect(fetchMock).toHaveBeenCalledWith(
-        API,
-        expect.objectContaining({
-          method: 'POST',
-          headers: expect.objectContaining({
-            'Content-Type': 'application/json',
-            Authorization: 'Bearer test-token',
-          }),
-        }),
+        'http://localhost:5000/api/EducationalPages',
+        expect.objectContaining({ method: 'POST' }),
       ),
     );
-
-    // O corpo enviado carrega os metadados curtos + o ID da isca em corpoHtml.
-    const postCall = fetchMock.mock.calls.find((c) => (c[1] as { method?: string })?.method === 'POST');
-    expect(postCall).toBeTruthy();
-    const body = JSON.parse((postCall![1] as { body: string }).body);
-    expect(body.nome).toBe(AMAZON_ISCA);
-    expect(body.corpoHtml).toBe(AMAZON_ID);
-    // Garante que NÃO estamos mais enviando o HTML bruto.
-    expect(body.corpoHtml).not.toContain('<html');
-    expect(body.corpoHtml).not.toContain('<!doctype');
   });
 });

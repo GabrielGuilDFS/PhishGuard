@@ -1,313 +1,401 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   Box, Button, Typography, Paper, Table, TableBody, TableCell,
   TableContainer, TableHead, TableRow, IconButton, Dialog,
-  DialogTitle, DialogContent, DialogActions, TextField, Stack,
-  Snackbar, Alert, CircularProgress, InputAdornment, Grid, MenuItem, Chip
+  DialogTitle, DialogContent, DialogActions, Stack, Snackbar, Alert,
+  CircularProgress, Chip, Tabs, Tab, ToggleButton, ToggleButtonGroup,
+  TextField, MenuItem, Grid, Tooltip
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
-import EditIcon from '@mui/icons-material/Edit';
-import PostAddIcon from '@mui/icons-material/PostAdd';
-import SearchIcon from '@mui/icons-material/Search';
-import MenuBookIcon from '@mui/icons-material/MenuBook';
+import VisibilityIcon from '@mui/icons-material/Visibility';
+import PlaylistAddCheckIcon from '@mui/icons-material/PlaylistAddCheck';
+import MarkEmailReadIcon from '@mui/icons-material/MarkEmailRead';
+import WebIcon from '@mui/icons-material/Web';
 import { templatesPredefinidos } from '../data/predefinedTemplates';
+import { simulationScenarios, type SimulationScenario } from '../data/predefinedTemplates';
+import { landingTemplates } from '../data/landingTemplates';
+import { educationalTemplates } from '../data/educationalTemplates';
 
-// Biblioteca de Cenários (templates de e-mail) — fluxo simplificado do MVP.
+// Biblioteca de Modelos — tela unificada de gerenciamento.
 //
-// Mesma estratégia das Armadilhas: sem criação por código livre. Foi removido o
-// "Assistente Rápido" (geração dinâmica marca+ataque) e o TextArea de HTML bruto.
-// O administrador apenas seleciona uma ISCA OFICIAL homologada; a campanha persiste
-// somente o IDENTIFICADOR da isca (ex.: 'amazon-notificacao-geral') no campo
-// corpoHtml — nunca a string massiva de HTML. O backend (CampaignsController.
-// IniciarDisparo) resolve esse ID de volta para o HTML real no momento do disparo.
+// Fusão das antigas abas "Cenários (E-mails)" e "Páginas Falsas": um Cenário de
+// Simulação amarra estritamente uma isca de e-mail à sua página falsa (ver
+// simulationScenarios em predefinedTemplates.ts). A tela tem duas abas:
+//   1. Cenários de Simulação  — preview emparelhado (E-mail SMTP ⇄ Página Falsa)
+//      e registro do par no backend (uma linha em Templates + uma em PhishingPages).
+//   2. Páginas Educativas      — listagem fixa dos moldes pedagógicos + previewer,
+//      sem qualquer edição de HTML bruto.
+//
+// Persistência por identificador: os registros guardam APENAS o id do molde
+// (corpoHtml = id da isca; conteudoHtml = id da landing/educacional). O backend
+// resolve o id de volta para o HTML no disparo.
 
-const API_ENDPOINT = 'http://localhost:5000/api/Templates';
+const API_TEMPLATES = 'http://localhost:5000/api/Templates';
+const API_PHISHING = 'http://localhost:5000/api/PhishingPages';
+const API_EDU = 'http://localhost:5000/api/EducationalPages';
 
-// Iscas oficiais disponíveis no seletor.
-const iscasOficiais = templatesPredefinidos;
+// Índices auxiliares dos catálogos estáticos (id -> objeto).
+const iscaPorId = new Map(templatesPredefinidos.map((i) => [i.id, i]));
+const landingPorId = new Map(landingTemplates.map((l) => [l.id, l]));
 
-interface Template {
-  id: string;
-  nome: string;
-  assunto: string;
-  remetenteNome: string;
-  remetenteEmail: string;
-  corpoHtml: string; // Passa a carregar o ID da isca (não mais HTML bruto).
-}
+interface TemplateRow { id: string; nome: string; corpoHtml: string; }
+interface PageRow { id: string; nome: string; conteudoHtml: string; }
+
+type Notify = { open: boolean; message: string; type: 'success' | 'error' | 'info' };
 
 export default function Templates() {
-  const [templates, setTemplates] = useState<Template[]>([]);
+  const [aba, setAba] = useState(0);
   const [loading, setLoading] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [open, setOpen] = useState(false);
-  const [editId, setEditId] = useState<string | null>(null);
 
-  // Valor atual do seletor (ainda não confirmado).
-  const [iscaSelecionada, setIscaSelecionada] = useState('');
-  // Isca efetivamente carregada — dirige o preview e o salvamento.
-  const [iscaCarregada, setIscaCarregada] = useState('');
-  const [notify, setNotify] = useState({ open: false, message: '', type: 'success' as 'success' | 'error' | 'info' });
+  const [templates, setTemplates] = useState<TemplateRow[]>([]);
+  const [phishingPages, setPhishingPages] = useState<PageRow[]>([]);
+  const [eduPages, setEduPages] = useState<PageRow[]>([]);
 
-  const iscaAtiva = iscasOficiais.find((i) => i.id === iscaCarregada);
-
-  const filteredTemplates = templates.filter((t) =>
-    t.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    t.assunto.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  const showNotify = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
+  const [notify, setNotify] = useState<Notify>({ open: false, message: '', type: 'success' });
+  const showNotify = (message: string, type: Notify['type'] = 'success') =>
     setNotify({ open: true, message, type });
-  };
 
-  const fetchTemplates = async () => {
+  const token = localStorage.getItem('phishguard_token');
+  const authHeaders = { Authorization: `Bearer ${token}` };
+  const jsonHeaders = { 'Content-Type': 'application/json', ...authHeaders };
+
+  // ------- Carga inicial -------
+  const fetchAll = async () => {
     setLoading(true);
-    const token = localStorage.getItem('phishguard_token');
     try {
-      const response = await fetch(API_ENDPOINT, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setTemplates(data);
-      }
-    } catch (error) {
+      const [tRes, pRes, eRes] = await Promise.all([
+        fetch(API_TEMPLATES, { headers: authHeaders }),
+        fetch(API_PHISHING, { headers: authHeaders }),
+        fetch(API_EDU, { headers: authHeaders }),
+      ]);
+      if (tRes.ok) setTemplates(await tRes.json());
+      if (pRes.ok) setPhishingPages(await pRes.json());
+      if (eRes.ok) setEduPages(await eRes.json());
+    } catch {
       showNotify('Erro ao conectar com o servidor', 'error');
     } finally {
       setLoading(false);
     }
   };
 
-  // "Carregar Isca": apenas confirma no estado local a isca escolhida no seletor.
-  const handleCarregarIsca = () => {
-    if (!iscaSelecionada) {
-      showNotify('Escolha uma isca oficial na lista antes de carregar.', 'info');
+  useEffect(() => { fetchAll(); }, []);
+
+  // Um cenário está "registrado" quando existe uma linha de Template (isca) e uma
+  // linha de PhishingPage (landing) com os identificadores do cenário.
+  const templateDoCenario = (s: SimulationScenario) =>
+    templates.find((t) => t.corpoHtml === s.emailTemplateId);
+  const landingDoCenario = (s: SimulationScenario) =>
+    phishingPages.find((p) => p.conteudoHtml === s.landingTemplateId);
+  const cenarioRegistrado = (s: SimulationScenario) =>
+    Boolean(templateDoCenario(s) && landingDoCenario(s));
+
+  // ------- Registro / remoção de Cenário (par Template + PhishingPage) -------
+  const registrarCenario = async (s: SimulationScenario) => {
+    const isca = iscaPorId.get(s.emailTemplateId);
+    const landing = landingPorId.get(s.landingTemplateId);
+    if (!isca || !landing) {
+      showNotify('Cenário inválido: molde não encontrado no catálogo.', 'error');
       return;
     }
-    setIscaCarregada(iscaSelecionada);
-    showNotify('Isca carregada! Confira o preview ao lado.', 'success');
-  };
-
-  const handleSave = async () => {
-    const isca = iscasOficiais.find((i) => i.id === iscaCarregada);
-    if (!isca) {
-      showNotify('Selecione e carregue uma isca oficial antes de salvar.', 'error');
-      return;
-    }
-
-    const token = localStorage.getItem('phishguard_token');
-    const url = editId ? `${API_ENDPOINT}/${editId}` : API_ENDPOINT;
-
-    // Persistência via identificador: envia os metadados curtos (nome/assunto/
-    // remetente) + apenas o ID da isca em corpoHtml — nunca a string de HTML.
-    const payload = {
-      nome: isca.nome,
-      assunto: isca.assunto,
-      remetenteNome: isca.remetenteNome,
-      remetenteEmail: isca.remetenteEmail,
-      corpoHtml: isca.id,
-    };
-
     try {
-      const response = await fetch(url, {
-        method: editId ? 'PUT' : 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify(editId ? { ...payload, id: editId } : payload)
-      });
-
-      if (response.ok) {
-        showNotify(editId ? 'Cenário atualizado!' : 'Cenário salvo com sucesso!');
-        fetchTemplates();
-        handleClose();
+      const requisicoes: Promise<Response>[] = [];
+      if (!templateDoCenario(s)) {
+        requisicoes.push(fetch(API_TEMPLATES, {
+          method: 'POST', headers: jsonHeaders,
+          body: JSON.stringify({
+            nome: isca.nome, assunto: isca.assunto,
+            remetenteNome: isca.remetenteNome, remetenteEmail: isca.remetenteEmail,
+            corpoHtml: isca.id,
+          }),
+        }));
+      }
+      if (!landingDoCenario(s)) {
+        requisicoes.push(fetch(API_PHISHING, {
+          method: 'POST', headers: jsonHeaders,
+          body: JSON.stringify({ nome: landing.nome, conteudoHtml: landing.id }),
+        }));
+      }
+      const respostas = await Promise.all(requisicoes);
+      if (respostas.every((r) => r.ok)) {
+        showNotify('Cenário registrado! Já pode ser usado em campanhas.', 'success');
+        fetchAll();
       } else {
-        showNotify('Falha ao salvar. Verifique os dados.', 'error');
+        showNotify('Falha ao registrar o cenário.', 'error');
       }
-    } catch (error) {
-      showNotify('Erro ao salvar cenário', 'error');
+    } catch {
+      showNotify('Erro de rede ao registrar o cenário.', 'error');
     }
   };
 
-  const handleDelete = async (id: string) => {
-    const token = localStorage.getItem('phishguard_token');
-    if (window.confirm('Deseja realmente excluir este cenário de phishing?')) {
-      try {
-        const response = await fetch(`${API_ENDPOINT}/${id}`, {
-          method: 'DELETE',
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        if (response.ok) {
-          showNotify('Cenário removido com sucesso!');
-          fetchTemplates();
-        }
-      } catch (error) {
-        showNotify('Erro de rede ao remover cenário.', 'error');
-      }
+  const removerCenario = async (s: SimulationScenario) => {
+    if (!window.confirm(`Remover o cenário "${s.nome}"? As campanhas que o utilizam podem ficar sem referência.`)) return;
+    const tRow = templateDoCenario(s);
+    const pRow = landingDoCenario(s);
+    try {
+      const requisicoes: Promise<Response>[] = [];
+      if (tRow) requisicoes.push(fetch(`${API_TEMPLATES}/${tRow.id}`, { method: 'DELETE', headers: authHeaders }));
+      if (pRow) requisicoes.push(fetch(`${API_PHISHING}/${pRow.id}`, { method: 'DELETE', headers: authHeaders }));
+      await Promise.all(requisicoes);
+      showNotify('Cenário removido.', 'success');
+      fetchAll();
+    } catch {
+      showNotify('Erro ao remover o cenário.', 'error');
     }
   };
-
-  const handleEdit = (template: Template) => {
-    setEditId(template.id);
-    // Registros novos guardam o ID da isca; se casar com uma isca conhecida,
-    // pré-seleciona (registros legados com HTML bruto ficam sem seleção).
-    const id = iscasOficiais.some((i) => i.id === template.corpoHtml) ? template.corpoHtml : '';
-    setIscaSelecionada(id);
-    setIscaCarregada(id);
-    setOpen(true);
-  };
-
-  const handleOpen = () => {
-    setEditId(null);
-    setIscaSelecionada('');
-    setIscaCarregada('');
-    setOpen(true);
-  };
-
-  const handleClose = () => { setOpen(false); };
-
-  useEffect(() => { fetchTemplates(); }, []);
-
-  // Preview do e-mail em iframe isolado (o HTML das iscas traz <head>/<style>
-  // próprios). Placeholders de disparo são neutralizados para a visualização.
-  const previewSrcDoc = iscaAtiva
-    ? iscaAtiva.corpoHtml.replaceAll('{{LINK_PHISHING}}', '#').replaceAll('{{LINK}}', '#').replaceAll('{{NOME}}', 'Colaborador(a)')
-    : '<div style="padding: 24px; color: #999; font-family: sans-serif;">Selecione uma isca oficial e clique em "Carregar Isca" para visualizar o e-mail.</div>';
 
   return (
     <Box>
-      <Stack direction="row" justifyContent="space-between" alignItems="center" mb={3}>
-        <Typography variant="h4" sx={{ fontWeight: 'bold' }}>Biblioteca de Cenários</Typography>
+      <Typography variant="h4" sx={{ fontWeight: 'bold', mb: 1 }}>Biblioteca de Modelos</Typography>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+        Cenários amarram o e-mail à página falsa correspondente. As páginas educativas são fixas do sistema.
+      </Typography>
 
-        <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-          <TextField
-            placeholder="Buscar cenário..."
-            size="small"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            InputProps={{ startAdornment: (<InputAdornment position="start"><SearchIcon color="action" /></InputAdornment>) }}
-            sx={{ backgroundColor: 'white', borderRadius: 1 }}
-          />
+      <Tabs value={aba} onChange={(_, v) => setAba(v)} sx={{ mb: 3 }}>
+        <Tab label="Cenários de Simulação" icon={<MarkEmailReadIcon />} iconPosition="start" />
+        <Tab label="Páginas Educativas" icon={<WebIcon />} iconPosition="start" />
+      </Tabs>
 
-          <Button variant="contained" startIcon={<PostAddIcon />} onClick={handleOpen}>
-            Novo Cenário
-          </Button>
-        </Box>
-      </Stack>
+      {loading && (
+        <Box display="flex" justifyContent="center" p={3}><CircularProgress /></Box>
+      )}
 
-      <TableContainer component={Paper} elevation={2}>
-        <Table>
-          <TableHead sx={{ backgroundColor: '#f8f9fa' }}>
-            <TableRow>
-              <TableCell><strong>Identificação</strong></TableCell>
-              <TableCell><strong>Assunto da Isca</strong></TableCell>
-              <TableCell><strong>Remetente Falso</strong></TableCell>
-              <TableCell align="right"><strong>Ações</strong></TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {loading ? (
-              <TableRow><TableCell colSpan={4} align="center"><CircularProgress sx={{ m: 2 }} /></TableCell></TableRow>
-            ) : (
-              filteredTemplates.map((template) => (
-                <TableRow key={template.id} hover>
-                  <TableCell>{template.nome}</TableCell>
-                  <TableCell>{template.assunto}</TableCell>
-                  <TableCell>{template.remetenteNome} &lt;{template.remetenteEmail}&gt;</TableCell>
-                  <TableCell align="right">
-                    <IconButton color="primary" onClick={() => handleEdit(template)}><EditIcon fontSize="small" /></IconButton>
-                    <IconButton color="error" onClick={() => handleDelete(template.id)}><DeleteIcon fontSize="small" /></IconButton>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-            {!loading && filteredTemplates.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={4} align="center" sx={{ py: 3 }}>
-                  <Typography variant="body1" color="textSecondary">
-                    Nenhum cenário cadastrado. Crie sua primeira isca!
-                  </Typography>
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </TableContainer>
+      {!loading && aba === 0 && (
+        <CenariosTab
+          registrado={cenarioRegistrado}
+          onRegistrar={registrarCenario}
+          onRemover={removerCenario}
+        />
+      )}
 
-      <Dialog open={open} onClose={handleClose} fullWidth maxWidth="lg">
-        <DialogTitle>{editId ? 'Editar Cenário' : 'Novo Cenário de Phishing'}</DialogTitle>
-        <DialogContent dividers>
-
-          <Grid container spacing={3}>
-            {/* Coluna esquerda: seleção da isca oficial (fluxo único). */}
-            <Grid size={{ xs: 12, md: 5 }}>
-              <Box sx={{ p: 3, backgroundColor: '#f0f4f8', borderRadius: 2, border: '1px dashed #b0bec5' }}>
-                <Typography variant="subtitle1" color="primary" sx={{ fontWeight: 'bold', mb: 0.5, display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <MenuBookIcon /> Carregar Isca Oficial
-                </Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                  Escolha uma isca homologada da plataforma. A campanha persiste apenas o identificador da isca.
-                </Typography>
-
-                <TextField
-                  select fullWidth label="Escolha a Isca"
-                  value={iscaSelecionada}
-                  onChange={(e) => setIscaSelecionada(e.target.value)}
-                  size="small"
-                  sx={{ mb: 2, backgroundColor: 'white' }}
-                >
-                  {iscasOficiais.map((i) => (
-                    <MenuItem key={i.id} value={i.id}>{i.categoria} — {i.nome}</MenuItem>
-                  ))}
-                </TextField>
-
-                <Button variant="contained" color="secondary" fullWidth onClick={handleCarregarIsca}>
-                  Carregar Isca
-                </Button>
-              </Box>
-
-              {iscaAtiva && (
-                <Paper variant="outlined" sx={{ mt: 3, p: 2.5, borderRadius: 2 }}>
-                  <Stack direction="row" spacing={1} alignItems="center" sx={{ flexWrap: 'wrap', gap: 1, mb: 1.5 }}>
-                    <Typography variant="body1" sx={{ fontWeight: 600 }}>{iscaAtiva.nome}</Typography>
-                    <Chip label={iscaAtiva.categoria} size="small" color="primary" variant="outlined" />
-                  </Stack>
-                  <Typography variant="body2" color="text.secondary"><strong>Assunto:</strong> {iscaAtiva.assunto}</Typography>
-                  <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                    <strong>Remetente:</strong> {iscaAtiva.remetenteNome} &lt;{iscaAtiva.remetenteEmail}&gt;
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1.5 }}>
-                    Identificador enviado ao backend: <strong>{iscaAtiva.id}</strong>
-                  </Typography>
-                </Paper>
-              )}
-            </Grid>
-
-            {/* Coluna direita: preview do e-mail (visão do alvo). */}
-            <Grid size={{ xs: 12, md: 7 }}>
-              <Typography variant="subtitle2" gutterBottom sx={{ color: 'text.secondary' }}>
-                Visualização Prévia (Como o alvo verá o e-mail):
-              </Typography>
-              <Paper
-                variant="outlined"
-                sx={{ height: '520px', backgroundColor: '#fff', border: '2px solid #e0e0e0', borderRadius: 2, overflow: 'hidden' }}
-              >
-                <iframe
-                  title="Email Preview"
-                  srcDoc={previewSrcDoc}
-                  style={{ width: '100%', height: '100%', border: 'none' }}
-                />
-              </Paper>
-            </Grid>
-          </Grid>
-
-        </DialogContent>
-        <DialogActions sx={{ p: 2 }}>
-          <Button onClick={handleClose} color="inherit">Cancelar</Button>
-          <Button onClick={handleSave} variant="contained" size="large">Salvar Cenário</Button>
-        </DialogActions>
-      </Dialog>
+      {!loading && aba === 1 && (
+        <EducativasTab
+          eduPages={eduPages}
+          jsonHeaders={jsonHeaders}
+          authHeaders={authHeaders}
+          onChange={fetchAll}
+          notify={showNotify}
+        />
+      )}
 
       <Snackbar open={notify.open} autoHideDuration={4000} onClose={() => setNotify({ ...notify, open: false })} anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}>
         <Alert severity={notify.type} variant="filled" sx={{ width: '100%' }}>{notify.message}</Alert>
       </Snackbar>
     </Box>
+  );
+}
+
+// ===========================================================================
+// Aba 1 — Cenários de Simulação
+// ===========================================================================
+function CenariosTab({ registrado, onRegistrar, onRemover }: {
+  registrado: (s: SimulationScenario) => boolean;
+  onRegistrar: (s: SimulationScenario) => void;
+  onRemover: (s: SimulationScenario) => void;
+}) {
+  const [preview, setPreview] = useState<SimulationScenario | null>(null);
+  const [modo, setModo] = useState<'email' | 'landing'>('email');
+
+  const abrirPreview = (s: SimulationScenario) => { setModo('email'); setPreview(s); };
+
+  // Monta o srcDoc do preview conforme o modo (E-mail SMTP ou Página Falsa).
+  const previewSrcDoc = useMemo(() => {
+    if (!preview) return '';
+    if (modo === 'email') {
+      const isca = iscaPorId.get(preview.emailTemplateId);
+      if (!isca) return '<div style="padding:24px;font-family:sans-serif;color:#999;">Isca não encontrada.</div>';
+      return isca.corpoHtml
+        .replaceAll('{{LINK_PHISHING}}', '#')
+        .replaceAll('{{LINK}}', '#')
+        .replaceAll('{{NOME}}', 'Colaborador(a)');
+    }
+    const landing = landingPorId.get(preview.landingTemplateId);
+    if (!landing) return '<div style="padding:24px;font-family:sans-serif;color:#999;">Página falsa não encontrada.</div>';
+    return landing.html.replace(/{{CAMPAIGN_ID}}/g, '').replace(/{{TARGET_ID}}/g, '');
+  }, [preview, modo]);
+
+  return (
+    <>
+      <TableContainer component={Paper} elevation={2}>
+        <Table>
+          <TableHead sx={{ backgroundColor: '#f8f9fa' }}>
+            <TableRow>
+              <TableCell><strong>Cenário</strong></TableCell>
+              <TableCell><strong>Categoria</strong></TableCell>
+              <TableCell><strong>Amarração (E-mail ⇄ Página Falsa)</strong></TableCell>
+              <TableCell><strong>Status</strong></TableCell>
+              <TableCell align="right"><strong>Ações</strong></TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {simulationScenarios.map((s) => {
+              const isca = iscaPorId.get(s.emailTemplateId);
+              const landing = landingPorId.get(s.landingTemplateId);
+              const jaRegistrado = registrado(s);
+              return (
+                <TableRow key={s.id} hover>
+                  <TableCell>
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>{s.nome}</Typography>
+                    <Typography variant="caption" color="text.secondary">{s.descricao}</Typography>
+                  </TableCell>
+                  <TableCell><Chip label={s.categoria} size="small" variant="outlined" color="primary" /></TableCell>
+                  <TableCell>
+                    <Typography variant="caption" display="block">{isca?.nome ?? s.emailTemplateId}</Typography>
+                    <Typography variant="caption" color="text.secondary" display="block">{landing?.nome ?? s.landingTemplateId}</Typography>
+                  </TableCell>
+                  <TableCell>
+                    {jaRegistrado
+                      ? <Chip label="Registrado" size="small" color="success" />
+                      : <Chip label="Não registrado" size="small" variant="outlined" />}
+                  </TableCell>
+                  <TableCell align="right">
+                    <Tooltip title="Visualizar previews (E-mail e Página Falsa)">
+                      <IconButton aria-label={`Visualizar ${s.nome}`} color="primary" onClick={() => abrirPreview(s)}><VisibilityIcon fontSize="small" /></IconButton>
+                    </Tooltip>
+                    {jaRegistrado ? (
+                      <Tooltip title="Remover cenário">
+                        <IconButton aria-label={`Remover ${s.nome}`} color="error" onClick={() => onRemover(s)}><DeleteIcon fontSize="small" /></IconButton>
+                      </Tooltip>
+                    ) : (
+                      <Tooltip title="Registrar cenário para uso em campanhas">
+                        <IconButton aria-label={`Registrar ${s.nome}`} color="success" onClick={() => onRegistrar(s)}><PlaylistAddCheckIcon fontSize="small" /></IconButton>
+                      </Tooltip>
+                    )}
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </TableContainer>
+
+      <Dialog open={Boolean(preview)} onClose={() => setPreview(null)} fullWidth maxWidth="lg">
+        <DialogTitle>{preview?.nome}</DialogTitle>
+        <DialogContent dividers>
+          <Stack direction="row" justifyContent="center" sx={{ mb: 2 }}>
+            <ToggleButtonGroup
+              exclusive size="small" color="primary"
+              value={modo}
+              onChange={(_, v) => { if (v) setModo(v); }}
+            >
+              <ToggleButton value="email">E-mail (SMTP)</ToggleButton>
+              <ToggleButton value="landing">Página Falsa (Tailwind v4)</ToggleButton>
+            </ToggleButtonGroup>
+          </Stack>
+          <Paper variant="outlined" sx={{ height: '560px', overflow: 'hidden', borderRadius: 2 }}>
+            <iframe
+              title={modo === 'email' ? 'Email Preview' : 'Landing Preview'}
+              srcDoc={previewSrcDoc}
+              style={{ width: '100%', height: '100%', border: 'none' }}
+            />
+          </Paper>
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button onClick={() => setPreview(null)} color="inherit">Fechar</Button>
+          {preview && !registrado(preview) && (
+            <Button variant="contained" onClick={() => { onRegistrar(preview); setPreview(null); }}>
+              Registrar Cenário
+            </Button>
+          )}
+        </DialogActions>
+      </Dialog>
+    </>
+  );
+}
+
+// ===========================================================================
+// Aba 2 — Páginas Educativas (fixas, somente leitura + previewer)
+// ===========================================================================
+function EducativasTab({ eduPages, jsonHeaders, authHeaders, onChange, notify }: {
+  eduPages: PageRow[];
+  jsonHeaders: Record<string, string>;
+  authHeaders: Record<string, string>;
+  onChange: () => void;
+  notify: (m: string, t?: Notify['type']) => void;
+}) {
+  const [selecionado, setSelecionado] = useState(educationalTemplates[0]?.id ?? '');
+  const molde = educationalTemplates.find((m) => m.id === selecionado);
+
+  // Uma página educativa está registrada quando existe uma linha cujo conteudoHtml
+  // casa com o HTML do molde fixo (persistência do molde escolhido).
+  const linhaDoMolde = (html: string) => eduPages.find((p) => p.conteudoHtml === html);
+  const registrado = molde ? Boolean(linhaDoMolde(molde.html)) : false;
+
+  const registrar = async () => {
+    if (!molde) return;
+    try {
+      const res = await fetch(API_EDU, {
+        method: 'POST', headers: jsonHeaders,
+        body: JSON.stringify({ nome: molde.nome, conteudoHtml: molde.html }),
+      });
+      if (res.ok) { notify('Página educativa registrada!', 'success'); onChange(); }
+      else notify('Falha ao registrar a página educativa.', 'error');
+    } catch { notify('Erro de rede ao registrar.', 'error'); }
+  };
+
+  const remover = async () => {
+    if (!molde) return;
+    const linha = linhaDoMolde(molde.html);
+    if (!linha) return;
+    try {
+      const res = await fetch(`${API_EDU}/${linha.id}`, { method: 'DELETE', headers: authHeaders });
+      if (res.ok) { notify('Página educativa removida.', 'success'); onChange(); }
+    } catch { notify('Erro ao remover.', 'error'); }
+  };
+
+  return (
+    <Grid container spacing={3}>
+      <Grid size={{ xs: 12, md: 5 }}>
+        <Paper variant="outlined" sx={{ p: 3, borderRadius: 2 }}>
+          <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mb: 1 }}>Moldes Pedagógicos</Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Catálogo fixo do sistema. Selecione uma abordagem para ler e visualizar. As campanhas escolhem
+            livremente qual molde aplicar ao final do fluxo.
+          </Typography>
+
+          <TextField
+            select fullWidth size="small" label="Escolha o molde educativo"
+            value={selecionado}
+            onChange={(e) => setSelecionado(e.target.value)}
+            sx={{ mb: 2 }}
+          >
+            {educationalTemplates.map((m) => (
+              <MenuItem key={m.id} value={m.id}>{m.nome}</MenuItem>
+            ))}
+          </TextField>
+
+          {molde && (
+            <Stack direction="row" spacing={1} alignItems="center" sx={{ flexWrap: 'wrap', gap: 1, mb: 2 }}>
+              {molde.categoria && <Chip label={molde.categoria} size="small" variant="outlined" color="primary" />}
+              {registrado
+                ? <Chip label="Registrado" size="small" color="success" />
+                : <Chip label="Não registrado" size="small" variant="outlined" />}
+            </Stack>
+          )}
+
+          {registrado ? (
+            <Button variant="outlined" color="error" fullWidth startIcon={<DeleteIcon />} onClick={remover}>
+              Remover registro
+            </Button>
+          ) : (
+            <Button variant="contained" fullWidth startIcon={<PlaylistAddCheckIcon />} onClick={registrar}>
+              Registrar molde
+            </Button>
+          )}
+        </Paper>
+      </Grid>
+
+      <Grid size={{ xs: 12, md: 7 }}>
+        <Typography variant="subtitle2" gutterBottom sx={{ color: 'text.secondary' }}>
+          Preview do molde educativo (visão do alvo ao final da simulação):
+        </Typography>
+        <Paper variant="outlined" sx={{ height: '560px', overflow: 'hidden', borderRadius: 2 }}>
+          <iframe
+            title="Educational Preview"
+            srcDoc={molde?.html ?? '<div style="padding:24px;font-family:sans-serif;color:#999;">Selecione um molde.</div>'}
+            style={{ width: '100%', height: '100%', border: 'none' }}
+          />
+        </Paper>
+      </Grid>
+    </Grid>
   );
 }

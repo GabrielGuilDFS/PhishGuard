@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
     Container, Typography, Box, Button, TextField, Table, TableBody,
     TableCell, TableContainer, TableHead, TableRow, Paper, IconButton,
@@ -7,6 +7,8 @@ import {
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import SendIcon from '@mui/icons-material/Send';
+import { simulationScenarios, type SimulationScenario } from '../data/predefinedTemplates';
+import { CampaignStatus } from '../data/campaignStatus';
 
 
 interface Campaign {
@@ -23,8 +25,38 @@ interface Campaign {
 interface LookupItem {
     id: string;
     nome: string;
-    email?: string; // Adicionado email para os targets
+    email?: string;
+    corpoHtml?: string;    // Templates: carrega o id da isca de e-mail.
+    conteudoHtml?: string; // PhishingPages: carrega o id da landing (página falsa).
 }
+
+// Cenário resolvido para linhas concretas do banco (Template + PhishingPage).
+// Só entra no seletor quando AMBAS as linhas existem — garantido pelo registro
+// feito na Biblioteca de Modelos.
+interface CenarioDisponivel extends SimulationScenario {
+    emailRowId: string;   // Guid da linha em Templates.
+    landingRowId: string; // Guid da linha em PhishingPages.
+}
+
+// Converte um ISO vindo do backend para o formato aceito por <input datetime-local>
+// ('YYYY-MM-DDTHH:mm'). Mantém o horário como está (sem conversão de fuso).
+const toDateTimeLocal = (iso?: string | null) => (iso ? iso.slice(0, 16) : '');
+
+// Extrai uma mensagem legível de uma resposta de erro do ASP.NET Core. O corpo é lido
+// UMA vez como texto (evita "body already consumed") e então tentamos interpretá-lo como
+// JSON: BadRequest com string, { message }, { error }, ou o ProblemDetails de validação
+// ({ title, errors: { campo: string[] } }). Se não for JSON, usa o texto puro / statusText.
+const extrairMensagemDeErro = async (res: Response): Promise<string> => {
+    const raw = await res.text().catch(() => '');
+    try {
+        const data = JSON.parse(raw);
+        if (typeof data === 'string') return data;
+        if (data?.errors) return Object.values(data.errors).flat().join(' ');
+        return data?.message || data?.error || data?.title || raw || res.statusText;
+    } catch {
+        return raw || res.statusText;
+    }
+};
 
 export default function Campaigns() {
     const [campaigns, setCampaigns] = useState<Campaign[]>([]);
@@ -34,13 +66,11 @@ export default function Campaigns() {
     const [open, setOpen] = useState(false);
     const [currentId, setCurrentId] = useState<string | null>(null);
 
-    // 1. ESTADO ATUALIZADO: Adicionado targetsSelecionados como array
     const [formData, setFormData] = useState({
         nomeCampanha: '',
         dataInicio: '',
         dataFim: '',
-        emailTemplateId: null as LookupItem | null,
-        landingPageId: null as LookupItem | null,
+        cenario: null as CenarioDisponivel | null,
         educationalPageId: null as LookupItem | null,
         targetsSelecionados: [] as LookupItem[]
     });
@@ -48,7 +78,7 @@ export default function Campaigns() {
     const [templates, setTemplates] = useState<LookupItem[]>([]);
     const [phishingPages, setPhishingPages] = useState<LookupItem[]>([]);
     const [educationalPages, setEducationalPages] = useState<LookupItem[]>([]);
-    const [targets, setTargets] = useState<LookupItem[]>([]); // Estado para os funcionários
+    const [targets, setTargets] = useState<LookupItem[]>([]);
     const [loadingLookups, setLoadingLookups] = useState(false);
 
     const API_BASE = 'http://localhost:5000/api';
@@ -58,6 +88,19 @@ export default function Campaigns() {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'
     };
+
+    // Cenários disponíveis: um cenário do catálogo só aparece quando existe uma linha
+    // de Template (isca) e uma de PhishingPage (landing) com os identificadores dele.
+    const cenariosDisponiveis = useMemo<CenarioDisponivel[]>(() => {
+        return simulationScenarios
+            .map((s) => {
+                const emailRow = templates.find((t) => t.corpoHtml === s.emailTemplateId);
+                const landingRow = phishingPages.find((p) => p.conteudoHtml === s.landingTemplateId);
+                if (!emailRow || !landingRow) return null;
+                return { ...s, emailRowId: emailRow.id, landingRowId: landingRow.id };
+            })
+            .filter((c): c is CenarioDisponivel => c !== null);
+    }, [templates, phishingPages]);
 
     useEffect(() => {
         fetchCampaigns();
@@ -75,7 +118,7 @@ export default function Campaigns() {
         }
     };
 
-    const openModal = async (campaign?: any) => {
+    const openModal = async (campaign?: Campaign) => {
         let loadedTemplates = templates;
         let loadedPhishingPages = phishingPages;
         let loadedEduPages = educationalPages;
@@ -84,7 +127,6 @@ export default function Campaigns() {
         if (templates.length === 0) {
             setLoadingLookups(true);
             try {
-                // 2. BUSCA: Adicionado fetch de Targets no Promise.all
                 const [tempRes, phishRes, eduRes, targetRes] = await Promise.all([
                     fetch(`${API_BASE}/Templates`, { headers }),
                     fetch(`${API_BASE}/PhishingPages`, { headers }),
@@ -117,15 +159,24 @@ export default function Campaigns() {
                     const data = await res.json();
                     setCurrentId(data.id);
 
-                    // 3. PREENCHER NA EDIÇÃO: Transforma os IDs que vieram do banco nos objetos selecionados
                     const alvosPreSelecionados = loadedTargets.filter(t => data.targetIds?.includes(t.id));
+
+                    // Reconstrói o Cenário a partir dos ids persistidos (casando a linha
+                    // de Template salva na campanha com o cenário do catálogo).
+                    const cenarioReconstruido = simulationScenarios
+                        .map((s) => {
+                            const emailRow = loadedTemplates.find((t) => t.corpoHtml === s.emailTemplateId);
+                            const landingRow = loadedPhishingPages.find((p) => p.conteudoHtml === s.landingTemplateId);
+                            if (!emailRow || !landingRow) return null;
+                            return { ...s, emailRowId: emailRow.id, landingRowId: landingRow.id } as CenarioDisponivel;
+                        })
+                        .find((c) => c?.emailRowId === data.emailTemplateId) ?? null;
 
                     setFormData({
                         nomeCampanha: data.nomeCampanha || '',
-                        dataInicio: data.dataInicio ? data.dataInicio.split('T')[0] : '',
-                        dataFim: data.dataFim ? data.dataFim.split('T')[0] : '',
-                        emailTemplateId: loadedTemplates.find(t => t.id === data.emailTemplateId) || { id: data.emailTemplateId, nome: data.templateNome },
-                        landingPageId: loadedPhishingPages.find(p => p.id === data.landingPageId) || { id: data.landingPageId, nome: data.landingPageNome },
+                        dataInicio: toDateTimeLocal(data.dataInicio),
+                        dataFim: toDateTimeLocal(data.dataFim),
+                        cenario: cenarioReconstruido,
                         educationalPageId: loadedEduPages.find(e => e.id === data.educationalPageId) || { id: data.educationalPageId, nome: data.educationalPageNome },
                         targetsSelecionados: alvosPreSelecionados
                     });
@@ -137,10 +188,9 @@ export default function Campaigns() {
             setCurrentId(null);
             setFormData({
                 nomeCampanha: '',
-                dataInicio: new Date().toISOString().split('T')[0],
+                dataInicio: toDateTimeLocal(new Date().toISOString()),
                 dataFim: '',
-                emailTemplateId: null,
-                landingPageId: null,
+                cenario: null,
                 educationalPageId: null,
                 targetsSelecionados: []
             });
@@ -151,21 +201,21 @@ export default function Campaigns() {
     const closeModal = () => setOpen(false);
 
     const handleSave = async () => {
-        // Validando se selecionou pelo menos um alvo
-        if (!formData.nomeCampanha || !formData.dataInicio || !formData.emailTemplateId || !formData.landingPageId || !formData.educationalPageId || formData.targetsSelecionados.length === 0) {
-            alert('Preencha os campos obrigatórios e selecione pelo menos um alvo.');
+        if (!formData.nomeCampanha || !formData.dataInicio || !formData.cenario || !formData.educationalPageId || formData.targetsSelecionados.length === 0) {
+            alert('Preencha os campos obrigatórios (incluindo o Cenário de Simulação) e selecione pelo menos um alvo.');
             return;
         }
 
-        // 4. MONTAR PAYLOAD: Extrai apenas os IDs do array de objetos
+        // O Cenário resolve os dois ids que o backend espera: a isca de e-mail
+        // (EmailTemplateId) e a página falsa amarrada (LandingPageId).
         const payload = {
             nomeCampanha: formData.nomeCampanha,
             dataInicio: new Date(formData.dataInicio).toISOString(),
             dataFim: formData.dataFim ? new Date(formData.dataFim).toISOString() : null,
-            emailTemplateId: formData.emailTemplateId.id,
-            landingPageId: formData.landingPageId.id,
+            emailTemplateId: formData.cenario.emailRowId,
+            landingPageId: formData.cenario.landingRowId,
             educationalPageId: formData.educationalPageId.id,
-            targetIds: formData.targetsSelecionados.map(t => t.id) // <-- Isso é o que o C# espera!
+            targetIds: formData.targetsSelecionados.map(t => t.id)
         };
 
         const method = currentId ? 'PUT' : 'POST';
@@ -209,25 +259,25 @@ export default function Campaigns() {
 
     const filtered = campaigns.filter(c => c.nomeCampanha.toLowerCase().includes(searchTerm.toLowerCase()));
 
-    const handleStartCampaign = async (id: string) => {
-        if (!window.confirm('Deseja realmente iniciar o disparo desta campanha? Os e-mails serão enviados.')) return;
+    const handleActivateCampaign = async (id: string) => {
+        if (!window.confirm('Deseja ativar esta campanha? Se a data de início já chegou, os e-mails serão disparados agora; caso contrário, ela ficará Agendada até o horário.')) return;
 
         try {
             setLoading(true);
-            const res = await fetch(`${API_BASE}/Campaigns/${id}/iniciar`, {
+            const res = await fetch(`${API_BASE}/Campaigns/${id}/ativar`, {
                 method: 'POST',
                 headers
             });
 
             if (res.ok) {
-                alert('Disparo iniciado com sucesso! Verifique o Mailtrap.');
-                fetchCampaigns(); // Atualiza a tabela para mostrar o status "Em Andamento"
+                const data = await res.json().catch(() => null);
+                alert(data?.message ?? 'Campanha ativada com sucesso!');
+                fetchCampaigns();
             } else {
-                const err = await res.text();
-                alert(`Erro ao iniciar: ${err}`);
+                alert(`Erro ao ativar: ${await extrairMensagemDeErro(res)}`);
             }
         } catch (error) {
-            console.error('Erro ao iniciar disparo', error);
+            console.error('Erro ao ativar campanha', error);
             alert('Falha na comunicação com o servidor.');
         } finally {
             setLoading(false);
@@ -258,11 +308,11 @@ export default function Campaigns() {
                         <TableRow>
                             <TableCell>Nome</TableCell>
                             <TableCell>Status</TableCell>
-                            <TableCell>Data Início</TableCell>
-                            <TableCell>Data Fim</TableCell>
-                            <TableCell>Template</TableCell>
+                            <TableCell>Início</TableCell>
+                            <TableCell>Encerramento da Coleta</TableCell>
+                            <TableCell>E-mail (Cenário)</TableCell>
                             <TableCell>Página Falsa</TableCell>
-                            <TableCell>Página Educacional</TableCell>
+                            <TableCell>Página Educativa</TableCell>
                             <TableCell align="center">Ações</TableCell>
                         </TableRow>
                     </TableHead>
@@ -271,14 +321,14 @@ export default function Campaigns() {
                             <TableRow key={c.id}>
                                 <TableCell>{c.nomeCampanha}</TableCell>
                                 <TableCell>{c.status}</TableCell>
-                                <TableCell>{new Date(c.dataInicio).toLocaleDateString()}</TableCell>
-                                <TableCell>{c.dataFim ? new Date(c.dataFim).toLocaleDateString() : '-'}</TableCell>
+                                <TableCell>{new Date(c.dataInicio).toLocaleString()}</TableCell>
+                                <TableCell>{c.dataFim ? new Date(c.dataFim).toLocaleString() : '-'}</TableCell>
                                 <TableCell>{c.templateNome}</TableCell>
                                 <TableCell>{c.landingPageNome}</TableCell>
                                 <TableCell>{c.educationalPageNome}</TableCell>
                                 <TableCell align="center">
-                                    {c.status === 'Rascunho' && (
-                                        <IconButton onClick={() => handleStartCampaign(c.id)} color="success" title="Iniciar Disparo">
+                                    {c.status === CampaignStatus.Rascunho && (
+                                        <IconButton onClick={() => handleActivateCampaign(c.id)} color="success" title="Ativar Campanha">
                                             <SendIcon />
                                         </IconButton>
                                     )}
@@ -314,8 +364,8 @@ export default function Campaigns() {
 
                             <Box display="flex" gap={2}>
                                 <TextField
-                                    label="Data Início"
-                                    type="date"
+                                    label="Data de Início"
+                                    type="datetime-local"
                                     fullWidth
                                     required
                                     InputLabelProps={{ shrink: true }}
@@ -323,31 +373,31 @@ export default function Campaigns() {
                                     onChange={e => setFormData({ ...formData, dataInicio: e.target.value })}
                                 />
                                 <TextField
-                                    label="Data Fim"
-                                    type="date"
+                                    label="Data de Encerramento da Coleta"
+                                    type="datetime-local"
                                     fullWidth
                                     InputLabelProps={{ shrink: true }}
+                                    helperText="Limite temporal para registrar métricas e cliques desta simulação."
                                     value={formData.dataFim}
                                     onChange={e => setFormData({ ...formData, dataFim: e.target.value })}
                                 />
                             </Box>
 
                             <Autocomplete
-                                options={templates}
+                                options={cenariosDisponiveis}
                                 getOptionLabel={(option) => option.nome || ''}
-                                value={formData.emailTemplateId}
-                                onChange={(_, newValue) => setFormData({ ...formData, emailTemplateId: newValue })}
+                                value={formData.cenario}
+                                onChange={(_, newValue) => setFormData({ ...formData, cenario: newValue })}
                                 isOptionEqualToValue={(option, value) => option.id === value?.id}
-                                renderInput={(params) => <TextField {...params} label="Template de E-mail" required />}
-                            />
-
-                            <Autocomplete
-                                options={phishingPages}
-                                getOptionLabel={(option) => option.nome || ''}
-                                value={formData.landingPageId}
-                                onChange={(_, newValue) => setFormData({ ...formData, landingPageId: newValue })}
-                                isOptionEqualToValue={(option, value) => option.id === value?.id}
-                                renderInput={(params) => <TextField {...params} label="Página Falsa (Landing Page)" required />}
+                                noOptionsText="Nenhum cenário registrado. Registre um na Biblioteca de Modelos."
+                                renderInput={(params) => (
+                                    <TextField
+                                        {...params}
+                                        label="Cenário de Simulação"
+                                        required
+                                        helperText="Amarra o e-mail à página falsa correspondente (ex.: Amazon com Amazon)."
+                                    />
+                                )}
                             />
 
                             <Autocomplete
@@ -356,10 +406,9 @@ export default function Campaigns() {
                                 value={formData.educationalPageId}
                                 onChange={(_, newValue) => setFormData({ ...formData, educationalPageId: newValue })}
                                 isOptionEqualToValue={(option, value) => option.id === value?.id}
-                                renderInput={(params) => <TextField {...params} label="Página Educacional" required />}
+                                renderInput={(params) => <TextField {...params} label="Página Educativa" required />}
                             />
 
-                            {/* O seu componente Múltiplo agora tem todos os dados que precisa! */}
                             <Autocomplete
                                 multiple
                                 options={targets}
