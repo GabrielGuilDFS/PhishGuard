@@ -16,3 +16,7 @@ build/
 
 .vscode/
 diff_status.txt
+
+# Chaves do Data Protection (criptografia da senha SMTP) — NUNCA versionar.
+DataProtection-Keys/
+**/DataProtection-Keys/

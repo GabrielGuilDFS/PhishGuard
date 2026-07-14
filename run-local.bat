@@ -2,14 +2,14 @@
 setlocal
 
 set FRONTEND_PATH=PhishGuard.Frontend
-set WEBAPI_PATH=PhishGuard.Backend\PhishGuard.WebAPI
+set WEBAPI_PATH=PhishGuard.Backend
 
 echo ======================================================
 echo 💻 SUBINDO AMBIENTE LOCAL (HOT-RELOAD ACTIVATED)
 echo ======================================================
 
 echo [1/4] Garantindo que apenas o Banco de Dados (Postgres) esta de pe...
-docker compose up -d postgres
+docker compose up -d db
 
 echo [2/4] Matando processos antigos travados no Windows...
 taskkill /F /IM dotnet.exe >nul 2>&1

@@ -28,13 +28,18 @@ namespace PhishGuard.Backend.Services
     {
         private readonly AppDbContext _context;
         private readonly ILogger<CampaignDispatchService> _logger;
+        private readonly ISmtpCredentialProtector _senhaProtector;
 
         private const string BaseTrackingUrl = "http://localhost:5000/api/tracking";
 
-        public CampaignDispatchService(AppDbContext context, ILogger<CampaignDispatchService> logger)
+        public CampaignDispatchService(
+            AppDbContext context,
+            ILogger<CampaignDispatchService> logger,
+            ISmtpCredentialProtector senhaProtector)
         {
             _context = context;
             _logger = logger;
+            _senhaProtector = senhaProtector;
         }
 
         public async Task DispatchAsync(Campaign campaign, CancellationToken cancellationToken = default)
@@ -60,17 +65,41 @@ namespace PhishGuard.Backend.Services
             if (smtpConfig == null)
                 throw new InvalidOperationException("Configuração SMTP não encontrada para o tenant da campanha.");
 
+            // IDEMPOTÊNCIA: quem já recebeu (log de Envio) é pulado. Carrega o conjunto de
+            // alvos já enviados desta campanha ANTES do loop — assim uma retomada após
+            // queda do worker/container não reenvia para quem já recebeu.
+            var jaEnviados = (await _context.SimulationsLogs
+                    .IgnoreQueryFilters()
+                    .Where(l => l.CampaignId == campaign.Id && l.Acao == SimulationActions.Envio)
+                    .Select(l => l.TargetId)
+                    .ToListAsync(cancellationToken))
+                .ToHashSet();
+
+            var pendentes = campaign.Targets.Where(t => !jaEnviados.Contains(t.Id)).ToList();
+            if (pendentes.Count == 0)
+            {
+                _logger.LogInformation(
+                    "Campanha {CampaignId}: todos os {Total} alvos já haviam sido enviados; nada a fazer.",
+                    campaign.Id, campaign.Targets.Count);
+                campaign.Status = CampaignStatus.EmAndamento;
+                await _context.SaveChangesAsync(cancellationToken);
+                return;
+            }
+
+            // Senha decifrada apenas no momento do uso (proteção em repouso).
+            var senhaSmtp = _senhaProtector.Unprotect(smtpConfig.Senha);
+
             using var client = new SmtpClient();
             await client.ConnectAsync(smtpConfig.Host, smtpConfig.Porta, SecureSocketOptions.StartTls, cancellationToken);
-            await client.AuthenticateAsync(smtpConfig.Usuario, smtpConfig.Senha, cancellationToken);
+            await client.AuthenticateAsync(smtpConfig.Usuario, senhaSmtp, cancellationToken);
 
             // Persiste apenas o IDENTIFICADOR da isca em CorpoHtml; resolve para o HTML real.
             var corpoBase = OfficialBaitCatalog.ResolveHtml(campaign.Template.CorpoHtml);
 
-            foreach (var target in campaign.Targets)
+            foreach (var target in pendentes)
             {
-                // Resiliência (PASSO 2): um alvo com e-mail inválido não pode derrubar o
-                // disparo inteiro. Loga e segue para o próximo destinatário.
+                // Resiliência: um alvo com e-mail inválido não pode derrubar o disparo
+                // inteiro. Loga e segue para o próximo destinatário.
                 try
                 {
                     var message = new MimeMessage();
@@ -91,6 +120,20 @@ namespace PhishGuard.Backend.Services
 
                     await client.SendAsync(message, cancellationToken);
 
+                    // Marca o Envio IMEDIATAMENTE após o sucesso e persiste, para que uma
+                    // queda logo em seguida não faça o alvo ser reenviado na retomada.
+                    _context.SimulationsLogs.Add(new SimulationLog
+                    {
+                        Id = Guid.NewGuid(),
+                        TenantId = campaign.TenantId,
+                        CampaignId = campaign.Id,
+                        TargetId = target.Id,
+                        Acao = SimulationActions.Envio,
+                        DataHora = DateTime.UtcNow,
+                        IpOrigem = "SISTEMA"
+                    });
+                    await _context.SaveChangesAsync(cancellationToken);
+
                     // THROTTLING: pausa para não ser banido por spam pelo provedor SMTP.
                     await Task.Delay(1000, cancellationToken);
                 }
@@ -102,6 +145,7 @@ namespace PhishGuard.Backend.Services
 
             await client.DisconnectAsync(true, cancellationToken);
 
+            // Lote 100% processado: sai de "Processando" para "Em Andamento" (coleta).
             campaign.Status = CampaignStatus.EmAndamento;
             await _context.SaveChangesAsync(cancellationToken);
         }

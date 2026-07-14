@@ -74,9 +74,18 @@ namespace PhishGuard.Backend.BackgroundServices
             await FinalizarEncerradasAsync(context, agora, stoppingToken);
         }
 
-        // (1) DISPARO: dispara APENAS campanhas já ativadas como "Agendada" cujo horário de
-        // início chegou. Campanhas em "Rascunho" (não ativadas) são ignoradas — a transição
-        // Rascunho → Agendada é feita explicitamente pelo endpoint /ativar.
+        // (1) DISPARO: processa campanhas "Agendada" cujo horário de início chegou E
+        // campanhas "Processando" (claim já feito, mas o lote ainda não terminou — típico
+        // de uma RETOMADA após queda do container). Campanhas em "Rascunho" são ignoradas.
+        //
+        // Claim atômico: antes de disparar, a "Agendada" é movida para "Processando" e
+        // PERSISTIDA. Se o processo cair no meio do lote, a campanha permanece
+        // "Processando" e é reprocessada aqui, com o disparo pulando (idempotência) quem
+        // já recebeu. Uma "Agendada" que caísse antes do claim não seria reenviada em
+        // duplicidade, apenas reprocessada do zero de forma idempotente.
+        // NOTA (scale-out): com múltiplas instâncias do worker, este claim load→save deve
+        // virar um UPDATE condicional com token de concorrência (xmin/rowversion) para ser
+        // atômico entre processos. Com uma única instância (arquitetura atual) já é seguro.
         //
         // IgnoreQueryFilters: o worker é um processo de sistema, sem contexto de tenant.
         // Opera sobre todas as campanhas e cada disparo é escopado pelo TenantId próprio
@@ -88,17 +97,18 @@ namespace PhishGuard.Backend.BackgroundServices
                 .IgnoreQueryFilters()
                 .Include(c => c.Template)
                 .Include(c => c.Targets)
-                .Where(c => c.Status == CampaignStatus.Agendada && c.DataInicio <= agora)
+                .Where(c => (c.Status == CampaignStatus.Agendada && c.DataInicio <= agora)
+                            || c.Status == CampaignStatus.Processando)
                 .ToListAsync(stoppingToken);
 
             if (elegiveis.Count == 0)
                 return;
 
-            _logger.LogInformation("{Total} campanha(s) agendada(s) elegível(is) para disparo.", elegiveis.Count);
+            _logger.LogInformation("{Total} campanha(s) elegível(is) para disparo/retomada.", elegiveis.Count);
 
             foreach (var campanha in elegiveis)
             {
-                // Isolamento por campanha (PASSO 2): a falha no disparo de UMA campanha não
+                // Isolamento por campanha: a falha no disparo de UMA campanha não
                 // interrompe as demais nem derruba o serviço.
                 try
                 {
@@ -106,6 +116,27 @@ namespace PhishGuard.Backend.BackgroundServices
                     {
                         _logger.LogWarning("Campanha {Id} sem alvos associados; ignorada neste ciclo.", campanha.Id);
                         continue;
+                    }
+
+                    // Claim ATÔMICO: reivindica a campanha antes de enviar (persistido). O
+                    // token de concorrência 'xmin' (ver AppDbContext) garante que, com
+                    // múltiplas instâncias do worker, apenas UMA vença o claim — a perdedora
+                    // recebe DbUpdateConcurrencyException e pula a campanha neste ciclo,
+                    // evitando disparo duplicado do lote.
+                    if (campanha.Status == CampaignStatus.Agendada)
+                    {
+                        campanha.Status = CampaignStatus.Processando;
+                        try
+                        {
+                            await context.SaveChangesAsync(stoppingToken);
+                        }
+                        catch (DbUpdateConcurrencyException)
+                        {
+                            _logger.LogInformation(
+                                "Campanha {Id} já reivindicada por outra instância; ignorada neste ciclo.",
+                                campanha.Id);
+                            continue;
+                        }
                     }
 
                     await dispatcher.DispatchAsync(campanha, stoppingToken);

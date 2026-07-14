@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using PhishGuard.Backend.Data;
 using PhishGuard.Backend.DTOs;
 using PhishGuard.Backend.Models;
+using PhishGuard.Backend.Services;
 using System.Net;
 using MailKit.Net.Smtp;
 using MailKit.Security;
@@ -18,11 +19,16 @@ namespace PhishGuard.Backend.Controllers
     {
         private readonly AppDbContext _context;
         private readonly ITenantProvider _tenantProvider;
+        private readonly ISmtpCredentialProtector _senhaProtector;
 
-        public SmtpConfigController(AppDbContext context, ITenantProvider tenantProvider)
+        public SmtpConfigController(
+            AppDbContext context,
+            ITenantProvider tenantProvider,
+            ISmtpCredentialProtector senhaProtector)
         {
             _context = context;
             _tenantProvider = tenantProvider;
+            _senhaProtector = senhaProtector;
         }
 
         [HttpGet]
@@ -31,12 +37,16 @@ namespace PhishGuard.Backend.Controllers
             var config = await _context.SmtpConfigs.FirstOrDefaultAsync();
             if (config == null) return NotFound("Nenhuma configuração de SMTP encontrada para este tenant.");
 
+            // A senha (cifrada) NUNCA é devolvida ao frontend — só um indicador de que
+            // existe. Isso evita expor a credencial e evita que o próximo save a
+            // sobrescreva com uma máscara enviada de volta pela tela.
             return new SmtpConfigDto
             {
                 Host = config.Host,
                 Porta = config.Porta,
                 Usuario = config.Usuario,
-                Senha = ""
+                Senha = "",
+                SenhaConfigurada = !string.IsNullOrEmpty(config.Senha)
             };
         }
 
@@ -55,9 +65,11 @@ namespace PhishGuard.Backend.Controllers
                 config.Porta = dto.Porta;
                 config.Usuario = dto.Usuario;
 
+                // Só sobrescreve a senha quando o formulário envia uma nova (o GET
+                // devolve senha vazia). Cifra ANTES de persistir (proteção em repouso).
                 if (!string.IsNullOrWhiteSpace(dto.Senha))
                 {
-                    config.Senha = dto.Senha;
+                    config.Senha = _senhaProtector.Protect(dto.Senha);
                 }
             }
             else
@@ -69,7 +81,7 @@ namespace PhishGuard.Backend.Controllers
                     Host = dto.Host,
                     Porta = dto.Porta,
                     Usuario = dto.Usuario,
-                    Senha = dto.Senha
+                    Senha = _senhaProtector.Protect(dto.Senha)
                 };
 
                 _context.SmtpConfigs.Add(config);
@@ -102,7 +114,7 @@ namespace PhishGuard.Backend.Controllers
                 host = smtpConfig.Host;
                 porta = smtpConfig.Porta;
                 usuario = smtpConfig.Usuario;
-                senha = smtpConfig.Senha;
+                senha = _senhaProtector.Unprotect(smtpConfig.Senha); // decifra só no uso
             }
             else
             {
@@ -118,7 +130,10 @@ namespace PhishGuard.Backend.Controllers
                 host = !string.IsNullOrWhiteSpace(config.Host) ? config.Host : (smtpSalvo?.Host ?? "");
                 porta = config.Porta > 0 ? config.Porta : (smtpSalvo?.Porta ?? 0);
                 usuario = !string.IsNullOrWhiteSpace(config.Usuario) ? config.Usuario : (smtpSalvo?.Usuario ?? "");
-                senha = !string.IsNullOrWhiteSpace(config.Senha) ? config.Senha : (smtpSalvo?.Senha ?? "");
+                // Senha do formulário (texto puro) tem prioridade; senão, decifra a salva.
+                senha = !string.IsNullOrWhiteSpace(config.Senha)
+                    ? config.Senha
+                    : _senhaProtector.Unprotect(smtpSalvo?.Senha);
                 emailDestino = config.EmailDestino ?? "";
 
                 if (string.IsNullOrEmpty(host)) return BadRequest("O campo Host é obrigatório.");

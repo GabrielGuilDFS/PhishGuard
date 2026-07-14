@@ -285,6 +285,10 @@ function CenariosTab({ registrado, onRegistrar, onRemover }: {
             <iframe
               title={modo === 'email' ? 'Email Preview' : 'Landing Preview'}
               srcDoc={previewSrcDoc}
+              // Segurança (XSS): 'allow-same-origin' SEM 'allow-scripts' isola o HTML
+              // clonado — scripts injetados não executam e não conseguem ler o JWT em
+              // localStorage do painel administrativo.
+              sandbox="allow-same-origin"
               style={{ width: '100%', height: '100%', border: 'none' }}
             />
           </Paper>
@@ -392,6 +396,8 @@ function EducativasTab({ eduPages, jsonHeaders, authHeaders, onChange, notify }:
           <iframe
             title="Educational Preview"
             srcDoc={molde?.html ?? '<div style="padding:24px;font-family:sans-serif;color:#999;">Selecione um molde.</div>'}
+            // Segurança (XSS): isola o preview sem permitir execução de scripts.
+            sandbox="allow-same-origin"
             style={{ width: '100%', height: '100%', border: 'none' }}
           />
         </Paper>

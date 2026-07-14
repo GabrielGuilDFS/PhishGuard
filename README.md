@@ -41,7 +41,7 @@ O projeto se diferencia por adotar uma **Arquitetura Multi-Tenant** escalável, 
 * **Funcionalidades:** Context API para gerenciamento de estado e notificações, PapaParse para processamento rápido de CSV.
 
 ### Infraestrutura & Ferramentas
-* **Contêineres:** Docker e Docker Compose (Orquestração do ambiente de desenvolvimento local para o banco de dados e pgAdmin).
+* **Contêineres:** Docker e Docker Compose (orquestração do ambiente local: PostgreSQL, backend e frontend).
 * **Motor de E-mail:** Protocolo SMTP (Suporte a SendGrid/Mailtrap) para o disparo automatizado das campanhas.
 * **CI/CD:** GitHub Actions (Planejado).
 
@@ -74,10 +74,11 @@ O projeto encontra-se em desenvolvimento ativo. Abaixo, o status dos módulos pr
 - [x] **Moldes Corporativos:** Templates pré-fabricados de alto risco (ex: Login Microsoft 365, Portal de Intranet Genérico).
 - [x] **Isolamento de Visualização:** Live Preview do ataque rodando em ambiente seguro e contido utilizando `iframe` para evitar vazamento de CSS.
 
-### 📧 4. Campanhas para Disparo (Próximo Passo) 
-- [ ] Criação de Campanhas (Mapeamento: Alvos + e-mail falso + pagina falsa).
-- [ ] Integração com serviço SMTP para envio real dos e-mails.
-- [ ] Rastreamento de Ações (Abertura de E-mail, Clique no Link, Submissão de Dados Comprometedores).
+### 📧 4. Campanhas para Disparo (Implementado)
+- [x] **Criação de Campanhas:** mapeamento de Alvos + e-mail falso + página falsa + página educativa.
+- [x] **Agendamento e Disparo Automático:** `CampaignSchedulerWorker` (BackgroundService) dispara no horário agendado e finaliza a coleta automaticamente; disparo assíncrono e **idempotente** (retomada sem duplicar e-mails).
+- [x] **Integração SMTP real:** envio via MailKit com credenciais por-tenant (senha cifrada em repouso via Data Protection).
+- [x] **Rastreamento de Ações:** Envio, Abertura (pixel), Clique (redirect) e Submissão de Dados registrados em `simulations_logs`.
 
 ---
 
@@ -96,36 +97,32 @@ Para viabilizar o desenvolvimento dentro do cronograma acadêmico, o projeto seg
 ### Pré-requisitos
 * [.NET SDK 8.0+](https://dotnet.microsoft.com/download)
 * [Node.js (LTS v18+)](https://nodejs.org/)
-* [PostgreSQL](https://www.postgresql.org/)
+* [Docker + Docker Compose](https://www.docker.com/) (sobe o PostgreSQL)
 
-### 1. Configuração do Backend
+> **Segredo do JWT:** a chave de assinatura NÃO fica versionada. Defina-a via variável
+> de ambiente `AppSettings__Token` (ver `.env` para o Docker) ou, em dev local, via
+> user-secrets: `dotnet user-secrets set "AppSettings:Token" "<chave-longa>" --project PhishGuard.Backend`.
+
+### Opção A — Stack completa via Docker (recomendado)
 ```bash
-# Clone o repositório
-git clone [https://github.com/GabrielGuilDFS/PhishGuard.git](https://github.com/GabrielGuilDFS/PhishGuard.git)
+git clone https://github.com/GabrielGuilDFS/PhishGuard.git
+cd PhishGuard
 
-# Acesse a pasta da API
-cd PhishGuard.Backend
-
-# Configure a ConnectionString no appsettings.json
-# Certifique-se de que o PostgreSQL está rodando
-
-# Execute as migrações (Criação das tabelas e Tenants)
-dotnet ef database update
-
-# Inicie a API
-dotnet run
+# Sobe db (5433) + backend (5000) + frontend (5173).
+# O backend aplica as migrations automaticamente no startup — não é preciso rodar
+# `dotnet ef database update` manualmente.
+docker compose up -d --build
 ```
-### 2. Configuração do Frontend
+
+### Opção B — Desenvolvimento local com hot-reload
 ```bash
+# Atalho (Windows): sobe só o Postgres (serviço `db`) e abre backend + frontend.
+run-local.bat
 
-# Acesse a pasta do Frontend
-cd PhishGuard.Frontend
-
-# Instale as dependências
-npm install
-
-# Inicie o servidor
-npm run dev
+# ...ou manualmente, em terminais separados:
+docker compose up -d db
+cd PhishGuard.Backend && dotnet watch run     # API em http://localhost:5000 (Swagger em /swagger)
+cd PhishGuard.Frontend && npm install && npm run dev   # SPA em http://localhost:5173
 ```
 ### 🔮 Trabalhos Futuros (Roadmap)
 

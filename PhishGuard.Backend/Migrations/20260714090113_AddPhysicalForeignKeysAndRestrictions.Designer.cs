@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using PhishGuard.Backend.Data;
@@ -11,9 +12,11 @@ using PhishGuard.Backend.Data;
 namespace PhishGuard.Backend.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260714090113_AddPhysicalForeignKeysAndRestrictions")]
+    partial class AddPhysicalForeignKeysAndRestrictions
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -25,110 +28,88 @@ namespace PhishGuard.Backend.Migrations
             modelBuilder.Entity("CampaignTarget", b =>
                 {
                     b.Property<Guid>("CampaignsId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("campaigns_id");
+                        .HasColumnType("uuid");
 
                     b.Property<Guid>("TargetsId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("targets_id");
+                        .HasColumnType("uuid");
 
-                    b.HasKey("CampaignsId", "TargetsId")
-                        .HasName("pk_campaign_target");
+                    b.HasKey("CampaignsId", "TargetsId");
 
-                    b.HasIndex("TargetsId")
-                        .HasDatabaseName("ix_campaign_target_targets_id");
+                    b.HasIndex("TargetsId");
 
-                    b.ToTable("campaign_target");
+                    b.ToTable("CampaignTarget");
                 });
 
             modelBuilder.Entity("PhishGuard.Backend.Models.Administrador", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
+                        .HasColumnType("uuid");
 
                     b.Property<string>("Email")
                         .IsRequired()
                         .HasMaxLength(150)
-                        .HasColumnType("character varying(150)")
-                        .HasColumnName("email");
+                        .HasColumnType("character varying(150)");
 
                     b.Property<string>("Nome")
                         .IsRequired()
                         .HasMaxLength(150)
-                        .HasColumnType("character varying(150)")
-                        .HasColumnName("nome");
+                        .HasColumnType("character varying(150)");
 
                     b.Property<string>("PasswordHash")
                         .IsRequired()
                         .HasMaxLength(255)
-                        .HasColumnType("character varying(255)")
-                        .HasColumnName("password_hash");
+                        .HasColumnType("character varying(255)");
 
                     b.Property<Guid>("TenantId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("tenant_id");
+                        .HasColumnType("uuid");
 
-                    b.HasKey("Id")
-                        .HasName("pk_administradores");
+                    b.HasKey("Id");
 
                     b.HasIndex("Email")
-                        .IsUnique()
-                        .HasDatabaseName("ix_administradores_email");
+                        .IsUnique();
 
-                    b.HasIndex("TenantId")
-                        .HasDatabaseName("ix_administradores_tenant_id");
+                    b.HasIndex("TenantId");
 
-                    b.ToTable("administradores");
+                    b.ToTable("Administradores");
                 });
 
             modelBuilder.Entity("PhishGuard.Backend.Models.Campaign", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
+                        .HasColumnType("uuid");
 
                     b.Property<DateTime>("CriadoEm")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("criado_em");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<DateTime?>("DataFim")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("data_fim");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<DateTime>("DataInicio")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("data_inicio");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<Guid>("EducationalPageId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("educational_page_id");
+                        .HasColumnType("uuid");
 
                     b.Property<Guid>("EmailTemplateId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("email_template_id");
+                        .HasColumnType("uuid");
 
                     b.Property<Guid>("LandingPageId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("landing_page_id");
+                        .HasColumnType("uuid");
 
                     b.Property<string>("NomeCampanha")
                         .IsRequired()
                         .HasMaxLength(150)
-                        .HasColumnType("character varying(150)")
-                        .HasColumnName("nome_campanha");
+                        .HasColumnType("character varying(150)");
 
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(20)
-                        .HasColumnType("character varying(20)")
-                        .HasColumnName("status");
+                        .HasColumnType("character varying(20)");
 
                     b.Property<Guid>("TenantId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("tenant_id");
+                        .HasColumnType("uuid");
 
                     b.Property<uint>("xmin")
                         .IsConcurrencyToken()
@@ -136,100 +117,80 @@ namespace PhishGuard.Backend.Migrations
                         .HasColumnType("xid")
                         .HasColumnName("xmin");
 
-                    b.HasKey("Id")
-                        .HasName("pk_campaigns");
+                    b.HasKey("Id");
 
-                    b.HasIndex("EducationalPageId")
-                        .HasDatabaseName("ix_campaigns_educational_page_id");
+                    b.HasIndex("EducationalPageId");
 
-                    b.HasIndex("EmailTemplateId")
-                        .HasDatabaseName("ix_campaigns_email_template_id");
+                    b.HasIndex("EmailTemplateId");
 
-                    b.HasIndex("LandingPageId")
-                        .HasDatabaseName("ix_campaigns_landing_page_id");
+                    b.HasIndex("LandingPageId");
 
-                    b.HasIndex("TenantId")
-                        .HasDatabaseName("ix_campaigns_tenant_id");
+                    b.HasIndex("TenantId");
 
-                    b.ToTable("campaigns", (string)null);
+                    b.ToTable("Campaigns", (string)null);
                 });
 
             modelBuilder.Entity("PhishGuard.Backend.Models.EducationalPage", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
+                        .HasColumnType("uuid");
 
                     b.Property<DateTime>("CriadoEm")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("criado_em");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("HtmlEducacional")
                         .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("html_educacional");
+                        .HasColumnType("text");
 
                     b.Property<string>("Nome")
                         .IsRequired()
                         .HasMaxLength(100)
-                        .HasColumnType("character varying(100)")
-                        .HasColumnName("nome");
+                        .HasColumnType("character varying(100)");
 
                     b.Property<Guid>("TenantId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("tenant_id");
+                        .HasColumnType("uuid");
 
-                    b.HasKey("Id")
-                        .HasName("pk_educational_pages");
+                    b.HasKey("Id");
 
-                    b.HasIndex("TenantId")
-                        .HasDatabaseName("ix_educational_pages_tenant_id");
+                    b.HasIndex("TenantId");
 
-                    b.ToTable("educational_pages", (string)null);
+                    b.ToTable("EducationalPages", (string)null);
                 });
 
             modelBuilder.Entity("PhishGuard.Backend.Models.PhishingPage", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
+                        .HasColumnType("uuid");
 
                     b.Property<DateTime>("CriadoEm")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("criado_em");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("HtmlCaptura")
                         .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("html_captura");
+                        .HasColumnType("text");
 
                     b.Property<string>("Nome")
                         .IsRequired()
                         .HasMaxLength(100)
-                        .HasColumnType("character varying(100)")
-                        .HasColumnName("nome");
+                        .HasColumnType("character varying(100)");
 
                     b.Property<Guid>("TenantId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("tenant_id");
+                        .HasColumnType("uuid");
 
-                    b.HasKey("Id")
-                        .HasName("pk_phishing_pages");
+                    b.HasKey("Id");
 
-                    b.HasIndex("TenantId")
-                        .HasDatabaseName("ix_phishing_pages_tenant_id");
+                    b.HasIndex("TenantId");
 
-                    b.ToTable("phishing_pages", (string)null);
+                    b.ToTable("PhishingPages", (string)null);
                 });
 
             modelBuilder.Entity("PhishGuard.Backend.Models.SimulationLog", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
+                        .HasColumnType("uuid");
 
                     b.Property<string>("Acao")
                         .IsRequired()
@@ -259,17 +220,13 @@ namespace PhishGuard.Backend.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("tenant_id");
 
-                    b.HasKey("Id")
-                        .HasName("pk_simulations_logs");
+                    b.HasKey("Id");
 
-                    b.HasIndex("CampaignId")
-                        .HasDatabaseName("ix_simulations_logs_campaign_id");
+                    b.HasIndex("CampaignId");
 
-                    b.HasIndex("TargetId")
-                        .HasDatabaseName("ix_simulations_logs_target_id");
+                    b.HasIndex("TargetId");
 
-                    b.HasIndex("TenantId")
-                        .HasDatabaseName("ix_simulations_logs_tenant_id");
+                    b.HasIndex("TenantId");
 
                     b.ToTable("simulations_logs");
                 });
@@ -278,41 +235,33 @@ namespace PhishGuard.Backend.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
+                        .HasColumnType("uuid");
 
                     b.Property<string>("Host")
                         .IsRequired()
                         .HasMaxLength(100)
-                        .HasColumnType("character varying(100)")
-                        .HasColumnName("host");
+                        .HasColumnType("character varying(100)");
 
                     b.Property<int>("Porta")
-                        .HasColumnType("integer")
-                        .HasColumnName("porta");
+                        .HasColumnType("integer");
 
                     b.Property<string>("Senha")
                         .IsRequired()
                         .HasMaxLength(255)
-                        .HasColumnType("character varying(255)")
-                        .HasColumnName("senha");
+                        .HasColumnType("character varying(255)");
 
                     b.Property<Guid>("TenantId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("tenant_id");
+                        .HasColumnType("uuid");
 
                     b.Property<string>("Usuario")
                         .IsRequired()
                         .HasMaxLength(150)
-                        .HasColumnType("character varying(150)")
-                        .HasColumnName("usuario");
+                        .HasColumnType("character varying(150)");
 
-                    b.HasKey("Id")
-                        .HasName("pk_smtp_configs");
+                    b.HasKey("Id");
 
                     b.HasIndex("TenantId")
-                        .IsUnique()
-                        .HasDatabaseName("ix_smtp_configs_tenant_id");
+                        .IsUnique();
 
                     b.ToTable("smtp_configs", (string)null);
                 });
@@ -321,136 +270,111 @@ namespace PhishGuard.Backend.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
+                        .HasColumnType("uuid");
 
                     b.Property<string>("Departamento")
                         .IsRequired()
                         .HasMaxLength(80)
-                        .HasColumnType("character varying(80)")
-                        .HasColumnName("departamento");
+                        .HasColumnType("character varying(80)");
 
                     b.Property<string>("Email")
                         .IsRequired()
                         .HasMaxLength(150)
-                        .HasColumnType("character varying(150)")
-                        .HasColumnName("email");
+                        .HasColumnType("character varying(150)");
 
                     b.Property<string>("Nome")
                         .IsRequired()
                         .HasMaxLength(150)
-                        .HasColumnType("character varying(150)")
-                        .HasColumnName("nome");
+                        .HasColumnType("character varying(150)");
 
                     b.Property<Guid>("TenantId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("tenant_id");
+                        .HasColumnType("uuid");
 
-                    b.HasKey("Id")
-                        .HasName("pk_alvos");
+                    b.HasKey("Id");
 
-                    b.HasIndex("TenantId")
-                        .HasDatabaseName("ix_alvos_tenant_id");
+                    b.HasIndex("TenantId");
 
-                    b.ToTable("alvos", (string)null);
+                    b.ToTable("Alvos", (string)null);
                 });
 
             modelBuilder.Entity("PhishGuard.Backend.Models.Template", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
+                        .HasColumnType("uuid");
 
                     b.Property<string>("Assunto")
                         .IsRequired()
                         .HasMaxLength(150)
-                        .HasColumnType("character varying(150)")
-                        .HasColumnName("assunto");
+                        .HasColumnType("character varying(150)");
 
                     b.Property<string>("CorpoHtml")
                         .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("corpo_html");
+                        .HasColumnType("text");
 
                     b.Property<DateTime>("CriadoEm")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("criado_em");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("Nome")
                         .IsRequired()
                         .HasMaxLength(100)
-                        .HasColumnType("character varying(100)")
-                        .HasColumnName("nome");
+                        .HasColumnType("character varying(100)");
 
                     b.Property<string>("RemetenteEmail")
                         .IsRequired()
                         .HasMaxLength(150)
-                        .HasColumnType("character varying(150)")
-                        .HasColumnName("remetente_email");
+                        .HasColumnType("character varying(150)");
 
                     b.Property<string>("RemetenteNome")
                         .IsRequired()
                         .HasMaxLength(100)
-                        .HasColumnType("character varying(100)")
-                        .HasColumnName("remetente_nome");
+                        .HasColumnType("character varying(100)");
 
                     b.Property<Guid>("TenantId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("tenant_id");
+                        .HasColumnType("uuid");
 
-                    b.HasKey("Id")
-                        .HasName("pk_templates");
+                    b.HasKey("Id");
 
-                    b.HasIndex("TenantId")
-                        .HasDatabaseName("ix_templates_tenant_id");
+                    b.HasIndex("TenantId");
 
-                    b.ToTable("templates", (string)null);
+                    b.ToTable("Templates", (string)null);
                 });
 
             modelBuilder.Entity("PhishGuard.Backend.Models.Tenant", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
+                        .HasColumnType("uuid");
 
                     b.Property<bool>("Ativo")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("boolean")
-                        .HasDefaultValue(true)
-                        .HasColumnName("ativo");
+                        .HasDefaultValue(true);
 
                     b.Property<string>("Cnpj")
                         .IsRequired()
                         .HasMaxLength(14)
-                        .HasColumnType("character varying(14)")
-                        .HasColumnName("cnpj");
+                        .HasColumnType("character varying(14)");
 
                     b.Property<DateTime>("CriadoEm")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("criado_em");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("NomeEmpresa")
                         .IsRequired()
                         .HasMaxLength(150)
-                        .HasColumnType("character varying(150)")
-                        .HasColumnName("nome_empresa");
+                        .HasColumnType("character varying(150)");
 
                     b.Property<int>("Plano")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("integer")
-                        .HasDefaultValue(0)
-                        .HasColumnName("plano");
+                        .HasDefaultValue(0);
 
-                    b.HasKey("Id")
-                        .HasName("pk_tenants");
+                    b.HasKey("Id");
 
                     b.HasIndex("Cnpj")
-                        .IsUnique()
-                        .HasDatabaseName("ix_tenants_cnpj");
+                        .IsUnique();
 
-                    b.ToTable("tenants");
+                    b.ToTable("Tenants");
                 });
 
             modelBuilder.Entity("CampaignTarget", b =>
@@ -459,15 +383,13 @@ namespace PhishGuard.Backend.Migrations
                         .WithMany()
                         .HasForeignKey("CampaignsId")
                         .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_campaign_target_campaigns_campaigns_id");
+                        .IsRequired();
 
                     b.HasOne("PhishGuard.Backend.Models.Target", null)
                         .WithMany()
                         .HasForeignKey("TargetsId")
                         .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_campaign_target_alvos_targets_id");
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("PhishGuard.Backend.Models.Administrador", b =>
@@ -476,8 +398,7 @@ namespace PhishGuard.Backend.Migrations
                         .WithMany("Administradores")
                         .HasForeignKey("TenantId")
                         .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_administradores_tenants_tenant_id");
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("PhishGuard.Backend.Models.Campaign", b =>
@@ -486,29 +407,25 @@ namespace PhishGuard.Backend.Migrations
                         .WithMany()
                         .HasForeignKey("EducationalPageId")
                         .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired()
-                        .HasConstraintName("fk_campaigns_educational_pages_educational_page_id");
+                        .IsRequired();
 
                     b.HasOne("PhishGuard.Backend.Models.Template", "Template")
                         .WithMany()
                         .HasForeignKey("EmailTemplateId")
                         .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired()
-                        .HasConstraintName("fk_campaigns_templates_email_template_id");
+                        .IsRequired();
 
                     b.HasOne("PhishGuard.Backend.Models.PhishingPage", "PhishingPage")
                         .WithMany()
                         .HasForeignKey("LandingPageId")
                         .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired()
-                        .HasConstraintName("fk_campaigns_phishing_pages_landing_page_id");
+                        .IsRequired();
 
                     b.HasOne("PhishGuard.Backend.Models.Tenant", null)
                         .WithMany()
                         .HasForeignKey("TenantId")
                         .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_campaigns_tenants_tenant_id");
+                        .IsRequired();
 
                     b.Navigation("EducationalPage");
 
@@ -523,8 +440,7 @@ namespace PhishGuard.Backend.Migrations
                         .WithMany()
                         .HasForeignKey("TenantId")
                         .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_educational_pages_tenants_tenant_id");
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("PhishGuard.Backend.Models.PhishingPage", b =>
@@ -533,8 +449,7 @@ namespace PhishGuard.Backend.Migrations
                         .WithMany()
                         .HasForeignKey("TenantId")
                         .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_phishing_pages_tenants_tenant_id");
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("PhishGuard.Backend.Models.SimulationLog", b =>
@@ -543,22 +458,19 @@ namespace PhishGuard.Backend.Migrations
                         .WithMany()
                         .HasForeignKey("CampaignId")
                         .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_simulations_logs_campaigns_campaign_id");
+                        .IsRequired();
 
                     b.HasOne("PhishGuard.Backend.Models.Target", null)
                         .WithMany()
                         .HasForeignKey("TargetId")
                         .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_simulations_logs_alvos_target_id");
+                        .IsRequired();
 
                     b.HasOne("PhishGuard.Backend.Models.Tenant", null)
                         .WithMany()
                         .HasForeignKey("TenantId")
                         .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_simulations_logs_tenants_tenant_id");
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("PhishGuard.Backend.Models.SmtpConfig", b =>
@@ -567,8 +479,7 @@ namespace PhishGuard.Backend.Migrations
                         .WithOne("SmtpConfig")
                         .HasForeignKey("PhishGuard.Backend.Models.SmtpConfig", "TenantId")
                         .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_smtp_configs_tenants_tenant_id");
+                        .IsRequired();
 
                     b.Navigation("Tenant");
                 });
@@ -579,8 +490,7 @@ namespace PhishGuard.Backend.Migrations
                         .WithMany("Alvos")
                         .HasForeignKey("TenantId")
                         .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_alvos_tenants_tenant_id");
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("PhishGuard.Backend.Models.Template", b =>
@@ -589,8 +499,7 @@ namespace PhishGuard.Backend.Migrations
                         .WithMany()
                         .HasForeignKey("TenantId")
                         .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_templates_tenants_tenant_id");
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("PhishGuard.Backend.Models.Tenant", b =>

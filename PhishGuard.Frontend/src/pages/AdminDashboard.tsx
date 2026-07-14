@@ -68,7 +68,7 @@ export default function AdminDashboard() {
   const [metrics, setMetrics] = useState({
     totalColaboradores: 0,
     campanhasAtivas: 0,
-    emailsTeste: 0,
+    emailsDisparados: 0,
     riscoGlobal: 0
   });
   const [departments, setDepartments] = useState<any[]>([]);
@@ -107,7 +107,7 @@ export default function AdminDashboard() {
   const overviewCards = [
     { title: 'Total de Colaboradores', value: metrics.totalColaboradores.toLocaleString('pt-BR'), icon: PeopleIcon },
     { title: 'Campanhas Ativas', value: metrics.campanhasAtivas.toString(), icon: CampaignIcon },
-    { title: 'E-mails de Teste', value: metrics.emailsTeste.toLocaleString('pt-BR'), icon: MailIcon },
+    { title: 'E-mails Disparados', value: metrics.emailsDisparados.toLocaleString('pt-BR'), icon: MailIcon },
     { title: 'Risco Global', value: `${metrics.riscoGlobal}%`, icon: SecurityIcon },
   ];
   return (

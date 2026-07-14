@@ -4,6 +4,8 @@
     <TargetFramework>net8.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <!-- Habilita user-secrets em dev local (segredo do JWT fora do controle de versão). -->
+    <UserSecretsId>phishguard-backend-tg2</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>

@@ -4,7 +4,6 @@ using Microsoft.EntityFrameworkCore;
 using PhishGuard.Backend.Data;
 using PhishGuard.Backend.Models;
 using PhishGuard.Backend.DTOs;
-using PhishGuard.Backend.Services;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -19,16 +18,14 @@ namespace PhishGuard.Backend.Controllers
     {
         private readonly AppDbContext _context;
         private readonly ITenantProvider _tenantProvider;
-        private readonly ICampaignDispatchService _dispatchService;
 
-        public CampaignsController(
-            AppDbContext context,
-            ITenantProvider tenantProvider,
-            ICampaignDispatchService dispatchService)
+        // O disparo de e-mails NÃO é responsabilidade deste controller: ele apenas
+        // transiciona o estado da campanha. O envio assíncrono fica a cargo do
+        // CampaignSchedulerWorker (baixo acoplamento + resiliência).
+        public CampaignsController(AppDbContext context, ITenantProvider tenantProvider)
         {
             _context = context;
             _tenantProvider = tenantProvider;
-            _dispatchService = dispatchService;
         }
 
         [HttpGet]
@@ -125,16 +122,17 @@ namespace PhishGuard.Backend.Controllers
             });
         }
 
-        // Ativa (homologa) uma campanha em Rascunho. Decide entre AGENDAR ou DISPARAR JÁ
-        // conforme a DataInicio, implementando a transição Rascunho → Agendada/Em Andamento.
+        // Ativa (homologa) uma campanha em Rascunho. NÃO dispara e-mails na thread HTTP:
+        // apenas transiciona o estado e delega o envio (assíncrono) ao worker.
+        //  - DataInicio no FUTURO  → "Agendada" (o worker dispara no horário).
+        //  - DataInicio já atingida → CLAIM "Processando" (o worker envia no próximo ciclo).
         [HttpPost("{id}/ativar")]
         public async Task<IActionResult> AtivarCampanha(Guid id)
         {
             var tenantId = _tenantProvider.GetTenantId();
 
-            // Busca a campanha (escopada ao tenant) com o que o disparo precisa.
+            // Anti-IDOR: escopo explícito ao tenant.
             var campaign = await _context.Campaigns
-                .Include(c => c.Template)
                 .Include(c => c.Targets)
                 .FirstOrDefaultAsync(c => c.Id == id && c.TenantId == tenantId);
 
@@ -152,17 +150,17 @@ namespace PhishGuard.Backend.Controllers
                 return Ok(new { message = "Campanha agendada. O disparo ocorrerá no horário de início.", status = campaign.Status });
             }
 
-            // Início já alcançado: dispara IMEDIATAMENTE, reutilizando o mesmo serviço do
-            // worker (PASSO 3). O serviço move o status para "Em Andamento".
-            try
+            // Início já alcançado: faz o CLAIM ("Processando") e RETORNA na hora. O envio
+            // em lote roda de forma assíncrona e idempotente no worker — a thread HTTP não
+            // fica bloqueada por minutos nem segura a conexão do banco durante o disparo.
+            campaign.Status = CampaignStatus.Processando;
+            await _context.SaveChangesAsync();
+
+            return Accepted(new
             {
-                await _dispatchService.DispatchAsync(campaign);
-                return Ok(new { message = "Disparo iniciado com sucesso!", status = campaign.Status });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, $"Erro no disparo: {ex.Message}");
-            }
+                message = "Disparo enfileirado. Os e-mails serão enviados em instantes.",
+                status = campaign.Status
+            });
         }
 
         [HttpPut("{id}")]
@@ -205,7 +203,12 @@ namespace PhishGuard.Backend.Controllers
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteCampaign(Guid id)
         {
-            var campaign = await _context.Campaigns.FindAsync(id);
+            var tenantId = _tenantProvider.GetTenantId();
+
+            // Anti-IDOR: escopo explícito ao tenant. FindAsync busca só por PK e
+            // contornaria o Global Query Filter, permitindo apagar recurso de outro tenant.
+            var campaign = await _context.Campaigns
+                .FirstOrDefaultAsync(c => c.Id == id && c.TenantId == tenantId);
             if (campaign == null) return NotFound();
 
             _context.Campaigns.Remove(campaign);

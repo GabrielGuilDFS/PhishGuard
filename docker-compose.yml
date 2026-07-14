@@ -24,6 +24,14 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: "Development"
       ConnectionStrings__DefaultConnection: "Host=db;Port=5433;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}"
+      # Segredo do JWT injetado via .env (não versionado). __ mapeia para AppSettings:Token.
+      AppSettings__Token: "${AppSettings__Token}"
+    volumes:
+      # Chaves do Data Protection (criptografia da senha SMTP em repouso). Precisam
+      # SOBREVIVER a rebuilds/restarts do container — senão as senhas já cifradas no
+      # banco ficariam indecifráveis. O caminho casa com o PersistKeysToFileSystem do
+      # Program.cs (ContentRootPath = /app).
+      - dataprotection-keys:/app/DataProtection-Keys
     depends_on:
       - db
     networks:
@@ -49,6 +57,7 @@ services:
 
 volumes:
   postgres-data:
+  dataprotection-keys:
 
 networks:
   phishguard-network:

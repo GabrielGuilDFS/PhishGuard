@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
@@ -20,8 +21,12 @@ builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(connectionString));
 
 
+// Segredo do JWT resolvido pela pilha de configuração (env var AppSettings__Token,
+// user-secrets em dev, etc.) — NUNCA versionado no appsettings.json.
 var jwtKey = builder.Configuration.GetSection("AppSettings:Token").Value
-             ?? throw new InvalidOperationException("Token Key n�o encontrada!");
+             ?? throw new InvalidOperationException(
+                 "Segredo do JWT ausente. Defina 'AppSettings__Token' (variável de ambiente/.env) " +
+                 "ou 'AppSettings:Token' via user-secrets.");
 
 builder.Services.AddAuthentication(options =>
 {
@@ -86,6 +91,19 @@ builder.Services.AddCors(options =>
 
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ITenantProvider, TenantProvider>();
+
+// Data Protection: base da criptografia EM REPOUSO da senha SMTP (ISmtpCredentialProtector).
+// SetApplicationName fixo + chaves persistidas em disco garantem que o valor cifrado
+// continue decifrável após reinícios do processo.
+// ATENÇÃO (produção/Docker): "DataProtection-Keys" precisa morar em um VOLUME PERSISTENTE
+// (ou ser trocado por PersistKeysToDbContext); num container efêmero as chaves se perdem
+// no rebuild e as senhas salvas ficam indecifráveis.
+builder.Services.AddDataProtection()
+    .SetApplicationName("PhishGuard")
+    .PersistKeysToFileSystem(new DirectoryInfo(
+        Path.Combine(builder.Environment.ContentRootPath, "DataProtection-Keys")));
+
+builder.Services.AddSingleton<ISmtpCredentialProtector, SmtpCredentialProtector>();
 
 // Serviço de disparo (reutilizado pelo botão manual e pelo worker de agendamento)
 // e worker em segundo plano que dispara campanhas quando a DataInicio é atingida.

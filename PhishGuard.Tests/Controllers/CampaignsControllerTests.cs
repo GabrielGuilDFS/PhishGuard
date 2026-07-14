@@ -16,10 +16,11 @@ using Xunit;
 
 namespace PhishGuard.Tests.Controllers;
 
-// Regras de transição de estado das campanhas (Rascunho → Agendada → Em Andamento):
-//  - Ativar com DataInicio no FUTURO  → Agendada (sem disparo imediato).
-//  - Ativar com DataInicio no PASSADO → Em Andamento (disparo imediato).
-//  - O worker de agendamento processa APENAS "Agendada" já no horário; ignora Rascunho.
+// Regras de transição de estado das campanhas (Rascunho → Agendada → Processando → Em Andamento):
+//  - Ativar com DataInicio no FUTURO  → Agendada (o worker dispara no horário).
+//  - Ativar com DataInicio no PASSADO → Processando (CLAIM; o worker envia async, sem
+//    disparo bloqueante na thread HTTP).
+//  - O worker processa "Agendada" já no horário E "Processando" (retomada); ignora Rascunho.
 public class CampaignsControllerTests
 {
     private sealed class FakeTenantProvider : ITenantProvider
@@ -129,22 +130,20 @@ public class CampaignsControllerTests
 
         var campanha = await SemearCampanhaRascunhoAsync(context, tenantProvider, tenant.Id, DateTime.UtcNow.AddHours(2));
 
-        var dispatch = new FakeDispatchService();
-        var controller = new CampaignsController(context, tenantProvider, dispatch);
+        var controller = new CampaignsController(context, tenantProvider);
 
         // Act
         var resultado = await controller.AtivarCampanha(campanha.Id);
 
-        // Assert: status vira "Agendada" e NENHUM disparo ocorre.
+        // Assert: status vira "Agendada" (sem disparo na thread HTTP).
         Assert.IsType<OkObjectResult>(resultado);
-        Assert.Equal(0, dispatch.Chamadas);
 
         var persistida = await context.Campaigns.IgnoreQueryFilters().FirstAsync(c => c.Id == campanha.Id);
         Assert.Equal(CampaignStatus.Agendada, persistida.Status);
     }
 
     [Fact]
-    public async Task Ativar_ComDataInicioNoPassado_TransicionaParaEmAndamentoComDisparoImediato()
+    public async Task Ativar_ComDataInicioNoPassado_FazClaimProcessandoSemDispararNaThreadHttp()
     {
         // Arrange
         var (context, tenantProvider) = CriarContexto();
@@ -154,16 +153,17 @@ public class CampaignsControllerTests
 
         var campanha = await SemearCampanhaRascunhoAsync(context, tenantProvider, tenant.Id, DateTime.UtcNow.AddMinutes(-5));
 
-        var dispatch = new FakeDispatchService();
-        var controller = new CampaignsController(context, tenantProvider, dispatch);
+        var controller = new CampaignsController(context, tenantProvider);
 
         // Act
         var resultado = await controller.AtivarCampanha(campanha.Id);
 
-        // Assert: disparo imediato e status "Em Andamento".
-        Assert.IsType<OkObjectResult>(resultado);
-        Assert.Equal(1, dispatch.Chamadas);
-        Assert.Equal(CampaignStatus.EmAndamento, campanha.Status);
+        // Assert: o endpoint NÃO dispara e-mails (retorna 202 Accepted) e faz o CLAIM,
+        // deixando a campanha em "Processando" para o worker enviar de forma assíncrona.
+        Assert.IsType<AcceptedResult>(resultado);
+
+        var persistida = await context.Campaigns.IgnoreQueryFilters().FirstAsync(c => c.Id == campanha.Id);
+        Assert.Equal(CampaignStatus.Processando, persistida.Status);
     }
 
     [Fact]
@@ -179,15 +179,13 @@ public class CampaignsControllerTests
         campanha.Status = CampaignStatus.Agendada; // já agendada
         await context.SaveChangesAsync();
 
-        var dispatch = new FakeDispatchService();
-        var controller = new CampaignsController(context, tenantProvider, dispatch);
+        var controller = new CampaignsController(context, tenantProvider);
 
         // Act
         var resultado = await controller.AtivarCampanha(campanha.Id);
 
         // Assert: só Rascunho pode ser ativada.
         Assert.IsType<BadRequestObjectResult>(resultado);
-        Assert.Equal(0, dispatch.Chamadas);
     }
 
     [Fact]
@@ -225,6 +223,34 @@ public class CampaignsControllerTests
         Assert.Equal(CampaignStatus.Rascunho, rascunhoDb.Status);       // intocada
         Assert.Equal(CampaignStatus.EmAndamento, agendadaPassadoDb.Status); // disparada
         Assert.Equal(CampaignStatus.Agendada, agendadaFuturoDb.Status);  // ainda aguardando
+    }
+
+    [Fact]
+    public async Task Worker_RetomaCampanhaEmProcessando_AposReinicioDoContainer()
+    {
+        // Arrange: simula um restart no meio de um lote — a campanha ficou "Processando"
+        // (claim já feito) e o envio não terminou. O worker deve REPROCESSÁ-LA.
+        var (context, tenantProvider) = CriarContexto();
+        var tenant = new Tenant { Id = Guid.NewGuid(), NomeEmpresa = "Empresa", Cnpj = "11111111000191", Ativo = true, CriadoEm = DateTime.UtcNow, Plano = PlanoTenant.Bronze };
+        context.Tenants.Add(tenant);
+        await context.SaveChangesAsync();
+
+        // DataInicio no FUTURO de propósito: prova que "Processando" é elegível pelo
+        // próprio status (retomada), independentemente do horário de início.
+        var processando = await SemearCampanhaRascunhoAsync(context, tenantProvider, tenant.Id, DateTime.UtcNow.AddHours(5));
+        processando.Status = CampaignStatus.Processando;
+        await context.SaveChangesAsync();
+
+        var dispatch = new FakeDispatchService();
+        var worker = new CampaignSchedulerWorker(new SingleScopeFactory(context, dispatch), NullLogger<CampaignSchedulerWorker>.Instance);
+
+        // Act
+        await worker.ProcessarCampanhasElegiveisAsync(CancellationToken.None);
+
+        // Assert: a campanha "Processando" foi retomada e concluída.
+        Assert.Equal(1, dispatch.Chamadas);
+        var db = await context.Campaigns.IgnoreQueryFilters().FirstAsync(c => c.Id == processando.Id);
+        Assert.Equal(CampaignStatus.EmAndamento, db.Status);
     }
 
     [Fact]

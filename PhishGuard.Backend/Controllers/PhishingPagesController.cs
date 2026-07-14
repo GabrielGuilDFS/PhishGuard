@@ -83,7 +83,11 @@ namespace PhishGuard.Backend.Controllers
         [HttpPut("{id}")]
         public async Task<IActionResult> PutPage(Guid id, [FromBody] PageInputDto input)
         {
-            var pageExistente = await _context.PhishingPages.FindAsync(id);
+            var tenantId = _tenantProvider.GetTenantId();
+
+            // Anti-IDOR: escopo explícito ao tenant (FindAsync contornaria o Query Filter).
+            var pageExistente = await _context.PhishingPages
+                .FirstOrDefaultAsync(p => p.Id == id && p.TenantId == tenantId);
             if (pageExistente == null) return NotFound();
 
             pageExistente.Nome = input.Nome;
@@ -97,7 +101,11 @@ namespace PhishGuard.Backend.Controllers
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeletePage(Guid id)
         {
-            var page = await _context.PhishingPages.FindAsync(id);
+            var tenantId = _tenantProvider.GetTenantId();
+
+            // Anti-IDOR: escopo explícito ao tenant (FindAsync contornaria o Query Filter).
+            var page = await _context.PhishingPages
+                .FirstOrDefaultAsync(p => p.Id == id && p.TenantId == tenantId);
             if (page == null) return NotFound();
 
             _context.PhishingPages.Remove(page);
