@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-// Componente real de produção vive no projeto do frontend. Este teste de UI foi
-// separado do código de produção e mora em PhishGuard.Tests/Frontend.
-import Templates from '../../PhishGuard.Frontend/src/pages/Templates';
+// Teste de UI co-located: reside na mesma pasta do componente de produção que testa
+// (padrão de espelhamento / mirroring adotado no frontend).
+import Templates from './Templates';
 
 // Refatoração "Cenários de Simulação": a Biblioteca de Modelos tem duas abas
 // (Cenários de Simulação / Páginas Educativas). Um Cenário amarra a isca de e-mail

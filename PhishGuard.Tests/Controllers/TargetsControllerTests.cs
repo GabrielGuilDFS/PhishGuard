@@ -9,7 +9,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Xunit;
 
-namespace PhishGuard.Tests;
+namespace PhishGuard.Tests.Controllers;
 
 public class TargetsControllerTests
 {

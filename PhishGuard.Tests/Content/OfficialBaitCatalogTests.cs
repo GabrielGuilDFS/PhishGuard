@@ -2,7 +2,7 @@ using System.Linq;
 using PhishGuard.Backend.Content;
 using Xunit;
 
-namespace PhishGuard.Tests;
+namespace PhishGuard.Tests.Content;
 
 // Regressão da amarração da isca de e-mail da Amazon: o disparo persiste apenas o
 // IDENTIFICADOR ('amazon-notificacao-seguranca') e o OfficialBaitCatalog precisa

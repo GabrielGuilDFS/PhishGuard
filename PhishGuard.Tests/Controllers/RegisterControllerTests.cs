@@ -5,7 +5,7 @@ using PhishGuard.Backend.Data;
 using PhishGuard.Backend.DTOs;
 using PhishGuard.Backend.Models;
 
-namespace PhishGuard.Tests;
+namespace PhishGuard.Tests.Controllers;
 
 public class RegisterControllerTests
 {

@@ -14,7 +14,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Xunit;
 
-namespace PhishGuard.Tests;
+namespace PhishGuard.Tests.Controllers;
 
 // Regras de transição de estado das campanhas (Rascunho → Agendada → Em Andamento):
 //  - Ativar com DataInicio no FUTURO  → Agendada (sem disparo imediato).
