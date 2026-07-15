@@ -13,15 +13,21 @@ import {
   ThemeProvider,
   createTheme,
   CssBaseline,
-  CircularProgress
+  Skeleton
 } from '@mui/material';
 import {
   PeopleAlt as PeopleIcon,
   Campaign as CampaignIcon,
   MailOutline as MailIcon,
   Security as SecurityIcon,
-  WarningAmber as WarningIcon
+  WarningAmber as WarningIcon,
+  Insights as InsightsIcon
 } from '@mui/icons-material';
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RTooltip,
+  ResponsiveContainer, Cell, Legend
+} from 'recharts';
+import PageContainer from '../components/PageContainer';
 
 // Minimalist Light Theme with Gold Accents
 const lightGoldTheme = createTheme({
@@ -31,12 +37,12 @@ const lightGoldTheme = createTheme({
       main: '#daa520', // Gold
     },
     background: {
-      default: '#f4f6f8', // Pure white background
+      default: '#f4f6f8',
       paper: '#FFFFFF',
     },
     text: {
-      primary: '#111827', // Dark slate for better contrast on white
-      secondary: '#6b7280', // Medium gray for secondary text
+      primary: '#111827',
+      secondary: '#6b7280',
     },
   },
   typography: {
@@ -46,16 +52,16 @@ const lightGoldTheme = createTheme({
     MuiCard: {
       styleOverrides: {
         root: {
-          borderRadius: '16px', // Slightly rounded as requested
-          border: '1px solid #f3f4f6', // Very subtle border for minimalism
-          boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.05), 0 2px 4px -2px rgb(0 0 0 / 0.05)', // Minimalist soft shadow
+          borderRadius: '16px',
+          border: '1px solid #f3f4f6',
+          boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.05), 0 2px 4px -2px rgb(0 0 0 / 0.05)',
         }
       }
     },
     MuiTableCell: {
       styleOverrides: {
         root: {
-          borderBottom: '1px solid #f3f4f6', // Clean table borders
+          borderBottom: '1px solid #f3f4f6',
         }
       }
     }
@@ -64,36 +70,63 @@ const lightGoldTheme = createTheme({
 
 const API_BASE = 'http://localhost:5000/api';
 
+// Paleta dos gráficos (coerente com o tema dourado + semáforo de risco).
+const GOLD = '#daa520';
+const GREEN = '#2e7d32';
+const AMBER = '#ed6c02';
+const RED = '#d32f2f';
+
+interface Metrics {
+  totalColaboradores: number;
+  campanhasAtivas: number;
+  emailsDisparados: number;
+  riscoGlobal: number;
+}
+interface DepartmentRow {
+  id: string;
+  name: string;
+  employees: number;
+  emails: number;
+  clicks: number;
+  risk: string;
+}
+interface Funnel {
+  disparosFeitos: number;
+  entregues: number;
+  falhas: number;
+  cliques: number;
+  submissoes: number;
+}
+
 export default function AdminDashboard() {
-  const [metrics, setMetrics] = useState({
+  const [metrics, setMetrics] = useState<Metrics>({
     totalColaboradores: 0,
     campanhasAtivas: 0,
     emailsDisparados: 0,
     riscoGlobal: 0
   });
-  const [departments, setDepartments] = useState<any[]>([]);
+  const [departments, setDepartments] = useState<DepartmentRow[]>([]);
+  const [funnel, setFunnel] = useState<Funnel | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchDashboardData = async () => {
       const token = localStorage.getItem('phishguard_token');
-      const headers = { 
+      const headers = {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'
       };
 
       try {
-        const [metricsRes, deptRes] = await Promise.all([
+        const [metricsRes, deptRes, funnelRes] = await Promise.all([
           fetch(`${API_BASE}/Dashboard/metrics`, { headers }),
-          fetch(`${API_BASE}/Dashboard/departments`, { headers })
+          fetch(`${API_BASE}/Dashboard/departments`, { headers }),
+          fetch(`${API_BASE}/Dashboard/funnel`, { headers })
         ]);
 
-        if (metricsRes.ok && deptRes.ok) {
-          const metricsData = await metricsRes.json();
-          const deptData = await deptRes.json();
-          setMetrics(metricsData);
-          setDepartments(deptData);
-        }
+        if (metricsRes.ok) setMetrics(await metricsRes.json());
+        if (deptRes.ok) setDepartments(await deptRes.json());
+        if (funnelRes.ok) setFunnel(await funnelRes.json());
       } catch (err) {
         console.error("Erro ao buscar dados do dashboard", err);
       } finally {
@@ -110,10 +143,34 @@ export default function AdminDashboard() {
     { title: 'E-mails Disparados', value: metrics.emailsDisparados.toLocaleString('pt-BR'), icon: MailIcon },
     { title: 'Risco Global', value: `${metrics.riscoGlobal}%`, icon: SecurityIcon },
   ];
+
+  // Sem NENHUM disparo ainda → não há métrica de comportamento para plotar.
+  const semDisparos = (funnel?.disparosFeitos ?? 0) === 0;
+
+  // Dados derivados dos gráficos.
+  const dadosFunil = funnel
+    ? [
+        { nome: 'Disparos Feitos', valor: funnel.disparosFeitos, cor: GOLD },
+        { nome: 'Entregues (SMTP)', valor: funnel.entregues, cor: GREEN },
+      ]
+    : [];
+  const dadosRisco = funnel
+    ? [
+        { nome: 'Cliques no Link', valor: funnel.cliques, cor: AMBER },
+        { nome: 'Submeteram Dados', valor: funnel.submissoes, cor: RED },
+      ]
+    : [];
+  const dadosDepto = departments
+    .map((d) => ({
+      nome: d.name,
+      taxa: d.emails > 0 ? Math.round((100 * d.clicks) / d.emails) : 0,
+    }))
+    .sort((a, b) => b.taxa - a.taxa);
+
   return (
     <ThemeProvider theme={lightGoldTheme}>
       <CssBaseline />
-      <Box sx={{ p: { xs: 3, md: 6 }, minHeight: '100vh', bgcolor: 'background.default' }}>
+      <PageContainer sx={{ py: { xs: 1, md: 2 } }}>
 
         {/* Header Section */}
         <Box sx={{ mb: 6 }}>
@@ -129,47 +186,159 @@ export default function AdminDashboard() {
         <Box
           sx={{
             display: 'grid',
-            gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(4, 1fr)' },
+            // Cada card tem largura mínima de 190px (> 170px, limite de segurança contra a
+            // sobreposição ícone×título) e o grid QUEBRA (auto-fit) em vez de espremer os
+            // cards — resolve inclusive o md, onde o drawer de 260px comprimia 4 colunas.
+            gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))',
             gap: 3,
-            mb: 8
+            mb: 6
           }}
         >
-                    {overviewCards.map((item, index) => (
+          {overviewCards.map((item, index) => (
             <Card key={index} elevation={0}>
-              <CardContent sx={{ p: 3, '&:last-child': { pb: 3 }, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <Box>
+              {/* Anti-sobreposição: empilha (ícone acima) em telas estreitas e volta ao
+                  layout horizontal no md+. gap garante respiro; o ícone tem flexShrink:0
+                  e tamanho reduzido para nunca colidir com o título. */}
+              <CardContent
+                sx={{
+                  p: 3, '&:last-child': { pb: 3 },
+                  display: 'flex',
+                  flexDirection: { xs: 'column', md: 'row' },
+                  alignItems: { xs: 'flex-start', md: 'center' },
+                  justifyContent: 'space-between',
+                  gap: 2
+                }}
+              >
+                <Box sx={{ minWidth: 0, order: { xs: 2, md: 1 } }}>
                   <Typography
                     variant="caption"
                     sx={{
-                      color: 'text.secondary',
-                      fontWeight: 600,
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.5px',
-                      display: 'block',
-                      mb: 0.5
+                      color: 'text.secondary', fontWeight: 600, textTransform: 'uppercase',
+                      letterSpacing: '0.5px', display: 'block', mb: 0.5
                     }}
                   >
                     {item.title}
                   </Typography>
-                  <Typography variant="h5" sx={{ fontWeight: 800, color: 'text.primary' }}>
-                    {item.value}
-                  </Typography>
+                  {loading ? (
+                    <Skeleton variant="text" width={64} height={36} />
+                  ) : (
+                    <Typography variant="h5" sx={{ fontWeight: 800, color: 'text.primary', lineHeight: 1.2 }}>
+                      {item.value}
+                    </Typography>
+                  )}
                 </Box>
-                {/* Gold Accent Icon Background */}
-                <Box sx={{ bgcolor: 'rgba(218, 165, 32, 0.1)', p: 1.5, borderRadius: '50%', display: 'flex' }}>
-                  <item.icon sx={{ color: '#daa520' }} />
+                <Box sx={{
+                  bgcolor: 'rgba(218, 165, 32, 0.1)', p: 1.25, borderRadius: '50%',
+                  display: 'flex', flexShrink: 0, order: { xs: 1, md: 2 }
+                }}>
+                  <item.icon sx={{ color: GOLD, fontSize: 20 }} />
                 </Box>
               </CardContent>
             </Card>
           ))}
         </Box>
 
-        {/* Minimalist Risk Table */}
-        <Box sx={{ maxWidth: '900px' }}>
+        {/* Charts Section */}
+        {loading ? (
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(2, 1fr)' }, gap: 3, mb: 6 }}>
+            {[0, 1].map((i) => (
+              <Card key={i} elevation={0}>
+                <CardContent sx={{ p: 3 }}>
+                  <Skeleton variant="text" width="40%" height={28} />
+                  <Skeleton variant="rounded" height={260} sx={{ mt: 2, borderRadius: 2 }} />
+                </CardContent>
+              </Card>
+            ))}
+          </Box>
+        ) : semDisparos ? (
+          <Card elevation={0} sx={{ mb: 6 }}>
+            <CardContent sx={{ p: 6, textAlign: 'center' }}>
+              <InsightsIcon sx={{ fontSize: 48, color: 'rgba(218,165,32,0.5)', mb: 2 }} />
+              <Typography variant="h6" sx={{ fontWeight: 600, color: 'text.primary', mb: 1 }}>
+                Nenhuma campanha rodando ainda
+              </Typography>
+              <Typography variant="body2" sx={{ color: 'text.secondary', maxWidth: 460, mx: 'auto' }}>
+                Assim que você ativar uma campanha e os e-mails começarem a ser disparados, os gráficos de
+                entregabilidade e comportamento de risco aparecerão aqui.
+              </Typography>
+            </CardContent>
+          </Card>
+        ) : (
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(2, 1fr)' }, gap: 3, mb: 6 }}>
+            {/* 1. Funil de Conversão de Disparos (entregabilidade SMTP) */}
+            <ChartCard
+              title="Funil de Entregabilidade (SMTP)"
+              subtitle="Disparos feitos vs. efetivamente entregues pelo servidor de e-mail."
+            >
+              <ResponsiveContainer width="100%" height={260}>
+                <BarChart data={dadosFunil} margin={{ top: 8, right: 16, left: -12, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
+                  <XAxis dataKey="nome" tick={{ fontSize: 12, fill: '#6b7280' }} axisLine={false} tickLine={false} />
+                  <YAxis allowDecimals={false} tick={{ fontSize: 12, fill: '#6b7280' }} axisLine={false} tickLine={false} />
+                  <RTooltip cursor={{ fill: 'rgba(0,0,0,0.03)' }} />
+                  <Bar dataKey="valor" name="E-mails" radius={[6, 6, 0, 0]} maxBarSize={90}>
+                    {dadosFunil.map((d, i) => <Cell key={i} fill={d.cor} />)}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </ChartCard>
+
+            {/* 2. Gráfico de Comportamento de Risco (cliques vs submissões) */}
+            <ChartCard
+              title="Comportamento de Risco"
+              subtitle="Alvos que clicaram na isca vs. os que chegaram a inserir credenciais."
+            >
+              <ResponsiveContainer width="100%" height={260}>
+                <BarChart data={dadosRisco} margin={{ top: 8, right: 16, left: -12, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
+                  <XAxis dataKey="nome" tick={{ fontSize: 12, fill: '#6b7280' }} axisLine={false} tickLine={false} />
+                  <YAxis allowDecimals={false} tick={{ fontSize: 12, fill: '#6b7280' }} axisLine={false} tickLine={false} />
+                  <RTooltip cursor={{ fill: 'rgba(0,0,0,0.03)' }} />
+                  <Bar dataKey="valor" name="Alvos" radius={[6, 6, 0, 0]} maxBarSize={90}>
+                    {dadosRisco.map((d, i) => <Cell key={i} fill={d.cor} />)}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </ChartCard>
+
+            {/* 3. Risco por Departamento (taxa de cliques / envios) */}
+            <ChartCard
+              title="Risco por Departamento"
+              subtitle="Taxa de vulnerabilidade (cliques ÷ e-mails recebidos) por setor."
+              full
+            >
+              {dadosDepto.length === 0 ? (
+                <EmptyInline texto="Sem departamentos com dados de simulação ainda." />
+              ) : (
+                <ResponsiveContainer width="100%" height={Math.max(220, dadosDepto.length * 48)}>
+                  <BarChart
+                    layout="vertical"
+                    data={dadosDepto}
+                    margin={{ top: 8, right: 32, left: 8, bottom: 0 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" horizontal={false} />
+                    <XAxis type="number" domain={[0, 100]} unit="%" tick={{ fontSize: 12, fill: '#6b7280' }} axisLine={false} tickLine={false} />
+                    <YAxis type="category" dataKey="nome" width={140} tick={{ fontSize: 12, fill: '#374151' }} axisLine={false} tickLine={false} />
+                    <RTooltip cursor={{ fill: 'rgba(0,0,0,0.03)' }} formatter={(value) => [`${value}%`, 'Taxa de risco']} />
+                    <Legend />
+                    <Bar dataKey="taxa" name="Taxa de risco" radius={[0, 6, 6, 0]} maxBarSize={28}>
+                      {dadosDepto.map((d, i) => (
+                        <Cell key={i} fill={d.taxa >= 50 ? RED : d.taxa >= 25 ? AMBER : GOLD} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
+            </ChartCard>
+          </Box>
+        )}
+
+        {/* Risk Table — dados centralizados horizontal e verticalmente nas células */}
+        <Box>
           <Card elevation={0}>
             <CardContent sx={{ p: { xs: 2, sm: 3 }, '&:last-child': { pb: 3 } }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-                <WarningIcon sx={{ color: '#daa520', mr: 1, fontSize: 22 }} />
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 3 }}>
+                <WarningIcon sx={{ color: GOLD, mr: 1, fontSize: 22 }} />
                 <Typography variant="h6" sx={{ fontWeight: 600, color: 'text.primary' }}>
                   Vulnerabilidade por Departamento
                 </Typography>
@@ -179,54 +348,36 @@ export default function AdminDashboard() {
                 <Table size="medium" aria-label="tabela de riscos minimalista">
                   <TableHead>
                     <TableRow>
-                      <TableCell sx={{ color: 'text.secondary', fontWeight: 600, borderBottomWidth: 2 }}>
-                        Departamento
-                      </TableCell>
-                      <TableCell align="right" sx={{ color: 'text.secondary', fontWeight: 600, borderBottomWidth: 2 }}>
-                        Colaboradores
-                      </TableCell>
-                      <TableCell align="right" sx={{ color: 'text.secondary', fontWeight: 600, borderBottomWidth: 2 }}>
-                        E-mails Recebidos
-                      </TableCell>
-                      <TableCell align="right" sx={{ color: 'text.secondary', fontWeight: 600, borderBottomWidth: 2 }}>
-                        Cliques
-                      </TableCell>
-                      <TableCell align="right" sx={{ color: 'text.secondary', fontWeight: 600, borderBottomWidth: 2 }}>
-                        Risco
-                      </TableCell>
+                      {['Departamento', 'Colaboradores', 'E-mails Recebidos', 'Cliques', 'Risco'].map((h) => (
+                        <TableCell key={h} align="center" sx={{ color: 'text.secondary', fontWeight: 600, borderBottomWidth: 2, verticalAlign: 'middle' }}>
+                          {h}
+                        </TableCell>
+                      ))}
                     </TableRow>
                   </TableHead>
                   <TableBody>
                     {loading ? (
-                      <TableRow>
-                        <TableCell colSpan={5} align="center">
-                          <CircularProgress sx={{ my: 2 }} />
-                        </TableCell>
-                      </TableRow>
+                      Array.from({ length: 3 }).map((_, i) => (
+                        <TableRow key={i}>
+                          <TableCell colSpan={5} align="center"><Skeleton variant="text" height={28} /></TableCell>
+                        </TableRow>
+                      ))
                     ) : departments.length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={5} align="center">
                           <Typography variant="body2" sx={{ color: 'text.secondary', my: 2 }}>
-                            Nenhum dado encontrado.
+                            Nenhum departamento cadastrado ainda.
                           </Typography>
                         </TableCell>
                       </TableRow>
                     ) : (
                       departments.map((row) => (
-                        <TableRow
-                          key={row.id}
-                          sx={{ '&:hover': { bgcolor: '#f9fafb' }, transition: 'background-color 0.2s' }}
-                        >
-                          <TableCell component="th" scope="row" sx={{ fontWeight: 500, color: 'text.primary' }}>
-                            {row.name}
-                          </TableCell>
-                          <TableCell align="right" sx={{ color: 'text.secondary' }}>{row.employees}</TableCell>
-                          <TableCell align="right" sx={{ color: 'text.secondary' }}>{row.emails}</TableCell>
-                          <TableCell align="right" sx={{ color: 'text.secondary' }}>{row.clicks}</TableCell>
-                          {/* Gold Accent for Risk Percentage */}
-                          <TableCell align="right" sx={{ fontWeight: 700, color: '#daa520' }}>
-                            {row.risk}
-                          </TableCell>
+                        <TableRow key={row.id} sx={{ '&:hover': { bgcolor: '#f9fafb' }, transition: 'background-color 0.2s' }}>
+                          <TableCell component="th" scope="row" align="center" sx={{ fontWeight: 500, color: 'text.primary', verticalAlign: 'middle' }}>{row.name}</TableCell>
+                          <TableCell align="center" sx={{ color: 'text.secondary', verticalAlign: 'middle' }}>{row.employees}</TableCell>
+                          <TableCell align="center" sx={{ color: 'text.secondary', verticalAlign: 'middle' }}>{row.emails}</TableCell>
+                          <TableCell align="center" sx={{ color: 'text.secondary', verticalAlign: 'middle' }}>{row.clicks}</TableCell>
+                          <TableCell align="center" sx={{ fontWeight: 700, color: GOLD, verticalAlign: 'middle' }}>{row.risk}</TableCell>
                         </TableRow>
                       ))
                     )}
@@ -237,7 +388,33 @@ export default function AdminDashboard() {
           </Card>
         </Box>
 
-      </Box>
+      </PageContainer>
     </ThemeProvider>
+  );
+}
+
+// Cartão-container padrão de um gráfico (título + subtítulo + área do gráfico).
+function ChartCard({ title, subtitle, children, full }: {
+  title: string;
+  subtitle: string;
+  children: React.ReactNode;
+  full?: boolean;
+}) {
+  return (
+    <Card elevation={0} sx={{ gridColumn: full ? { xs: 'auto', md: '1 / -1' } : 'auto' }}>
+      <CardContent sx={{ p: 3, '&:last-child': { pb: 3 } }}>
+        <Typography variant="subtitle1" sx={{ fontWeight: 700, color: 'text.primary' }}>{title}</Typography>
+        <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mb: 2 }}>{subtitle}</Typography>
+        {children}
+      </CardContent>
+    </Card>
+  );
+}
+
+function EmptyInline({ texto }: { texto: string }) {
+  return (
+    <Box sx={{ py: 6, textAlign: 'center' }}>
+      <Typography variant="body2" sx={{ color: 'text.secondary' }}>{texto}</Typography>
+    </Box>
   );
 }

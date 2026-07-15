@@ -13,7 +13,8 @@ import {
   Search as SearchIcon,
   Send as SendIcon
 } from '@mui/icons-material';
-import Papa from 'papaparse'; 
+import Papa from 'papaparse';
+import PageContainer from '../components/PageContainer';
 
 interface Target {
   id: string; 
@@ -252,7 +253,7 @@ export default function Targets() {
   useEffect(() => { fetchTargets(); fetchQuota(); }, []);
 
   return (
-    <Box>
+    <PageContainer>
       <Stack direction="row" justifyContent="space-between" alignItems="center" mb={limiteAtingido ? 1 : 3}>
         <Box>
           <Typography variant="h4" sx={{ fontWeight: 'bold' }}>Gestão de Alvos</Typography>
@@ -326,10 +327,10 @@ export default function Targets() {
         <Table>
           <TableHead sx={{ backgroundColor: '#f8f9fa' }}>
             <TableRow>
-              <TableCell><strong>Nome</strong></TableCell>
-              <TableCell><strong>E-mail</strong></TableCell>
-              <TableCell><strong>Departamento</strong></TableCell>
-              <TableCell align="right"><strong>Ações</strong></TableCell>
+              <TableCell align="center"><strong>Nome</strong></TableCell>
+              <TableCell align="center"><strong>E-mail</strong></TableCell>
+              <TableCell align="center"><strong>Departamento</strong></TableCell>
+              <TableCell align="center"><strong>Ações</strong></TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -338,11 +339,11 @@ export default function Targets() {
             ) : (
               filteredTargets.map((target) => (
                 <TableRow key={target.id} hover>
-                  <TableCell>{target.nome}</TableCell>
-                  <TableCell>{target.email}</TableCell>
-                  <TableCell>{target.departamento}</TableCell>
-                  
-                  <TableCell align="right">
+                  <TableCell align="center" sx={{ verticalAlign: 'middle' }}>{target.nome}</TableCell>
+                  <TableCell align="center" sx={{ verticalAlign: 'middle' }}>{target.email}</TableCell>
+                  <TableCell align="center" sx={{ verticalAlign: 'middle' }}>{target.departamento}</TableCell>
+
+                  <TableCell align="center" sx={{ verticalAlign: 'middle' }}>
                     <Tooltip title="Testar Disparo para este Alvo">
                       <IconButton color="secondary" onClick={() => handleTestTarget(target.id, target.email)}>
                         <SendIcon fontSize="small" />
@@ -374,7 +375,9 @@ export default function Targets() {
           <TextField margin="normal" fullWidth label="Nome Completo" value={novoAlvo.nome} onChange={(e) => setNewTarget({...novoAlvo, nome: e.target.value})} />
           <TextField margin="normal" fullWidth label="E-mail Corporativo" value={novoAlvo.email} onChange={(e) => setNewTarget({...novoAlvo, email: e.target.value})} />
           {emailError && (
-            <p className="text-xs text-red-500 font-medium">{emailError}</p>
+            <Typography variant="caption" color="error" sx={{ fontWeight: 500, display: 'block', mt: 0.5 }}>
+              {emailError}
+            </Typography>
           )}
           <TextField margin="normal" fullWidth label="Departamento" value={novoAlvo.departamento} onChange={(e) => setNewTarget({...novoAlvo, departamento: e.target.value})} />
         </DialogContent>
@@ -394,6 +397,6 @@ export default function Targets() {
           {notify.message}
         </Alert>
       </Snackbar>
-    </Box>
+    </PageContainer>
   );
 }

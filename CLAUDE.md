@@ -353,3 +353,57 @@ npx vitest
 - `src/index.css` importa apenas `tailwindcss/theme.css` + `tailwindcss/utilities.css`
   (camadas explícitas), **sem o preflight**. O reset global fica a cargo exclusivo do
   `<CssBaseline />` do MUI; as landings mantêm todas as classes utilitárias do Tailwind.
+
+---
+
+## 🎨 Melhorias de UX e Dashboard (TG2)
+
+> Refino de experiência validado (`dotnet build`/`test` + `npm run build`/`test:run` — verde).
+
+### 1. Biblioteca de Modelos → aba "Páginas Educativas" somente-leitura
+- Os moldes educativos são conteúdo FIXO do sistema (`data/educationalTemplates.ts`); não há
+  motivo para o admin "registrar" um. Removidos os botões Registrar/Remover — a aba virou um
+  catálogo navegável com preview (`Templates.tsx` → `EducativasTab`).
+- A linha em `EducationalPages` (alvo da FK da campanha) passou a ser **provisionada sob
+  demanda** (find-or-create por `conteudoHtml`) ao salvar a campanha
+  (`Campaigns.tsx` → `garantirPaginaEducativa`). O seletor de página educativa da campanha
+  lista o catálogo estático, não mais as linhas do banco.
+
+### 2. Dashboard com gráficos (Recharts) — `AdminDashboard.tsx`
+- Rota `/admin/dashboard` passou a renderizar `AdminDashboard` (antes era o stub
+  `DashboardHome`). Três gráficos: **Funil de Entregabilidade** (Disparos Feitos = Envio+Falha
+  vs Entregues = Envio), **Comportamento de Risco** (cliques vs submissões, distintos por alvo)
+  e **Risco por Departamento** (barras horizontais, taxa cliques÷e-mails, cor por faixa).
+- Novo endpoint `GET /api/Dashboard/funnel` (agrega `SimulationsLogs` por tenant). Reusa
+  `/metrics` e `/departments`.
+- **Skeletons** no carregamento e estado vazio amigável ("Nenhuma campanha rodando ainda")
+  quando `disparosFeitos === 0`.
+
+### 3. Disparo de campanhas — seleção facilitada (`Campaigns.tsx`)
+- **Por Departamento**: dropdown dos setores distintos do tenant; um clique adiciona todos os
+  alvos do setor à seleção.
+- **Em lote**: botão "Todos (N)" e **importação de CSV temporário** que MAPEIA e-mails para
+  alvos JÁ cadastrados (não cria alvos — respeita a cota de plano); linhas sem correspondência
+  contam como inválidas.
+
+### 4. Micro-interações / feedback
+- Ativar campanha: botão vira **spinner** (`activatingId`) e dispara **toast** via
+  `NotificationContext` ("...serviço em segundo plano está processando os disparos.").
+- Importação CSV: **modal de resumo** (processados / importados / duplicados / inválidos).
+- Erros de SMTP são traduzidos para mensagem amigável (`mensagemAmigavel`) — nunca stack trace
+  cru na tela; tudo via `useNotify()` (substituiu os `alert()`).
+
+### 5. Padrão global de largura das telas (`components/PageContainer.tsx`)
+- Wrapper **MUI (sx, não Tailwind)** que padroniza toda tela administrativa: `mx:auto`,
+  `maxWidth:1280` (~max-w-7xl), `minWidth:320`. O padding horizontal responsivo
+  (px-4/sm:px-6/lg:px-8) vive uma única vez no `AdminLayout` (`main` com `px:{xs:2,sm:3,lg:4}`)
+  para não duplicar. Aplicado em `AdminDashboard`, `Templates`, `Targets`, `Campaigns` e
+  `Settings` (telas novas devem usá-lo). Feito com `sx` de propósito: nenhum estilo nativo do
+  MUI é sobrescrito por classe Tailwind.
+- KPI cards do dashboard: o grid usa `gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))'`
+  — cada card tem **largura mínima de 190px** e o grid QUEBRA (auto-fit) em vez de espremer os
+  cards (resolve o `md`, onde o drawer de 260px comprimia 4 colunas abaixo de 170px e causava a
+  sobreposição ícone×título). O `CardContent` ainda empilha (ícone acima) em telas estreitas,
+  com `gap` + ícone `flexShrink:0`/menor.
+- Células das tabelas (dashboard, cenários, alvos) centralizadas (`align="center"` +
+  `verticalAlign:'middle'`). Coluna "Status" removida da aba Cenários.

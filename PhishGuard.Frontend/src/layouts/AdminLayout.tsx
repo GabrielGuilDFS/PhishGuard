@@ -158,10 +158,20 @@ export default function AdminLayout() {
 
       <Box
         component="main"
-        sx={{ flexGrow: 1, p: 3, width: { sm: `calc(100% - ${drawerWidth}px)` } }}
+        sx={{
+          flexGrow: 1,
+          // Padding horizontal responsivo = px-4 / sm:px-6 / lg:px-8 (centralizado aqui
+          // para todas as telas; PageContainer cuida de max/min width + centralização).
+          px: { xs: 2, sm: 3, lg: 4 },
+          py: 3,
+          width: { sm: `calc(100% - ${drawerWidth}px)` },
+          // Trava a largura mínima segura no nível do main; abaixo disso, rola só o
+          // conteúdo (não quebra o layout).
+          overflowX: 'auto',
+        }}
       >
-        <Toolbar /> 
-        <Outlet /> 
+        <Toolbar />
+        <Outlet />
       </Box>
     </Box>
   );

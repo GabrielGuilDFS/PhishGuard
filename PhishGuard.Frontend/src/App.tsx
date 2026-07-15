@@ -3,7 +3,7 @@ import { type ReactNode } from 'react';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import AdminLayout from './layouts/AdminLayout';
-import DashboardHome from './pages/DashboardHome';
+import AdminDashboard from './pages/AdminDashboard';
 import Targets from './pages/Targets';
 import Campaigns from './pages/Campaigns';
 import Settings from './pages/Settings';
@@ -64,7 +64,7 @@ function App() {
                 </PrivateRoute>
               }
             >
-              <Route path="dashboard" element={<DashboardHome />} />
+              <Route path="dashboard" element={<AdminDashboard />} />
               <Route path="targets" element={<Targets />} />
               <Route path="campaigns" element={<Campaigns />} />
               <Route path="templates" element={<Templates />} />
