@@ -1,9 +1,13 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using System.Net;
 using System.Text;
+using System.Threading.RateLimiting;
 using PhishGuard.Backend.Data;  
 using PhishGuard.Backend.Models;
 using BCrypt.Net;
@@ -47,8 +51,47 @@ builder.Services.AddAuthentication(options =>
 });
 
 
-builder.Services.AddControllers(); 
+builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
+
+// Forwarded Headers: atrás do proxy/rede Docker, o IP visto pelo Kestrel é o do proxy.
+// Sem isto, o rate-limit por IP (abaixo) colapsa TODOS os clientes num único IP (o do
+// proxy) — um usuário legítimo seria barrado pelo tráfego de outro. Reescreve
+// RemoteIpAddress a partir do X-Forwarded-For.
+// SEGURANÇA: X-Forwarded-* é forjável. Confie nele APENAS quando a app só for
+// alcançável através do proxy confiável (rede interna do Compose). KnownNetworks/
+// KnownProxies são limpos porque o IP do proxy no Docker é dinâmico; a fronteira de
+// confiança passa a ser a topologia de rede (não exponha o backend direto à internet).
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    options.KnownNetworks.Clear();
+    options.KnownProxies.Clear();
+});
+
+// Rate-limiting anti-brute-force do login: janela fixa de 5 tentativas/minuto,
+// particionada pelo IP de origem. Excedeu → 429 Too Many Requests (sem enfileirar).
+// Aplicado só ao endpoint /api/auth/login via [EnableRateLimiting("login")].
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+
+    options.AddPolicy("login", httpContext =>
+    {
+        // Chave = IP de origem. Atrás de proxy/Docker, exige ForwardedHeaders para
+        // não colapsar todos os clientes no IP do proxy (ver nota abaixo).
+        var chaveIp = httpContext.Connection.RemoteIpAddress?.ToString()
+                      ?? IPAddress.None.ToString();
+
+        return RateLimitPartition.GetFixedWindowLimiter(chaveIp, _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 5,
+            Window = TimeSpan.FromMinutes(1),
+            QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+            QueueLimit = 0
+        });
+    });
+});
 
 builder.Services.AddSwaggerGen(c =>
 {
@@ -105,6 +148,16 @@ builder.Services.AddDataProtection()
 
 builder.Services.AddSingleton<ISmtpCredentialProtector, SmtpCredentialProtector>();
 
+// Sanitização anti-XSS do HTML de templates/landings (allow-list). Stateless e com
+// configuração imutável de allow-list → Singleton (evita reconstruir o HtmlSanitizer
+// a cada requisição).
+builder.Services.AddSingleton<IHtmlSanitizationService, HtmlSanitizationService>();
+
+// Fábrica de clientes SMTP (abstração sobre o MailKit SmtpClient). Singleton: não guarda
+// estado — cada Create() devolve um cliente novo de vida curta. Permite injetar um duplo
+// nos testes de resiliência do disparo.
+builder.Services.AddSingleton<ISmtpClientFactory, MailKitSmtpClientFactory>();
+
 // Serviço de disparo (reutilizado pelo botão manual e pelo worker de agendamento)
 // e worker em segundo plano que dispara campanhas quando a DataInicio é atingida.
 builder.Services.AddScoped<ICampaignDispatchService, CampaignDispatchService>();
@@ -120,7 +173,13 @@ if (app.Environment.IsDevelopment())
 }
 
 
+// PRIMEIRO middleware: reescreve o IP de origem a partir do X-Forwarded-For ANTES de
+// qualquer coisa que dependa dele (rate-limiter, logs). Ordem é crítica.
+app.UseForwardedHeaders();
+
 app.UseCors("AllowReactApp");
+
+app.UseRateLimiter();
 
 app.UseAuthentication();
 app.UseAuthorization();

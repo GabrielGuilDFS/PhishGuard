@@ -79,7 +79,16 @@ namespace PhishGuard.Backend.Data
 
                 entity.Property(e => e.PasswordHash)
                     .IsRequired()
-                    .HasMaxLength(255); 
+                    .HasMaxLength(255);
+
+                // Anti-brute-force: contador de falhas consecutivas (default 0 nas linhas
+                // existentes) e janela de bloqueio temporário (nula = liberada).
+                entity.Property(e => e.AcessoFalhasContador)
+                    .IsRequired()
+                    .HasDefaultValue(0);
+
+                entity.Property(e => e.BloqueioFim)
+                    .IsRequired(false);
             });
 
             modelBuilder.Entity<Target>(entity =>

@@ -13,6 +13,14 @@ namespace PhishGuard.Backend.Models
     public static class SimulationActions
     {
         public const string Envio = "Envio";
+
+        /// <summary>
+        /// Registrado quando o envio para um alvo específico falha DEFINITIVAMENTE (após
+        /// esgotar as tentativas de retry SMTP). Diferente de <see cref="Envio"/>, NÃO
+        /// conta como entrega e não bloqueia o processamento dos demais alvos do lote.
+        /// </summary>
+        public const string Falha = "Falha";
+
         public const string Abertura = "Abertura";
         public const string Clique = "Clique";
         public const string Submissao = "Submissão de Dados";

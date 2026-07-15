@@ -40,6 +40,12 @@ public class LoginControllerTests
 
     private static async Task<(LoginController controller, string email)> CriarControllerComAdminAsync()
     {
+        var (controller, _, email) = await CriarControllerComAdminEContextoAsync();
+        return (controller, email);
+    }
+
+    private static async Task<(LoginController controller, AppDbContext context, string email)> CriarControllerComAdminEContextoAsync()
+    {
         var context = CriarContexto();
         var configuration = CriarConfiguracao();
 
@@ -67,7 +73,12 @@ public class LoginControllerTests
         await context.SaveChangesAsync();
 
         var controller = new LoginController(context, configuration);
-        return (controller, email);
+        return (controller, context, email);
+    }
+
+    private static async Task<Administrador> RecarregarAdminAsync(AppDbContext context, string email)
+    {
+        return await context.Administradores.IgnoreQueryFilters().SingleAsync(a => a.Email == email);
     }
 
     [Fact]
@@ -104,5 +115,68 @@ public class LoginControllerTests
 
         var badRequestResult = Assert.IsType<BadRequestObjectResult>(resultado.Result);
         Assert.Equal(400, badRequestResult.StatusCode);
+    }
+
+    [Fact]
+    public async Task Login_ComSenhaInvalida_IncrementaContadorDeFalhas()
+    {
+        var (controller, context, email) = await CriarControllerComAdminEContextoAsync();
+
+        await controller.Login(new LoginDto { Email = email, Password = "SenhaErrada@000" });
+
+        var admin = await RecarregarAdminAsync(context, email);
+        Assert.Equal(1, admin.AcessoFalhasContador);
+        Assert.Null(admin.BloqueioFim);
+    }
+
+    [Fact]
+    public async Task Login_Apos5FalhasConsecutivas_BloqueiaAConta()
+    {
+        var (controller, context, email) = await CriarControllerComAdminEContextoAsync();
+
+        for (var i = 0; i < 5; i++)
+            await controller.Login(new LoginDto { Email = email, Password = "SenhaErrada@000" });
+
+        var admin = await RecarregarAdminAsync(context, email);
+        Assert.NotNull(admin.BloqueioFim);
+        Assert.True(admin.BloqueioFim > DateTime.UtcNow);
+        Assert.Equal(0, admin.AcessoFalhasContador); // contador reinicia ao bloquear
+    }
+
+    [Fact]
+    public async Task Login_ComContaBloqueada_RejeitaComRespostaGenerica_MesmoComSenhaCorreta()
+    {
+        var (controller, _, email) = await CriarControllerComAdminEContextoAsync();
+
+        // Dispara o lockout com 5 falhas.
+        for (var i = 0; i < 5; i++)
+            await controller.Login(new LoginDto { Email = email, Password = "SenhaErrada@000" });
+
+        // 6ª tentativa com a senha CORRETA deve ser barrada pelo lockout — mas com a MESMA
+        // resposta genérica (400 + "Usuário ou senha inválidos.") do caminho de senha
+        // errada, para NÃO revelar que a conta existe/está bloqueada (anti-enumeração).
+        var resultado = await controller.Login(new LoginDto { Email = email, Password = SenhaValida });
+
+        var badRequest = Assert.IsType<BadRequestObjectResult>(resultado.Result);
+        Assert.Equal(400, badRequest.StatusCode);
+        Assert.Equal("Usuário ou senha inválidos.", badRequest.Value);
+        // Confirma que NÃO houve emissão de token, apesar da senha correta.
+        Assert.IsNotType<OkObjectResult>(resultado.Result);
+    }
+
+    [Fact]
+    public async Task Login_BemSucedido_ZeraContadorDeFalhas()
+    {
+        var (controller, context, email) = await CriarControllerComAdminEContextoAsync();
+
+        // 3 falhas (abaixo do limite), depois login válido.
+        for (var i = 0; i < 3; i++)
+            await controller.Login(new LoginDto { Email = email, Password = "SenhaErrada@000" });
+
+        await controller.Login(new LoginDto { Email = email, Password = SenhaValida });
+
+        var admin = await RecarregarAdminAsync(context, email);
+        Assert.Equal(0, admin.AcessoFalhasContador);
+        Assert.Null(admin.BloqueioFim);
     }
 }

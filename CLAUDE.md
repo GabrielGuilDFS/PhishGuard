@@ -100,7 +100,7 @@ Prioridades e regras inegociáveis:
   Polly), limite de tentativas, dead-letter e circuit breaker para dependências
   externas (SMTP). Nada de retry infinito sem backoff.
 
-### 5. Engenheiro Frontend Sênior — React / TypeScript
+### 6. Engenheiro Frontend Sênior — React / TypeScript
 **Ativa quando:** mexer em `PhishGuard.Frontend/src/`.
 
 Prioridades e regras inegociáveis:
@@ -295,10 +295,61 @@ npx vitest
   Strings de conexão e o compose já refletem isso — mantenha alinhado.
 - **`run-local.bat` desatualizado** (ver aviso acima).
 - **Tailwind v4** só compila via `@tailwindcss/vite` (o `@tailwindcss/postcss` legado
-  ficava sem efeito). Diretivas v3 antigas não funcionam.
+  ficava sem efeito). Diretivas v3 antigas não funcionam. **O preflight (reset global) do
+  Tailwind está DESATIVADO** em `src/index.css` (importa só `theme` + `utilities`, sem
+  `@import "tailwindcss"`) para não colidir com o `<CssBaseline />` do MUI — ver a seção
+  "Melhorias de Segurança Implementadas".
 - **Iscas oficiais** são resolvidas por ID no disparo a partir de HTML embutido
   (`EmbeddedResource`). Ao adicionar uma nova isca, inclua explicitamente a linha
   correspondente no `.csproj`.
 - **`CampaignSchedulerWorker`** roda a cada 1 minuto: dispara campanhas `Agendada` com
   `DataInicio <= agora` e finaliza campanhas `EmAndamento` com `DataFim` vencida.
   Depende de `IgnoreQueryFilters()` para funcionar sem contexto de tenant.
+
+---
+
+## 🛡️ Melhorias de Segurança Implementadas (TG2)
+
+> Débitos de segurança/resiliência **resolvidos** e validados (`dotnet build`/`test` e
+> `npm run build`/`test:run` — 100% verde). Mantidos aqui como registro de postura.
+
+### 1. Sanitização server-side anti-XSS (allow-list)
+- `Services/IHtmlSanitizationService` + `HtmlSanitizationService` (pacote **HtmlSanitizer /
+  Ganss.Xss**), registrado como **Singleton** em `Program.cs` (stateless, allow-list imutável).
+- Aplicado no **POST e PUT** de `TemplatesController` (`CorpoHtml`) e `PhishingPagesController`
+  (`HtmlCaptura`) — HTML do cliente é higienizado ANTES de persistir. Remove `<script>`,
+  handlers `on*` e `javascript:`; preserva estrutura visual/forms e placeholders `{{...}}`
+  de disparo; IDs de isca oficial (texto sem `<`) passam intactos.
+
+### 2. Rate-limiting + lockout no login (anti-brute-force)
+- **Rate-limit por IP** (nativo .NET 8, `Microsoft.AspNetCore.RateLimiting`): política `"login"`
+  em `Program.cs` (janela fixa 5 req/min por IP, **429** ao exceder) + `app.UseRateLimiter()`;
+  aplicada só ao endpoint via `[EnableRateLimiting("login")]` no `LoginController`.
+- **Lockout de conta**: após **5 falhas consecutivas**, bloqueio de **15 min**. Colunas novas
+  em `Administrador` (`acesso_falhas_contador`, `bloqueio_fim`; migration `AddAdminLockoutFields`).
+  Login válido zera ambos.
+- **Anti-enumeração**: a resposta de conta bloqueada é IDÊNTICA à de senha inválida
+  (400 + "Usuário ou senha inválidos.") — o lockout age em silêncio, sem revelar que o e-mail
+  existe. O rate-limit por IP (429) é a única barreira visível.
+- **Forwarded Headers** (`app.UseForwardedHeaders()`, 1º middleware; `XForwardedFor` +
+  `XForwardedProto`, `KnownNetworks`/`KnownProxies` limpos): reescreve o IP de origem a partir
+  do `X-Forwarded-For` para o rate-limit não colapsar todos os clientes no IP do proxy/Docker.
+  Fronteira de confiança = topologia de rede: **não exponha o backend direto à internet**.
+
+### 3. Resiliência SMTP com Polly
+- `CampaignDispatchService` (pacote **Polly**): `WaitAndRetryAsync` com backoff exponencial
+  **2s→4s→8s + jitter** (até 1s) em conectar/autenticar/enviar. Reconexão transparente entre
+  envios (`GarantirConexaoAsync`).
+- Falha **definitiva** de um alvo (retries esgotados) grava `SimulationLog` com
+  `Acao = SimulationActions.Falha` e segue o lote — o worker **não trava**.
+  `OperationCanceledException` nunca é retentada.
+- **Testabilidade**: o SMTP é acessado via `ISmtpClient`/`ISmtpClientFactory`
+  (impl. `MailKitSmtpClient`) — não mais `new SmtpClient()`. O ctor interno do serviço aceita
+  `backoffProvider`/`throttle` injetáveis, então os testes rodam o caminho de retry sem esperas.
+  Cobertura em `PhishGuard.Tests/Services/CampaignDispatchServiceTests.cs` (retry transitório,
+  log de Falha, isolamento entre alvos, contagem de tentativas).
+
+### 4. Escopamento do Tailwind (isolamento do MUI)
+- `src/index.css` importa apenas `tailwindcss/theme.css` + `tailwindcss/utilities.css`
+  (camadas explícitas), **sem o preflight**. O reset global fica a cargo exclusivo do
+  `<CssBaseline />` do MUI; as landings mantêm todas as classes utilitárias do Tailwind.
