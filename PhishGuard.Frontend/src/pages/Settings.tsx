@@ -18,7 +18,8 @@ import {
   Settings as SettingsIcon,
   Send as SendIcon
 } from '@mui/icons-material';
-import { useNotify } from '../context/NotificationContext'; 
+import { useNotify } from '../context/NotificationContext';
+import PageContainer from '../components/PageContainer';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -267,7 +268,7 @@ export default function Settings() {
   };
 
   return (
-    <Box>
+    <PageContainer>
       <Typography variant="h4" sx={{ fontWeight: 'bold', mb: 3 }}>
         Configurações do Sistema
       </Typography>
@@ -402,6 +403,6 @@ export default function Settings() {
           </Box>
         </TabPanel>
       </Paper>
-    </Box>
+    </PageContainer>
   );
 }

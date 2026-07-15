@@ -15,6 +15,7 @@ import { templatesPredefinidos } from '../data/predefinedTemplates';
 import { simulationScenarios, type SimulationScenario } from '../data/predefinedTemplates';
 import { landingTemplates } from '../data/landingTemplates';
 import { educationalTemplates } from '../data/educationalTemplates';
+import PageContainer from '../components/PageContainer';
 
 // Biblioteca de Modelos — tela unificada de gerenciamento.
 //
@@ -32,7 +33,6 @@ import { educationalTemplates } from '../data/educationalTemplates';
 
 const API_TEMPLATES = 'http://localhost:5000/api/Templates';
 const API_PHISHING = 'http://localhost:5000/api/PhishingPages';
-const API_EDU = 'http://localhost:5000/api/EducationalPages';
 
 // Índices auxiliares dos catálogos estáticos (id -> objeto).
 const iscaPorId = new Map(templatesPredefinidos.map((i) => [i.id, i]));
@@ -49,7 +49,6 @@ export default function Templates() {
 
   const [templates, setTemplates] = useState<TemplateRow[]>([]);
   const [phishingPages, setPhishingPages] = useState<PageRow[]>([]);
-  const [eduPages, setEduPages] = useState<PageRow[]>([]);
 
   const [notify, setNotify] = useState<Notify>({ open: false, message: '', type: 'success' });
   const showNotify = (message: string, type: Notify['type'] = 'success') =>
@@ -63,14 +62,12 @@ export default function Templates() {
   const fetchAll = async () => {
     setLoading(true);
     try {
-      const [tRes, pRes, eRes] = await Promise.all([
+      const [tRes, pRes] = await Promise.all([
         fetch(API_TEMPLATES, { headers: authHeaders }),
         fetch(API_PHISHING, { headers: authHeaders }),
-        fetch(API_EDU, { headers: authHeaders }),
       ]);
       if (tRes.ok) setTemplates(await tRes.json());
       if (pRes.ok) setPhishingPages(await pRes.json());
-      if (eRes.ok) setEduPages(await eRes.json());
     } catch {
       showNotify('Erro ao conectar com o servidor', 'error');
     } finally {
@@ -144,7 +141,7 @@ export default function Templates() {
   };
 
   return (
-    <Box>
+    <PageContainer>
       <Typography variant="h4" sx={{ fontWeight: 'bold', mb: 1 }}>Biblioteca de Modelos</Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
         Cenários amarram o e-mail à página falsa correspondente. As páginas educativas são fixas do sistema.
@@ -167,20 +164,12 @@ export default function Templates() {
         />
       )}
 
-      {!loading && aba === 1 && (
-        <EducativasTab
-          eduPages={eduPages}
-          jsonHeaders={jsonHeaders}
-          authHeaders={authHeaders}
-          onChange={fetchAll}
-          notify={showNotify}
-        />
-      )}
+      {!loading && aba === 1 && <EducativasTab />}
 
       <Snackbar open={notify.open} autoHideDuration={4000} onClose={() => setNotify({ ...notify, open: false })} anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}>
         <Alert severity={notify.type} variant="filled" sx={{ width: '100%' }}>{notify.message}</Alert>
       </Snackbar>
-    </Box>
+    </PageContainer>
   );
 }
 
@@ -219,11 +208,10 @@ function CenariosTab({ registrado, onRegistrar, onRemover }: {
         <Table>
           <TableHead sx={{ backgroundColor: '#f8f9fa' }}>
             <TableRow>
-              <TableCell><strong>Cenário</strong></TableCell>
-              <TableCell><strong>Categoria</strong></TableCell>
-              <TableCell><strong>Amarração (E-mail ⇄ Página Falsa)</strong></TableCell>
-              <TableCell><strong>Status</strong></TableCell>
-              <TableCell align="right"><strong>Ações</strong></TableCell>
+              <TableCell align="center"><strong>Cenário</strong></TableCell>
+              <TableCell align="center"><strong>Categoria</strong></TableCell>
+              <TableCell align="center"><strong>Amarração (E-mail ⇄ Página Falsa)</strong></TableCell>
+              <TableCell align="center"><strong>Ações</strong></TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -233,21 +221,18 @@ function CenariosTab({ registrado, onRegistrar, onRemover }: {
               const jaRegistrado = registrado(s);
               return (
                 <TableRow key={s.id} hover>
-                  <TableCell>
+                  <TableCell align="center" sx={{ verticalAlign: 'middle' }}>
                     <Typography variant="body2" sx={{ fontWeight: 600 }}>{s.nome}</Typography>
                     <Typography variant="caption" color="text.secondary">{s.descricao}</Typography>
                   </TableCell>
-                  <TableCell><Chip label={s.categoria} size="small" variant="outlined" color="primary" /></TableCell>
-                  <TableCell>
+                  <TableCell align="center" sx={{ verticalAlign: 'middle' }}>
+                    <Chip label={s.categoria} size="small" variant="outlined" color="primary" />
+                  </TableCell>
+                  <TableCell align="center" sx={{ verticalAlign: 'middle' }}>
                     <Typography variant="caption" display="block">{isca?.nome ?? s.emailTemplateId}</Typography>
                     <Typography variant="caption" color="text.secondary" display="block">{landing?.nome ?? s.landingTemplateId}</Typography>
                   </TableCell>
-                  <TableCell>
-                    {jaRegistrado
-                      ? <Chip label="Registrado" size="small" color="success" />
-                      : <Chip label="Não registrado" size="small" variant="outlined" />}
-                  </TableCell>
-                  <TableCell align="right">
+                  <TableCell align="center" sx={{ verticalAlign: 'middle' }}>
                     <Tooltip title="Visualizar previews (E-mail e Página Falsa)">
                       <IconButton aria-label={`Visualizar ${s.nome}`} color="primary" onClick={() => abrirPreview(s)}><VisibilityIcon fontSize="small" /></IconButton>
                     </Tooltip>
@@ -307,44 +292,19 @@ function CenariosTab({ registrado, onRegistrar, onRemover }: {
 }
 
 // ===========================================================================
-// Aba 2 — Páginas Educativas (fixas, somente leitura + previewer)
+// Aba 2 — Páginas Educativas (catálogo fixo do sistema, SOMENTE LEITURA)
 // ===========================================================================
-function EducativasTab({ eduPages, jsonHeaders, authHeaders, onChange, notify }: {
-  eduPages: PageRow[];
-  jsonHeaders: Record<string, string>;
-  authHeaders: Record<string, string>;
-  onChange: () => void;
-  notify: (m: string, t?: Notify['type']) => void;
-}) {
+//
+// Decisão de UX: os moldes educativos são conteúdo FIXO do sistema (idênticos para
+// todo tenant, não editáveis). Não há motivo para o admin "registrar" um molde: isso
+// só criava uma linha em EducationalPages para servir de alvo da FK da campanha —
+// fricção sem propósito no modelo mental do usuário. Removemos os botões de Registrar/
+// Remover; a linha no banco passou a ser provisionada de forma transparente no momento
+// da criação da campanha (find-or-create em Campaigns.tsx). Esta aba é agora apenas um
+// catálogo navegável com preview.
+function EducativasTab() {
   const [selecionado, setSelecionado] = useState(educationalTemplates[0]?.id ?? '');
   const molde = educationalTemplates.find((m) => m.id === selecionado);
-
-  // Uma página educativa está registrada quando existe uma linha cujo conteudoHtml
-  // casa com o HTML do molde fixo (persistência do molde escolhido).
-  const linhaDoMolde = (html: string) => eduPages.find((p) => p.conteudoHtml === html);
-  const registrado = molde ? Boolean(linhaDoMolde(molde.html)) : false;
-
-  const registrar = async () => {
-    if (!molde) return;
-    try {
-      const res = await fetch(API_EDU, {
-        method: 'POST', headers: jsonHeaders,
-        body: JSON.stringify({ nome: molde.nome, conteudoHtml: molde.html }),
-      });
-      if (res.ok) { notify('Página educativa registrada!', 'success'); onChange(); }
-      else notify('Falha ao registrar a página educativa.', 'error');
-    } catch { notify('Erro de rede ao registrar.', 'error'); }
-  };
-
-  const remover = async () => {
-    if (!molde) return;
-    const linha = linhaDoMolde(molde.html);
-    if (!linha) return;
-    try {
-      const res = await fetch(`${API_EDU}/${linha.id}`, { method: 'DELETE', headers: authHeaders });
-      if (res.ok) { notify('Página educativa removida.', 'success'); onChange(); }
-    } catch { notify('Erro ao remover.', 'error'); }
-  };
 
   return (
     <Grid container spacing={3}>
@@ -352,8 +312,8 @@ function EducativasTab({ eduPages, jsonHeaders, authHeaders, onChange, notify }:
         <Paper variant="outlined" sx={{ p: 3, borderRadius: 2 }}>
           <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mb: 1 }}>Moldes Pedagógicos</Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Catálogo fixo do sistema. Selecione uma abordagem para ler e visualizar. As campanhas escolhem
-            livremente qual molde aplicar ao final do fluxo.
+            Catálogo fixo do sistema. Selecione uma abordagem para ler e visualizar. A página é
+            associada automaticamente à campanha ao criá-la — não é preciso registrar nada aqui.
           </Typography>
 
           <TextField
@@ -367,23 +327,10 @@ function EducativasTab({ eduPages, jsonHeaders, authHeaders, onChange, notify }:
             ))}
           </TextField>
 
-          {molde && (
-            <Stack direction="row" spacing={1} alignItems="center" sx={{ flexWrap: 'wrap', gap: 1, mb: 2 }}>
-              {molde.categoria && <Chip label={molde.categoria} size="small" variant="outlined" color="primary" />}
-              {registrado
-                ? <Chip label="Registrado" size="small" color="success" />
-                : <Chip label="Não registrado" size="small" variant="outlined" />}
+          {molde?.categoria && (
+            <Stack direction="row" spacing={1} alignItems="center" sx={{ flexWrap: 'wrap', gap: 1 }}>
+              <Chip label={molde.categoria} size="small" variant="outlined" color="primary" />
             </Stack>
-          )}
-
-          {registrado ? (
-            <Button variant="outlined" color="error" fullWidth startIcon={<DeleteIcon />} onClick={remover}>
-              Remover registro
-            </Button>
-          ) : (
-            <Button variant="contained" fullWidth startIcon={<PlaylistAddCheckIcon />} onClick={registrar}>
-              Registrar molde
-            </Button>
           )}
         </Paper>
       </Grid>

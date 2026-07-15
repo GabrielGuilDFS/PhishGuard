@@ -62,6 +62,40 @@ namespace PhishGuard.Backend.Controllers
             });
         }
 
+        // GET /api/Dashboard/funnel
+        // Dados dos gráficos comparativos do painel:
+        //  - Entregabilidade SMTP: disparos FEITOS (tentativas = Envio + Falha) vs ENTREGUES
+        //    (Envio, que só é logado no sucesso do SendAsync).
+        //  - Comportamento de risco: alvos DISTINTOS que clicaram vs que submeteram dados.
+        [HttpGet("funnel")]
+        public async Task<IActionResult> GetFunnel()
+        {
+            var tenantId = _tenantProvider.GetTenantId();
+
+            // SimulationLog NÃO tem Global Query Filter → escopo explícito por tenant.
+            var logsTenant = _context.SimulationsLogs.Where(l => l.TenantId == tenantId);
+
+            var entregues = await logsTenant.CountAsync(l => l.Acao == SimulationActions.Envio);
+            var falhas = await logsTenant.CountAsync(l => l.Acao == SimulationActions.Falha);
+
+            // Distinto por TargetId: um mesmo alvo que clica/submete várias vezes conta uma vez.
+            var cliques = await logsTenant
+                .Where(l => l.Acao == SimulationActions.Clique)
+                .Select(l => l.TargetId).Distinct().CountAsync();
+            var submissoes = await logsTenant
+                .Where(l => l.Acao == SimulationActions.Submissao)
+                .Select(l => l.TargetId).Distinct().CountAsync();
+
+            return Ok(new
+            {
+                disparosFeitos = entregues + falhas,
+                entregues,
+                falhas,
+                cliques,
+                submissoes
+            });
+        }
+
         // GET /api/Dashboard/departments
         // Vulnerabilidade por departamento: colaboradores, e-mails recebidos, cliques e o
         // percentual de risco (engajados / envios) de cada setor do tenant.

@@ -100,7 +100,7 @@ describe('Templates (Biblioteca de Modelos)', () => {
     expect(corpoPhishing.conteudoHtml).not.toContain('<html');
   });
 
-  it('na aba Páginas Educativas, mostra o previewer dos moldes fixos sem edição de HTML', async () => {
+  it('na aba Páginas Educativas, é um catálogo somente-leitura (sem botão de registrar)', async () => {
     await renderTela();
 
     fireEvent.click(screen.getByRole('tab', { name: /Páginas Educativas/i }));
@@ -115,13 +115,14 @@ describe('Templates (Biblioteca de Modelos)', () => {
     const eduFrame = screen.getByTitle('Educational Preview') as HTMLIFrameElement;
     expect(eduFrame.getAttribute('srcdoc')).toContain('Phishing');
 
-    // Registrar persiste apenas o molde escolhido no endpoint educacional.
-    fireEvent.click(screen.getByRole('button', { name: /Registrar molde/i }));
-    await waitFor(() =>
-      expect(fetchMock).toHaveBeenCalledWith(
-        'http://localhost:5000/api/EducationalPages',
-        expect.objectContaining({ method: 'POST' }),
-      ),
+    // Decisão de UX: moldes educativos são fixos do sistema — não há registro manual.
+    // A aba não deve mais expor botões de Registrar/Remover molde.
+    expect(screen.queryByRole('button', { name: /Registrar molde/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Remover registro/i })).not.toBeInTheDocument();
+    // E não dispara escrita no endpoint educacional só por navegar na aba.
+    expect(fetchMock).not.toHaveBeenCalledWith(
+      'http://localhost:5000/api/EducationalPages',
+      expect.objectContaining({ method: 'POST' }),
     );
   });
 });
