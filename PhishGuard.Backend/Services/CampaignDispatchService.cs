@@ -2,11 +2,12 @@ using System;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using MailKit.Net.Smtp;
 using MailKit.Security;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using MimeKit;
+using Polly;
+using Polly.Retry;
 using PhishGuard.Backend.Content;
 using PhishGuard.Backend.Data;
 using PhishGuard.Backend.Models;
@@ -29,18 +30,48 @@ namespace PhishGuard.Backend.Services
         private readonly AppDbContext _context;
         private readonly ILogger<CampaignDispatchService> _logger;
         private readonly ISmtpCredentialProtector _senhaProtector;
+        private readonly ISmtpClientFactory _smtpClientFactory;
+
+        // Seams de tempo (injetáveis) para manter o comportamento de PRODUÇÃO idêntico e,
+        // ao mesmo tempo, permitir que os testes zerem esperas: o backoff do retry e a
+        // pausa de throttle entre envios. Em produção o ctor público injeta os defaults.
+        private readonly Func<int, TimeSpan> _backoffProvider;
+        private readonly TimeSpan _throttleEntreEnvios;
 
         private const string BaseTrackingUrl = "http://localhost:5000/api/tracking";
 
         public CampaignDispatchService(
             AppDbContext context,
             ILogger<CampaignDispatchService> logger,
-            ISmtpCredentialProtector senhaProtector)
+            ISmtpCredentialProtector senhaProtector,
+            ISmtpClientFactory smtpClientFactory)
+            : this(context, logger, senhaProtector, smtpClientFactory,
+                   BackoffExponencialComJitter, TimeSpan.FromSeconds(1))
+        {
+        }
+
+        // Ctor INTERNO (visível aos testes via InternalsVisibleTo). Não é usado pela DI —
+        // o container só enxerga o construtor público — então não há ambiguidade de resolução.
+        internal CampaignDispatchService(
+            AppDbContext context,
+            ILogger<CampaignDispatchService> logger,
+            ISmtpCredentialProtector senhaProtector,
+            ISmtpClientFactory smtpClientFactory,
+            Func<int, TimeSpan> backoffProvider,
+            TimeSpan throttleEntreEnvios)
         {
             _context = context;
             _logger = logger;
             _senhaProtector = senhaProtector;
+            _smtpClientFactory = smtpClientFactory;
+            _backoffProvider = backoffProvider;
+            _throttleEntreEnvios = throttleEntreEnvios;
         }
+
+        // Backoff exponencial 2s→4s→8s + jitter de até 1s (descorrelaciona reconexões).
+        private static TimeSpan BackoffExponencialComJitter(int tentativa)
+            => TimeSpan.FromSeconds(Math.Pow(2, tentativa))
+               + TimeSpan.FromMilliseconds(Random.Shared.Next(0, 1000));
 
         public async Task DispatchAsync(Campaign campaign, CancellationToken cancellationToken = default)
         {
@@ -89,17 +120,37 @@ namespace PhishGuard.Backend.Services
             // Senha decifrada apenas no momento do uso (proteção em repouso).
             var senhaSmtp = _senhaProtector.Unprotect(smtpConfig.Senha);
 
-            using var client = new SmtpClient();
-            await client.ConnectAsync(smtpConfig.Host, smtpConfig.Porta, SecureSocketOptions.StartTls, cancellationToken);
-            await client.AuthenticateAsync(smtpConfig.Usuario, senhaSmtp, cancellationToken);
+            using var client = _smtpClientFactory.Create();
+
+            // RESILIÊNCIA (Polly): toda operação SMTP (conectar/autenticar/enviar) roda sob
+            // retry com backoff exponencial 2s→4s→8s + jitter de até 1s. O jitter evita o
+            // "thundering herd" (vários workers/alvos reconectando no mesmo instante e
+            // sobrecarregando o servidor). OperationCanceledException NÃO é retentada —
+            // shutdown/cancelamento deve propagar imediatamente.
+            var smtpRetryPolicy = BuildSmtpRetryPolicy();
+
+            // Estabelece (ou restabelece) a sessão SMTP. Idempotente: um SendAsync que derruba
+            // o socket pode ser seguido por uma reconexão transparente antes do próximo envio.
+            async Task GarantirConexaoAsync(CancellationToken ct)
+            {
+                if (!client.IsConnected)
+                    await client.ConnectAsync(smtpConfig.Host, smtpConfig.Porta, SecureSocketOptions.StartTls, ct);
+                if (!client.IsAuthenticated)
+                    await client.AuthenticateAsync(smtpConfig.Usuario, senhaSmtp, ct);
+            }
+
+            // Conexão inicial sob retry. Se falhar DEFINITIVAMENTE, a exceção propaga: sem
+            // sessão SMTP não há o que disparar, e o caller (worker) trata por-campanha.
+            await smtpRetryPolicy.ExecuteAsync(GarantirConexaoAsync, cancellationToken);
 
             // Persiste apenas o IDENTIFICADOR da isca em CorpoHtml; resolve para o HTML real.
             var corpoBase = OfficialBaitCatalog.ResolveHtml(campaign.Template.CorpoHtml);
 
             foreach (var target in pendentes)
             {
-                // Resiliência: um alvo com e-mail inválido não pode derrubar o disparo
-                // inteiro. Loga e segue para o próximo destinatário.
+                // Resiliência: uma falha definitiva num alvo (e-mail inválido, indisponibilidade
+                // do SMTP após todos os retries) não pode derrubar o disparo inteiro. Registra
+                // o alvo como "Falha" e segue para o próximo destinatário.
                 try
                 {
                     var message = new MimeMessage();
@@ -118,7 +169,13 @@ namespace PhishGuard.Backend.Services
 
                     message.Body = new BodyBuilder { HtmlBody = corpoPersonalizado }.ToMessageBody();
 
-                    await client.SendAsync(message, cancellationToken);
+                    // Envio sob retry. Antes de cada tentativa reforça a sessão SMTP (um envio
+                    // que falhou pode ter derrubado o socket) e então envia.
+                    await smtpRetryPolicy.ExecuteAsync(async ct =>
+                    {
+                        await GarantirConexaoAsync(ct);
+                        await client.SendAsync(message, ct);
+                    }, cancellationToken);
 
                     // Marca o Envio IMEDIATAMENTE após o sucesso e persiste, para que uma
                     // queda logo em seguida não faça o alvo ser reenviado na retomada.
@@ -135,11 +192,40 @@ namespace PhishGuard.Backend.Services
                     await _context.SaveChangesAsync(cancellationToken);
 
                     // THROTTLING: pausa para não ser banido por spam pelo provedor SMTP.
-                    await Task.Delay(1000, cancellationToken);
+                    if (_throttleEntreEnvios > TimeSpan.Zero)
+                        await Task.Delay(_throttleEntreEnvios, cancellationToken);
                 }
                 catch (Exception ex) when (ex is not OperationCanceledException)
                 {
-                    _logger.LogError(ex, "Falha ao enviar e-mail para {Email} na campanha {CampaignId}.", target.Email, campaign.Id);
+                    // Falha DEFINITIVA (retries esgotados) para ESTE alvo. Loga e persiste um
+                    // log "Falha" para rastreabilidade, sem interromper o restante do lote.
+                    _logger.LogError(ex,
+                        "Falha definitiva ao enviar e-mail para {Email} na campanha {CampaignId} após todos os retries.",
+                        target.Email, campaign.Id);
+
+                    _context.SimulationsLogs.Add(new SimulationLog
+                    {
+                        Id = Guid.NewGuid(),
+                        TenantId = campaign.TenantId,
+                        CampaignId = campaign.Id,
+                        TargetId = target.Id,
+                        Acao = SimulationActions.Falha,
+                        DataHora = DateTime.UtcNow,
+                        IpOrigem = "SISTEMA"
+                    });
+
+                    // O SaveChanges do log de Falha é isolado: um erro ao persistir o próprio
+                    // log não pode, por sua vez, derrubar o processamento dos demais alvos.
+                    try
+                    {
+                        await _context.SaveChangesAsync(cancellationToken);
+                    }
+                    catch (Exception logEx) when (logEx is not OperationCanceledException)
+                    {
+                        _logger.LogError(logEx,
+                            "Não foi possível persistir o log de Falha do alvo {TargetId} (campanha {CampaignId}).",
+                            target.Id, campaign.Id);
+                    }
                 }
             }
 
@@ -148,6 +234,27 @@ namespace PhishGuard.Backend.Services
             // Lote 100% processado: sai de "Processando" para "Em Andamento" (coleta).
             campaign.Status = CampaignStatus.EmAndamento;
             await _context.SaveChangesAsync(cancellationToken);
+        }
+
+        /// <summary>
+        /// Política de retry para operações SMTP: 3 tentativas, backoff exponencial
+        /// (2s → 4s → 8s) + jitter aleatório de até 1s por tentativa. O jitter descorrelaciona
+        /// reconexões simultâneas, evitando picos de carga contra o servidor SMTP.
+        /// <see cref="OperationCanceledException"/> é deixada propagar (shutdown/cancelamento).
+        /// </summary>
+        private AsyncRetryPolicy BuildSmtpRetryPolicy()
+        {
+            const int maxTentativas = 3;
+
+            return Policy
+                .Handle<Exception>(ex => ex is not OperationCanceledException)
+                .WaitAndRetryAsync(
+                    retryCount: maxTentativas,
+                    sleepDurationProvider: _backoffProvider, // produção: 2/4/8s + jitter; testes: zero
+                    onRetry: (ex, delay, tentativa, _) =>
+                        _logger.LogWarning(ex,
+                            "Falha SMTP transitória (tentativa {Tentativa}/{Max}). Novo retry em {Delay:g}.",
+                            tentativa, maxTentativas, delay));
         }
     }
 }

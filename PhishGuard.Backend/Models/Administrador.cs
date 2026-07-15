@@ -17,5 +17,17 @@ namespace PhishGuard.Backend.Models
         public string Email { get; set; }
 
         public string PasswordHash { get; set; }
+
+        /// <summary>
+        /// Tentativas consecutivas de senha incorreta. Zerado a cada login bem-sucedido.
+        /// Ao atingir o limite, dispara o lockout temporário (<see cref="BloqueioFim"/>).
+        /// </summary>
+        public int AcessoFalhasContador { get; set; }
+
+        /// <summary>
+        /// Instante (UTC) até o qual a conta permanece bloqueada por brute force.
+        /// <c>null</c> = conta liberada. Comparar sempre contra <see cref="DateTime.UtcNow"/>.
+        /// </summary>
+        public DateTime? BloqueioFim { get; set; }
     }
 }

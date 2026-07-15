@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using PhishGuard.Backend.Data;
 using PhishGuard.Backend.Models;
+using PhishGuard.Backend.Services;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -17,11 +18,16 @@ namespace PhishGuard.Backend.Controllers
     {
         private readonly AppDbContext _context;
         private readonly ITenantProvider _tenantProvider;
+        private readonly IHtmlSanitizationService _htmlSanitizer;
 
-        public TemplatesController(AppDbContext context, ITenantProvider tenantProvider)
+        public TemplatesController(
+            AppDbContext context,
+            ITenantProvider tenantProvider,
+            IHtmlSanitizationService htmlSanitizer)
         {
             _context = context;
             _tenantProvider = tenantProvider;
+            _htmlSanitizer = htmlSanitizer;
         }
 
         [HttpGet]
@@ -45,6 +51,9 @@ namespace PhishGuard.Backend.Controllers
             template.TenantId = _tenantProvider.GetTenantId();
             template.CriadoEm = DateTime.UtcNow;
 
+            // Anti-XSS: higieniza o HTML hostil do cliente antes de persistir (allow-list).
+            template.CorpoHtml = _htmlSanitizer.Sanitize(template.CorpoHtml);
+
             _context.Templates.Add(template);
             await _context.SaveChangesAsync();
 
@@ -63,7 +72,8 @@ namespace PhishGuard.Backend.Controllers
             templateExistente.Assunto = template.Assunto;
             templateExistente.RemetenteNome = template.RemetenteNome;
             templateExistente.RemetenteEmail = template.RemetenteEmail;
-            templateExistente.CorpoHtml = template.CorpoHtml;
+            // Anti-XSS: higieniza o HTML hostil do cliente antes de persistir (allow-list).
+            templateExistente.CorpoHtml = _htmlSanitizer.Sanitize(template.CorpoHtml);
 
             await _context.SaveChangesAsync();
             return NoContent();

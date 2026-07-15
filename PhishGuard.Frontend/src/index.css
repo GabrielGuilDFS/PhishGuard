@@ -1,8 +1,24 @@
-/* Tailwind CSS v4 — diretiva única de importação (substitui as diretivas v3
-   @tailwind base/components/utilities, que não compilavam neste projeto).
+/* Tailwind CSS v4 — importação SEM o preflight (reset global do Tailwind).
    Compilado pela esteira do Vite via plugin @tailwindcss/vite.
 
-   O painel administrativo usa MUI (CSS-in-JS via ThemeProvider/emotion), que não
-   depende deste arquivo — nenhuma configuração de MUI vive aqui, então habilitar
-   o Tailwind não altera os estilos existentes do painel. */
-@import "tailwindcss";
+   POR QUE NÃO USAR o atalho `@import "tailwindcss";`:
+   aquele atalho puxa três camadas — theme, PREFLIGHT (reset global) e utilities.
+   O preflight zera estilos base de elementos (headings, button, listas, box-sizing)
+   em TODO o app. Como o painel administrativo já tem o <CssBaseline /> do MUI v7
+   como reset global (App.tsx), os dois resets colidiam e degradavam os componentes
+   do MUI. Aqui importamos apenas `theme` (variáveis) e `utilities` (classes), SEM o
+   preflight — o CssBaseline do MUI passa a ser o único reset global.
+
+   Efeito prático:
+   - Painel admin (MUI): reset único do CssBaseline, sem interferência do Tailwind.
+   - Landing pages de simulação: seguem com TODAS as classes utilitárias do Tailwind
+     (as `utilities` continuam carregadas); a normalização base vem do CssBaseline,
+     que também envolve essas rotas.
+
+   Ordem das camadas declarada explicitamente para deixar `utilities` com a menor
+   precedência entre elas — estilos do MUI (emotion, sem @layer) continuam vencendo
+   nos componentes administrativos. */
+@layer theme, base, components, utilities;
+
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities);

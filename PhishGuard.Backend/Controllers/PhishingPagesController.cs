@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using PhishGuard.Backend.Data;
 using PhishGuard.Backend.Models;
+using PhishGuard.Backend.Services;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -17,11 +18,16 @@ namespace PhishGuard.Backend.Controllers
     {
         private readonly AppDbContext _context;
         private readonly ITenantProvider _tenantProvider;
+        private readonly IHtmlSanitizationService _htmlSanitizer;
 
-        public PhishingPagesController(AppDbContext context, ITenantProvider tenantProvider)
+        public PhishingPagesController(
+            AppDbContext context,
+            ITenantProvider tenantProvider,
+            IHtmlSanitizationService htmlSanitizer)
         {
             _context = context;
             _tenantProvider = tenantProvider;
+            _htmlSanitizer = htmlSanitizer;
         }
 
         [HttpGet]
@@ -63,9 +69,10 @@ namespace PhishGuard.Backend.Controllers
                 Id = Guid.NewGuid(),
                 TenantId = _tenantProvider.GetTenantId(),
                 Nome = input.Nome,
-                
-                HtmlCaptura = input.ConteudoHtml, 
-                
+
+                // Anti-XSS: higieniza o HTML hostil do cliente antes de persistir (allow-list).
+                HtmlCaptura = _htmlSanitizer.Sanitize(input.ConteudoHtml),
+
                 CriadoEm = DateTime.UtcNow
             };
 
@@ -91,8 +98,9 @@ namespace PhishGuard.Backend.Controllers
             if (pageExistente == null) return NotFound();
 
             pageExistente.Nome = input.Nome;
-            
-            pageExistente.HtmlCaptura = input.ConteudoHtml; 
+
+            // Anti-XSS: higieniza o HTML hostil do cliente antes de persistir (allow-list).
+            pageExistente.HtmlCaptura = _htmlSanitizer.Sanitize(input.ConteudoHtml);
 
             await _context.SaveChangesAsync();
             return NoContent();
