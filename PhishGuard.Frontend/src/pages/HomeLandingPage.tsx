@@ -23,6 +23,11 @@ import {
   ArrowForward as ArrowForwardIcon,
 } from '@mui/icons-material';
 import { brandPalette, mutedTextFor } from '../theme';
+// Importada (e não referenciada por caminho solto tipo '/assets/images/...'): o Vite
+// versiona o arquivo com hash e, se ele sumir, o BUILD quebra em vez de virar um 404
+// silencioso em produção. A netflix-bg.png vive em public/ por outro motivo — é usada
+// dentro de uma string de HTML cru (landingTemplates.ts), onde não existe import.
+import fotoAnalista from '../assets/templates/pexels-arina-krasnikova-7005399.jpg';
 
 // Identidade visual: paleta AZUL travada no modo light (a página é envolvida pelo
 // <ForcedLightScope> em App.tsx e nunca responde ao toggle dark do painel).
@@ -33,18 +38,26 @@ import { brandPalette, mutedTextFor } from '../theme';
 // para não haver um segundo lugar onde a paleta possa divergir.
 const ACCENT = brandPalette.light.accent;        // #0600c2 — CTAs, ícones, destaques
 const ACCENT_HOVER = '#04008f';                  // ultramar mais fechado p/ hover
-const CARD_BG = '#ffffffff';      // #6682f5 — Surface 1 (cards)
-const BAND_BG = '#F0F0F0';    // #b2c1fa — Surface 2 (faixas/rodapé)
-const PAGE_BG = '#F0F0F0';   // #ffffff
+const CARD_BG = '#ffffffff';                     // cards brancos
+const BAND_BG = '#F0F0F0';                       // faixas de seção / rodapé
+const PAGE_BG = '#F0F0F0';                       // fundo geral da página
 const FOOTER_BG = BAND_BG;
-const BORDER = '#c8c8c8ff';     // #b2c1fa
+const BORDER = '#c8c8c8ff';                      // borda neutra padrão da página
+// Borda dos cards de recurso: Surface 2 da paleta (#b2c1fa) — mais suave e com a cor
+// da marca, em vez do cinza neutro usado no resto da página.
+const CARD_BORDER = brandPalette.light.secondary; // #b2c1fa
 const ACCENT_BORDER = 'rgba(6,0,194,0.35)';      // borda de destaque sutil
-const TEXT_DARK = brandPalette.light.text;       // #000000 — 6.08:1 sobre os cards
-const TEXT_MUTED = mutedTextFor('light');        // #05134d — 17.4:1 no branco, 5.04:1 no card
-// Sobre CARD_BG (#6682f5) só texto quase-preto passa em AA: o ACCENT como TEXTO daria
-// 3.40:1. Por isso o accent aparece nos cards apenas em ÍCONES e botões sólidos
-// (objetos gráficos, mínimo 3:1), nunca como corpo de texto.
+const TEXT_DARK = brandPalette.light.text;       // #000000 — 21:1 sobre os cards brancos
+const TEXT_MUTED = mutedTextFor('light');        // #05134d — 17.4:1 no branco
 const CARD_SHADOW = '0 1px 3px rgba(6,0,194,0.10), 0 4px 12px rgba(6,0,194,0.06)';
+
+// Fade da foto da seção "Recursos": apaga a IMAGEM da esquerda para a direita. Usamos
+// máscara em vez de um overlay de cor sólida (como um `from-[#ffffff]`) porque o fundo
+// da página é #F0F0F0, não branco — um overlay branco deixaria um halo claro visível
+// por cima do cinza. A máscara funde com QUALQUER fundo. Vai a 0% na borda esquerda e
+// fica opaca a 45%: o notebook (canto esquerdo da foto) esmaece para dentro da página
+// e a profissional, que está no centro-direita, permanece nítida.
+const FADE_FOTO = 'linear-gradient(to right, transparent 0%, rgba(0,0,0,0.55) 22%, #000 45%)';
 
 // Selos de PLANO: são medalhas (Bronze/Prata/Ouro) — cor semântica do nível, não
 // identidade de marca. Ficam fora da paleta azul pelo mesmo motivo dos status colors:
@@ -61,25 +74,25 @@ interface Recurso {
 
 const recursos: Recurso[] = [
   {
-    icon: <SendIcon sx={{ fontSize: 34 }} />,
+    icon: <SendIcon sx={{ fontSize: 22 }} />,
     titulo: 'Disparos de E-mails Simulados',
     descricao:
       'Um catálogo pronto de cenários que imitam marcas reais como Netflix e Amazon. Programe campanhas e meça quem realmente cai no anzol — sem risco para a operação.',
   },
   {
-    icon: <WebIcon sx={{ fontSize: 34 }} />,
+    icon: <WebIcon sx={{ fontSize: 22 }} />,
     titulo: 'Páginas de Captura Realistas',
     descricao:
       'Clones fiéis de telas de login, incluindo cenários como o da HBO Max. Capturamos a interação do colaborador de forma segura para dimensionar a exposição da empresa.',
   },
   {
-    icon: <SchoolIcon sx={{ fontSize: 34 }} />,
+    icon: <SchoolIcon sx={{ fontSize: 22 }} />,
     titulo: 'Feedback Educacional Imediato',
     descricao:
       'O "Momento Ensinável": ao cair na simulação, o colaborador é direcionado na hora para um treinamento pedagógico com o template básico de phishing. Erro vira aprendizado.',
   },
   {
-    icon: <InsightsIcon sx={{ fontSize: 34 }} />,
+    icon: <InsightsIcon sx={{ fontSize: 22 }} />,
     titulo: 'Relatórios de Vulnerabilidade',
     descricao:
       'Métricas de vulnerabilidade organizacional para gestores: taxas de clique, dados inseridos e evolução da maturidade em segurança ao longo das campanhas.',
@@ -104,7 +117,7 @@ const planos: Plano[] = [
     id: 'bronze',
     nome: 'Inicial',
     selo: 'Bronze',
-    preco: 'R$ 149',
+    preco: 'R$ 59',
     periodo: '/mês',
     publico: 'Pequenas empresas começando a estruturar a cultura de segurança.',
     recursos: [
@@ -120,7 +133,7 @@ const planos: Plano[] = [
     id: 'prata',
     nome: 'Profissional',
     selo: 'Prata',
-    preco: 'R$ 590',
+    preco: 'R$ 119',
     periodo: '/mês',
     publico: 'Médias empresas que precisam de treinamento contínuo e mensurável.',
     recursos: [
@@ -319,73 +332,112 @@ export default function HomeLandingPage() {
       </Box>
 
       {/* ---------- PROBLEMÁTICAS E RECURSOS ---------- */}
-      <Container id="recursos" maxWidth="lg" sx={{ py: { xs: 8, md: 12 }, scrollMarginTop: 80 }}>
-        <Box sx={{ textAlign: 'center', mb: 6 }}>
-          <Typography variant="overline" sx={{ color: ACCENT, fontWeight: 700, letterSpacing: 2 }}>
-            O problema é humano — a defesa também
-          </Typography>
-          <Typography variant="h3" sx={{ fontWeight: 800, mt: 1, fontSize: { xs: '1.8rem', md: '2.6rem' } }}>
-            Engenharia social não se resolve só com firewall
-          </Typography>
-          <Typography variant="body1" sx={{ color: TEXT_MUTED, maxWidth: 680, mx: 'auto', mt: 2 }}>
-            A maioria dos incidentes começa com um clique. O PhishGuard trata a causa raiz treinando
-            pessoas com simulações realistas e feedback imediato.
-          </Typography>
-        </Box>
+      {/* Título centralizado no topo; abaixo, grid de 2 colunas no desktop:
+          cards compactos à esquerda + foto com fade-out à direita. */}
+      <Box id="recursos" sx={{ py: { xs: 8, md: 12 }, scrollMarginTop: 80 }}>
+        <Container maxWidth="lg">
+          <Box sx={{ textAlign: 'center', mb: 6 }}>
+            <Typography variant="overline" sx={{ color: ACCENT, fontWeight: 700, letterSpacing: 2 }}>
+              O problema é humano — a defesa também
+            </Typography>
+            <Typography variant="h3" sx={{ fontWeight: 800, mt: 1, fontSize: { xs: '1.8rem', md: '2.6rem' } }}>
+              Engenharia social não se resolve só com firewall
+            </Typography>
+            <Typography variant="body1" sx={{ color: TEXT_MUTED, maxWidth: 680, mx: 'auto', mt: 2 }}>
+              A maioria dos incidentes começa com um clique. O PhishGuard trata a causa raiz treinando
+              pessoas com simulações realistas e feedback imediato.
+            </Typography>
+          </Box>
+        </Container>
 
+        {/* max-w-7xl (1280) centralizado — mais largo que o Container "lg" do título, o
+            que puxa os cards para mais perto da borda esquerda da tela. */}
         <Box
           sx={{
+            maxWidth: 1280,
+            mx: 'auto',
             display: 'grid',
-            gap: 3,
-            gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
+            gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
+            gap: { xs: 4, md: 6 },
+            alignItems: 'stretch',
           }}
         >
-          {recursos.map((r) => (
-            <Paper
-              key={r.titulo}
-              elevation={0}
-              sx={{
-                p: 4,
-                height: '100%',
-                backgroundColor: CARD_BG,
-                border: `1px solid ${BORDER}`,
-                borderRadius: 3,
-                boxShadow: CARD_SHADOW,
-                transition: 'transform .2s, border-color .2s, box-shadow .2s',
-                '&:hover': {
-                  transform: 'translateY(-4px)',
-                  borderColor: ACCENT_BORDER,
-                  boxShadow: '0 10px 24px rgba(6,0,194,0.22)',
-                },
-              }}
-            >
-              {/* Bolha branca: o ícone accent precisa de 3:1, e sobre o card (#6682f5)
-                  ele daria 3.40:1 — no branco sobe para 11.75:1 e fica nítido. */}
-              <Box
+          {/* ----- COLUNA ESQUERDA: cards compactos em coluna única ----- */}
+          <Stack
+            spacing={2}
+            sx={{ pl: { xs: 2, sm: 3, lg: 4 }, pr: { xs: 2, sm: 3, md: 0 } }}
+          >
+            {recursos.map((r) => (
+              <Paper
+                key={r.titulo}
+                elevation={0}
                 sx={{
-                  width: 60,
-                  height: 60,
-                  borderRadius: 2,
+                  // Compacto: ícone AO LADO do texto (e não acima), padding menor.
+                  p: 2.5,
                   display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: ACCENT,
-                  backgroundColor: PAGE_BG,
-                  mb: 2.5,
+                  alignItems: 'flex-start',
+                  gap: 2,
+                  backgroundColor: CARD_BG,
+                  border: `1px solid ${CARD_BORDER}`,
+                  borderRadius: 3,
+                  boxShadow: CARD_SHADOW,
+                  transition: 'transform .2s, border-color .2s, box-shadow .2s',
+                  '&:hover': {
+                    transform: 'translateY(-2px)',
+                    borderColor: ACCENT_BORDER,
+                    boxShadow: '0 8px 20px rgba(6,0,194,0.16)',
+                  },
                 }}
               >
-                {r.icon}
-              </Box>
-              <Typography variant="h6" sx={{ fontWeight: 700, color: TEXT_DARK, mb: 1 }}>
-                {r.titulo}
-              </Typography>
-              <Typography variant="body2" sx={{ color: TEXT_MUTED, lineHeight: 1.7 }}>
-                {r.descricao}
-              </Typography>
-            </Paper>
-          ))}
+                <Box
+                  sx={{
+                    width: 44,
+                    height: 44,
+                    borderRadius: 2,
+                    flexShrink: 0,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: ACCENT,
+                    backgroundColor: 'rgba(102,130,245,0.16)',
+                  }}
+                >
+                  {r.icon}
+                </Box>
+                <Box>
+                  <Typography variant="subtitle1" sx={{ fontWeight: 700, color: TEXT_DARK, mb: 0.5 }}>
+                    {r.titulo}
+                  </Typography>
+                  <Typography
+                    variant="body2"
+                    sx={{ color: TEXT_MUTED, lineHeight: 1.6, fontSize: '0.85rem' }}
+                  >
+                    {r.descricao}
+                  </Typography>
+                </Box>
+              </Paper>
+            ))}
+          </Stack>
+
+          {/* ----- COLUNA DIREITA: foto com fade-out para dentro da página -----
+              Decorativa (a informação está nos cards) → entra como background-image,
+              sem alt, e some no mobile: em coluna única o fade lateral não faz sentido
+              e o browser nem baixa a imagem de um elemento display:none. */}
+          <Box
+            sx={{
+              display: { xs: 'none', md: 'block' },
+              minHeight: 450,
+              height: '100%',
+              borderRadius: '0 16px 16px 0',
+              backgroundImage: `url(${fotoAnalista})`,
+              backgroundSize: 'cover',
+              backgroundPosition: 'center',
+              maskImage: FADE_FOTO,
+              WebkitMaskImage: FADE_FOTO,
+            }}
+          />
         </Box>
-      </Container>
+      </Box>
 
       {/* ---------- PRICING ---------- */}
       <Box id="precos" sx={{ backgroundColor: BAND_BG, py: { xs: 8, md: 12 }, scrollMarginTop: 80 }}>
