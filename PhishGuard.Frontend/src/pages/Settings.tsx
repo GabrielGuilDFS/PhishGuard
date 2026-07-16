@@ -1,24 +1,31 @@
 import { useState, useEffect } from 'react';
-import { 
-  Box, 
-  Typography, 
-  Paper, 
-  Tabs, 
-  Tab, 
-  TextField, 
-  Button, 
-  Stack, 
-  InputAdornment, 
-  Divider
+import {
+  Box,
+  Typography,
+  Paper,
+  Tabs,
+  Tab,
+  TextField,
+  Button,
+  Stack,
+  InputAdornment,
+  Divider,
+  ToggleButton,
+  ToggleButtonGroup
 } from '@mui/material';
-import { 
-  Save as SaveIcon, 
-  Lock as LockIcon, 
-  Email as EmailIcon, 
+import {
+  Save as SaveIcon,
+  Lock as LockIcon,
+  Email as EmailIcon,
   Settings as SettingsIcon,
-  Send as SendIcon
+  Send as SendIcon,
+  Palette as PaletteIcon,
+  LightMode as LightModeIcon,
+  DarkMode as DarkModeIcon
 } from '@mui/icons-material';
 import { useNotify } from '../context/NotificationContext';
+import { useThemeMode } from '../context/ThemeModeContext';
+import type { AppThemeMode } from '../theme';
 import PageContainer from '../components/PageContainer';
 
 interface TabPanelProps {
@@ -46,7 +53,16 @@ function TabPanel(props: TabPanelProps) {
 
 export default function Settings() {
   const { showNotify } = useNotify();
+  const { mode, setMode } = useThemeMode();
   const [tabValue, setTabValue] = useState(0);
+
+  const handleChangeMode = (_event: React.MouseEvent<HTMLElement>, novoModo: AppThemeMode | null) => {
+    // ToggleButtonGroup emite null quando o usuário clica no botão já ativo — ignora
+    // para nunca ficar sem tema selecionado.
+    if (!novoModo || novoModo === mode) return;
+    setMode(novoModo);
+    showNotify(`Modo ${novoModo === 'dark' ? 'escuro' : 'claro'} ativado.`, 'success');
+  };
 
   const [profile, setProfile] = useState({
     nome: '',
@@ -273,7 +289,9 @@ export default function Settings() {
         Configurações do Sistema
       </Typography>
 
-      <Paper elevation={2}>
+      {/* Paper e fundo da página compartilham o mesmo neutro da paleta — a borda
+          `divider` (Surface 2) é o que delimita o painel. */}
+      <Paper elevation={2} sx={{ border: 1, borderColor: 'divider' }}>
         <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
           <Tabs 
             value={tabValue} 
@@ -284,6 +302,7 @@ export default function Settings() {
           >
             <Tab icon={<SettingsIcon />} iconPosition="start" label="Meu Perfil" />
             <Tab icon={<EmailIcon />} iconPosition="start" label="Servidor de E-mail (SMTP)" />
+            <Tab icon={<PaletteIcon />} iconPosition="start" label="Aparência" />
           </Tabs>
         </Box>
 
@@ -400,6 +419,76 @@ export default function Settings() {
                 Salvar Configurações SMTP
               </Button>
             </Box>
+          </Box>
+        </TabPanel>
+
+        <TabPanel value={tabValue} index={2}>
+          <Box sx={{ maxWidth: 560 }}>
+            {/* Card de destaque com um dos gradientes da paleta (azul-escuro nos dois
+                modos → conteúdo em branco fixo, não no `text` do modo). */}
+            <Box
+              sx={{
+                background: 'var(--linearPrimaryAccent)',
+                color: '#ffffff',
+                borderRadius: 2,
+                p: 2.5,
+                mb: 3,
+              }}
+            >
+              <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+                Identidade visual PhishGuard
+              </Typography>
+              <Typography variant="body2" sx={{ opacity: 0.85 }}>
+                A paleta azul é aplicada a todo o painel. Alertas, erros e confirmações
+                mantêm as cores universais de status.
+              </Typography>
+            </Box>
+
+            <Typography variant="h6" gutterBottom>Tema do Painel</Typography>
+            <Typography variant="body2" color="textSecondary" mb={3}>
+              Escolha entre o modo claro e o modo escuro. A preferência é salva neste
+              navegador e aplicada em todo o sistema com uma transição suave.
+            </Typography>
+
+            <ToggleButtonGroup
+              value={mode}
+              exclusive
+              onChange={handleChangeMode}
+              aria-label="modo de cor do painel"
+              color="primary"
+              sx={{ gap: 2, flexWrap: 'wrap' }}
+            >
+              <ToggleButton
+                value="light"
+                aria-label="modo claro"
+                sx={{ px: 3, py: 2, borderRadius: 2, flexDirection: 'column', gap: 1, minWidth: 160 }}
+              >
+                <LightModeIcon />
+                <Box sx={{ textAlign: 'center' }}>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 700, textTransform: 'none' }}>
+                    Modo Claro
+                  </Typography>
+                  <Typography variant="caption" sx={{ display: 'block', textTransform: 'none' }}>
+                    Branco e azul
+                  </Typography>
+                </Box>
+              </ToggleButton>
+              <ToggleButton
+                value="dark"
+                aria-label="modo escuro"
+                sx={{ px: 3, py: 2, borderRadius: 2, flexDirection: 'column', gap: 1, minWidth: 160 }}
+              >
+                <DarkModeIcon />
+                <Box sx={{ textAlign: 'center' }}>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 700, textTransform: 'none' }}>
+                    Modo Escuro
+                  </Typography>
+                  <Typography variant="caption" sx={{ display: 'block', textTransform: 'none' }}>
+                    Preto e azul neon
+                  </Typography>
+                </Box>
+              </ToggleButton>
+            </ToggleButtonGroup>
           </Box>
         </TabPanel>
       </Paper>

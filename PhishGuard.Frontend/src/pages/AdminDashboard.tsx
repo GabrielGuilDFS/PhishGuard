@@ -10,9 +10,6 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  ThemeProvider,
-  createTheme,
-  CssBaseline,
   Skeleton
 } from '@mui/material';
 import {
@@ -28,53 +25,27 @@ import {
   ResponsiveContainer, Cell, Legend
 } from 'recharts';
 import PageContainer from '../components/PageContainer';
-
-// Minimalist Light Theme with Gold Accents
-const lightGoldTheme = createTheme({
-  palette: {
-    mode: 'light',
-    primary: {
-      main: '#daa520', // Gold
-    },
-    background: {
-      default: '#f4f6f8',
-      paper: '#FFFFFF',
-    },
-    text: {
-      primary: '#111827',
-      secondary: '#6b7280',
-    },
-  },
-  typography: {
-    fontFamily: '"Inter", "Roboto", "Helvetica", "Arial", sans-serif',
-  },
-  components: {
-    MuiCard: {
-      styleOverrides: {
-        root: {
-          borderRadius: '16px',
-          border: '1px solid #f3f4f6',
-          boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.05), 0 2px 4px -2px rgb(0 0 0 / 0.05)',
-        }
-      }
-    },
-    MuiTableCell: {
-      styleOverrides: {
-        root: {
-          borderBottom: '1px solid #f3f4f6',
-        }
-      }
-    }
-  }
-});
+import { brandPalette, statusColors, mutedTextFor, rgbChannelsOf } from '../theme';
+import { useThemeMode } from '../context/ThemeModeContext';
 
 const API_BASE = 'http://localhost:5000/api';
 
-// Paleta dos gráficos (coerente com o tema dourado + semáforo de risco).
-const GOLD = '#daa520';
-const GREEN = '#2e7d32';
-const AMBER = '#ed6c02';
-const RED = '#d32f2f';
+// Cores semânticas de status — papéis EXCLUSIVOS e iguais nos dois modos:
+// danger = falha crítica (clicou/inseriu dados), warning = alerta/pendência,
+// success = entregue/resistiu.
+const SUCCESS = statusColors.success;
+const WARNING = statusColors.warning;
+const DANGER = statusColors.danger;
+// Falha crítica em 2 intensidades (mesma família rose): clique < submissão de dados.
+const DANGER_SOFT = '#fb7185'; // rose-400
+
+// row.risk chega como percentual em string (ex.: "37%") — mesmas faixas do
+// semáforo do gráfico de departamentos: ≥50% danger, ≥25% warning, senão success.
+function corDoRisco(risk: string): string {
+  const pct = parseInt(risk, 10);
+  if (Number.isNaN(pct)) return WARNING;
+  return pct >= 50 ? DANGER : pct >= 25 ? WARNING : SUCCESS;
+}
 
 interface Metrics {
   totalColaboradores: number;
@@ -99,6 +70,29 @@ interface Funnel {
 }
 
 export default function AdminDashboard() {
+  // Os gráficos Recharts não leem o tema do MUI — puxamos as cores da mesma paleta
+  // central, no modo ATIVO, para acompanharem o toggle dark/light.
+  const { mode } = useThemeMode();
+  const C = brandPalette[mode];
+  const ACCENT = C.accent;
+  const chartGridStroke = C.secondary;
+  const chartTick = { fontSize: 12, fill: mutedTextFor(mode) };
+  // Tooltip = Surface 1 (`primary`), a surface de ÊNFASE da paleta: destaca a bolha
+  // sobre o fundo neutro da página. O texto acompanha o `text` do modo — preto sobre
+  // #6682f5 (5.6:1) e branco sobre #0a2799 (12:1), ambos acima do mínimo AA.
+  const chartTooltipStyle = {
+    backgroundColor: C.primary,
+    border: `1px solid ${C.secondary}`,
+    borderRadius: 8,
+    color: C.text,
+  } as const;
+  // Fills translúcidos do accent do modo (cursor de gráfico, bolha de ícone dos KPIs,
+  // hover das linhas da tabela) — canais derivados do hex, sem valor repetido à mão.
+  const accentRgb = rgbChannelsOf(C.accent);
+  const chartCursorFill = { fill: `rgba(${accentRgb}, 0.10)` };
+  const iconBubbleBg = `rgba(${accentRgb}, 0.14)`;
+  const rowHoverBg = `rgba(${accentRgb}, 0.08)`;
+
   const [metrics, setMetrics] = useState<Metrics>({
     totalColaboradores: 0,
     campanhasAtivas: 0,
@@ -150,14 +144,15 @@ export default function AdminDashboard() {
   // Dados derivados dos gráficos.
   const dadosFunil = funnel
     ? [
-        { nome: 'Disparos Feitos', valor: funnel.disparosFeitos, cor: GOLD },
-        { nome: 'Entregues (SMTP)', valor: funnel.entregues, cor: GREEN },
+        { nome: 'Disparos Feitos', valor: funnel.disparosFeitos, cor: ACCENT },
+        { nome: 'Entregues (SMTP)', valor: funnel.entregues, cor: SUCCESS },
       ]
     : [];
+  // Ambos são falhas críticas (vermelho); a intensidade distingue a severidade.
   const dadosRisco = funnel
     ? [
-        { nome: 'Cliques no Link', valor: funnel.cliques, cor: AMBER },
-        { nome: 'Submeteram Dados', valor: funnel.submissoes, cor: RED },
+        { nome: 'Cliques no Link', valor: funnel.cliques, cor: DANGER_SOFT },
+        { nome: 'Submeteram Dados', valor: funnel.submissoes, cor: DANGER },
       ]
     : [];
   const dadosDepto = departments
@@ -168,9 +163,7 @@ export default function AdminDashboard() {
     .sort((a, b) => b.taxa - a.taxa);
 
   return (
-    <ThemeProvider theme={lightGoldTheme}>
-      <CssBaseline />
-      <PageContainer sx={{ py: { xs: 1, md: 2 } }}>
+    <PageContainer sx={{ py: { xs: 1, md: 2 } }}>
 
         {/* Header Section */}
         <Box sx={{ mb: 6 }}>
@@ -228,10 +221,10 @@ export default function AdminDashboard() {
                   )}
                 </Box>
                 <Box sx={{
-                  bgcolor: 'rgba(218, 165, 32, 0.1)', p: 1.25, borderRadius: '50%',
+                  bgcolor: iconBubbleBg, p: 1.25, borderRadius: '50%',
                   display: 'flex', flexShrink: 0, order: { xs: 1, md: 2 }
                 }}>
-                  <item.icon sx={{ color: GOLD, fontSize: 20 }} />
+                  <item.icon sx={{ color: ACCENT, fontSize: 20 }} />
                 </Box>
               </CardContent>
             </Card>
@@ -253,7 +246,7 @@ export default function AdminDashboard() {
         ) : semDisparos ? (
           <Card elevation={0} sx={{ mb: 6 }}>
             <CardContent sx={{ p: 6, textAlign: 'center' }}>
-              <InsightsIcon sx={{ fontSize: 48, color: 'rgba(218,165,32,0.5)', mb: 2 }} />
+              <InsightsIcon sx={{ fontSize: 48, color: `rgba(${accentRgb}, 0.55)`, mb: 2 }} />
               <Typography variant="h6" sx={{ fontWeight: 600, color: 'text.primary', mb: 1 }}>
                 Nenhuma campanha rodando ainda
               </Typography>
@@ -272,10 +265,10 @@ export default function AdminDashboard() {
             >
               <ResponsiveContainer width="100%" height={260}>
                 <BarChart data={dadosFunil} margin={{ top: 8, right: 16, left: -12, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
-                  <XAxis dataKey="nome" tick={{ fontSize: 12, fill: '#6b7280' }} axisLine={false} tickLine={false} />
-                  <YAxis allowDecimals={false} tick={{ fontSize: 12, fill: '#6b7280' }} axisLine={false} tickLine={false} />
-                  <RTooltip cursor={{ fill: 'rgba(0,0,0,0.03)' }} />
+                  <CartesianGrid strokeDasharray="3 3" stroke={chartGridStroke} vertical={false} />
+                  <XAxis dataKey="nome" tick={chartTick} axisLine={false} tickLine={false} />
+                  <YAxis allowDecimals={false} tick={chartTick} axisLine={false} tickLine={false} />
+                  <RTooltip cursor={chartCursorFill} contentStyle={chartTooltipStyle} />
                   <Bar dataKey="valor" name="E-mails" radius={[6, 6, 0, 0]} maxBarSize={90}>
                     {dadosFunil.map((d, i) => <Cell key={i} fill={d.cor} />)}
                   </Bar>
@@ -290,10 +283,10 @@ export default function AdminDashboard() {
             >
               <ResponsiveContainer width="100%" height={260}>
                 <BarChart data={dadosRisco} margin={{ top: 8, right: 16, left: -12, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
-                  <XAxis dataKey="nome" tick={{ fontSize: 12, fill: '#6b7280' }} axisLine={false} tickLine={false} />
-                  <YAxis allowDecimals={false} tick={{ fontSize: 12, fill: '#6b7280' }} axisLine={false} tickLine={false} />
-                  <RTooltip cursor={{ fill: 'rgba(0,0,0,0.03)' }} />
+                  <CartesianGrid strokeDasharray="3 3" stroke={chartGridStroke} vertical={false} />
+                  <XAxis dataKey="nome" tick={chartTick} axisLine={false} tickLine={false} />
+                  <YAxis allowDecimals={false} tick={chartTick} axisLine={false} tickLine={false} />
+                  <RTooltip cursor={chartCursorFill} contentStyle={chartTooltipStyle} />
                   <Bar dataKey="valor" name="Alvos" radius={[6, 6, 0, 0]} maxBarSize={90}>
                     {dadosRisco.map((d, i) => <Cell key={i} fill={d.cor} />)}
                   </Bar>
@@ -316,14 +309,15 @@ export default function AdminDashboard() {
                     data={dadosDepto}
                     margin={{ top: 8, right: 32, left: 8, bottom: 0 }}
                   >
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" horizontal={false} />
-                    <XAxis type="number" domain={[0, 100]} unit="%" tick={{ fontSize: 12, fill: '#6b7280' }} axisLine={false} tickLine={false} />
-                    <YAxis type="category" dataKey="nome" width={140} tick={{ fontSize: 12, fill: '#374151' }} axisLine={false} tickLine={false} />
-                    <RTooltip cursor={{ fill: 'rgba(0,0,0,0.03)' }} formatter={(value) => [`${value}%`, 'Taxa de risco']} />
+                    <CartesianGrid strokeDasharray="3 3" stroke={chartGridStroke} horizontal={false} />
+                    <XAxis type="number" domain={[0, 100]} unit="%" tick={chartTick} axisLine={false} tickLine={false} />
+                    <YAxis type="category" dataKey="nome" width={140} tick={{ fontSize: 12, fill: C.text }} axisLine={false} tickLine={false} />
+                    <RTooltip cursor={chartCursorFill} contentStyle={chartTooltipStyle} formatter={(value) => [`${value}%`, 'Taxa de risco']} />
                     <Legend />
+                    {/* Semáforo semântico: ≥50% falha crítica, ≥25% alerta, abaixo = setor resistindo bem. */}
                     <Bar dataKey="taxa" name="Taxa de risco" radius={[0, 6, 6, 0]} maxBarSize={28}>
                       {dadosDepto.map((d, i) => (
-                        <Cell key={i} fill={d.taxa >= 50 ? RED : d.taxa >= 25 ? AMBER : GOLD} />
+                        <Cell key={i} fill={d.taxa >= 50 ? DANGER : d.taxa >= 25 ? WARNING : SUCCESS} />
                       ))}
                     </Bar>
                   </BarChart>
@@ -338,7 +332,7 @@ export default function AdminDashboard() {
           <Card elevation={0}>
             <CardContent sx={{ p: { xs: 2, sm: 3 }, '&:last-child': { pb: 3 } }}>
               <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 3 }}>
-                <WarningIcon sx={{ color: GOLD, mr: 1, fontSize: 22 }} />
+                <WarningIcon sx={{ color: WARNING, mr: 1, fontSize: 22 }} />
                 <Typography variant="h6" sx={{ fontWeight: 600, color: 'text.primary' }}>
                   Vulnerabilidade por Departamento
                 </Typography>
@@ -372,12 +366,12 @@ export default function AdminDashboard() {
                       </TableRow>
                     ) : (
                       departments.map((row) => (
-                        <TableRow key={row.id} sx={{ '&:hover': { bgcolor: '#f9fafb' }, transition: 'background-color 0.2s' }}>
+                        <TableRow key={row.id} sx={{ '&:hover': { bgcolor: rowHoverBg }, transition: 'background-color 0.2s' }}>
                           <TableCell component="th" scope="row" align="center" sx={{ fontWeight: 500, color: 'text.primary', verticalAlign: 'middle' }}>{row.name}</TableCell>
                           <TableCell align="center" sx={{ color: 'text.secondary', verticalAlign: 'middle' }}>{row.employees}</TableCell>
                           <TableCell align="center" sx={{ color: 'text.secondary', verticalAlign: 'middle' }}>{row.emails}</TableCell>
                           <TableCell align="center" sx={{ color: 'text.secondary', verticalAlign: 'middle' }}>{row.clicks}</TableCell>
-                          <TableCell align="center" sx={{ fontWeight: 700, color: GOLD, verticalAlign: 'middle' }}>{row.risk}</TableCell>
+                          <TableCell align="center" sx={{ fontWeight: 700, color: corDoRisco(row.risk), verticalAlign: 'middle' }}>{row.risk}</TableCell>
                         </TableRow>
                       ))
                     )}
@@ -388,8 +382,7 @@ export default function AdminDashboard() {
           </Card>
         </Box>
 
-      </PageContainer>
-    </ThemeProvider>
+    </PageContainer>
   );
 }
 

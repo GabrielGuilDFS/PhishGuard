@@ -8,9 +8,9 @@ import Targets from './pages/Targets';
 import Campaigns from './pages/Campaigns';
 import Settings from './pages/Settings';
 import Templates from './pages/Templates';
-import { createTheme, ThemeProvider } from '@mui/material/styles';
-import CssBaseline from '@mui/material/CssBaseline';
+import { ThemeModeProvider } from './context/ThemeModeContext';
 import { NotificationProvider } from './context/NotificationContext';
+import ForcedLightScope from './theme/ForcedLightScope';
 
 import LandingPage from './pages/LandingPage';
 import HomeLandingPage from './pages/HomeLandingPage';
@@ -35,24 +35,18 @@ const EducationalFeedback = () => {
   return <div dangerouslySetInnerHTML={{ __html: html }} />;
 };
 
-const theme = createTheme({
-  palette: {
-    primary: { main: '#DAA520', contrastText: '#ffffff' },
-    background: { default: '#f4f6f8' },
-  },
-  shape: { borderRadius: 8 },
-});
-
 function App() {
   return (
-    <ThemeProvider theme={theme}>
-      <CssBaseline />
+    <ThemeModeProvider>
       <NotificationProvider>
         <BrowserRouter>
           <Routes>
-            <Route path="/" element={<HomeLandingPage />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
+            {/* Vitrine pública: travada no modo light, ignora o toggle do painel.
+                O <ForcedLightScope> fica AQUI (e não dentro de cada página) para que
+                exista um único ponto de verdade sobre quais rotas são travadas. */}
+            <Route path="/" element={<ForcedLightScope><HomeLandingPage /></ForcedLightScope>} />
+            <Route path="/login" element={<ForcedLightScope><Login /></ForcedLightScope>} />
+            <Route path="/register" element={<ForcedLightScope><Register /></ForcedLightScope>} />
             <Route path="/checkout" element={<CheckoutPage />} />
             <Route path="/landing/:id" element={<LandingPage />} />
             <Route path="/educational-feedback" element={<EducationalFeedback />} />
@@ -73,7 +67,7 @@ function App() {
           </Routes>
         </BrowserRouter>
       </NotificationProvider>
-    </ThemeProvider>
+    </ThemeModeProvider>
   );
 }
 

@@ -15,6 +15,7 @@ import {
   ListItemText,
   CssBaseline
 } from '@mui/material';
+import { alpha } from '@mui/material/styles';
 import {
   Menu as MenuIcon,
   Dashboard as DashboardIcon,
@@ -24,9 +25,9 @@ import {
   Settings as SettingsIcon,
   FolderCopy as FolderIcon
 } from '@mui/icons-material';
+import { brandPalette } from '../theme';
 
 const drawerWidth = 260;
-const primaryColor = '#DAA520'; 
 
 export default function AdminLayout() {
   const navigate = useNavigate();
@@ -55,9 +56,19 @@ export default function AdminLayout() {
 
   const drawer = (
     <div>
-      <Toolbar sx={{ backgroundColor: primaryColor, color: 'white' }}>
-        <Typography variant="h6" noWrap component="div">
-          PhishGuard
+      {/* Cabeçalho de marca: gradiente de destaque da paleta. É azul-escuro nos dois
+          modos, então o conteúdo por cima vai de branco + periwinkle fixos (o `text`
+          do modo light — preto — teria contraste ruim sobre ele). */}
+      <Toolbar
+        sx={{
+          background: 'var(--linearPrimaryAccent)',
+          color: '#ffffff',
+          borderBottom: 1,
+          borderColor: 'divider',
+        }}
+      >
+        <Typography variant="h6" noWrap component="div" sx={{ fontWeight: 700 }}>
+          Phish<Box component="span" sx={{ color: brandPalette.light.secondary }}>Guard</Box>
         </Typography>
       </Toolbar>
       <Divider />
@@ -66,17 +77,18 @@ export default function AdminLayout() {
           const isSelected = location.pathname === item.path;
           return (
             <ListItem key={item.text} disablePadding>
-              <ListItemButton 
+              <ListItemButton
                 onClick={() => item.path && navigate(item.path)}
                 selected={isSelected}
                 sx={{
+                  // Item ativo = fill translúcido do accent (Surface 1 de ênfase).
                   '&.Mui-selected': {
-                    backgroundColor: `${primaryColor}15`,
-                    '&:hover': { backgroundColor: `${primaryColor}25` },
+                    backgroundColor: (theme) => alpha(theme.palette.primary.main, 0.15),
+                    '&:hover': { backgroundColor: (theme) => alpha(theme.palette.primary.main, 0.25) },
                   },
                 }}
               >
-                <ListItemIcon sx={{ color: primaryColor }}>
+                <ListItemIcon sx={{ color: isSelected ? 'primary.main' : 'text.secondary' }}>
                   {item.icon}
                 </ListItemIcon>
                 <ListItemText primary={item.text} />
@@ -104,12 +116,19 @@ export default function AdminLayout() {
     <Box sx={{ display: 'flex' }}>
       <CssBaseline />
       
+      {/* Sem ThemeProvider local: a paleta azul é o tema GLOBAL (ThemeModeProvider),
+          então AppBar e Drawer herdam background.paper / text.primary / divider. */}
       <AppBar
         position="fixed"
         sx={{
           width: { sm: `calc(100% - ${drawerWidth}px)` },
           ml: { sm: `${drawerWidth}px` },
-          backgroundColor: primaryColor, 
+          backgroundColor: 'background.paper',
+          color: 'text.primary',
+          backgroundImage: 'none',
+          boxShadow: 'none',
+          borderBottom: 1,
+          borderColor: 'divider',
         }}
       >
         <Toolbar>

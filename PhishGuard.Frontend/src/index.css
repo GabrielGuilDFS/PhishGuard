@@ -22,3 +22,110 @@
 
 @import "tailwindcss/theme.css" layer(theme);
 @import "tailwindcss/utilities.css" layer(utilities);
+
+/* ─── Identidade visual OFICIAL: paleta azul (Realtime Colors) ────────────────
+   Fonte de verdade das cores do PAINEL ADMINISTRATIVO, espelhando src/theme/index.ts
+   (`brandPalette`, que alimenta o tema MUI). Ao mudar um hex aqui, mude lá também.
+
+   O <html data-theme="light|dark"> é setado pelo ThemeModeContext e alterna estes
+   valores em runtime. A classe `.dark` é aceita como alias (compatibilidade com o
+   padrão de terceiros); o app usa `data-theme`.
+
+   ⚠️ NÃO usar nestes conteúdos: e-mails simulados, landing pages falsas e telas
+   educacionais — eles imitam marcas reais e têm paleta própria. */
+@layer base {
+  :root,
+  :root[data-theme="light"] {
+    --text: #000000;
+    --background: #ffffff;
+    --primary: #6682f5;
+    --secondary: #b2c1fa;
+    --accent: #0600c2;
+
+    /* Gradientes de destaque (iguais nos dois modos — sempre azul-escuro, por isso
+       o conteúdo por cima vai de branco fixo). Ver themeHelper.ts para o uso. */
+    --linearPrimarySecondary: linear-gradient(#0a2799, #05134d);
+    --linearPrimaryAccent: linear-gradient(#0a2799, #443dff);
+    --linearSecondaryAccent: linear-gradient(#05134d, #443dff);
+    --radialPrimarySecondary: radial-gradient(#0a2799, #05134d);
+    --radialPrimaryAccent: radial-gradient(#0a2799, #443dff);
+    --radialSecondaryAccent: radial-gradient(#05134d, #443dff);
+  }
+
+  .dark,
+  :root[data-theme="dark"] {
+    --text: #ffffff;
+    --background: #000000;
+    --primary: #0a2799;
+    --secondary: #05134d;
+    --accent: #443dff;
+  }
+
+  /* Páginas públicas/de autenticação TRAVADAS no light (LandingHome, Login, Register).
+     Redeclarar as variáveis aqui vence o `:root[data-theme="dark"]` do <html> por
+     HERANÇA — variável declarada no elemento mais próximo ganha, sem depender de
+     especificidade. Aplicada pelo <ForcedLightScope> (src/theme/ForcedLightScope.tsx),
+     que também injeta o ThemeProvider do MUI: as duas camadas cobrem caminhos
+     diferentes (CSS var/Tailwind vs. palette do MUI). */
+  .forced-light-theme {
+    --text: #000000;
+    --background: #ffffff;
+    --primary: #6682f5;
+    --secondary: #b2c1fa;
+    --accent: #0600c2;
+
+    /* Impede que o navegador pinte scrollbars, autofill e controles nativos no
+       esquema escuro (a preferência de SISTEMA do usuário, fora do nosso data-theme). */
+    color-scheme: light;
+
+    background-color: var(--background) !important;
+    color: var(--text) !important;
+  }
+}
+
+/* Tokens do Tailwind v4 → utilitários semânticos (bg-background, text-text,
+   border-secondary, bg-primary, text-accent...). `inline` faz o utilitário emitir
+   `var(--primary)` DIRETO, sem indireção: assim a classe acompanha a troca de
+   data-theme em runtime, em vez de congelar o valor do build.
+
+   Cores de status ficam FORA da paleta azul (valores fixos): são sinal, não marca. */
+@theme inline {
+  --color-text: var(--text);
+  --color-background: var(--background);
+  --color-primary: var(--primary);
+  --color-secondary: var(--secondary);
+  --color-accent: var(--accent);
+
+  --color-danger: #f43f5e;
+  --color-warning: #f59e0b;
+  --color-success: #10b981;
+}
+
+/* ─── Fade de 1.0s na TROCA DE TEMA ──────────────────────────────────────────
+   A transição NÃO é permanente: se fosse, todo hover/foco de botão e input herdaria
+   1s e a UI ficaria "arrastada". O ThemeModeContext adiciona `.theme-transition` no
+   <html> só durante a troca e a remove após 1s — fora disso valem as transições
+   curtas e responsivas do próprio MUI (~150-250ms). A curva cubic-bezier(0.4, 0, 0.2, 1)
+   começa rápida e desacelera no fim (ease-out premium). Só PROPRIEDADES DE COR animam. */
+html.theme-transition,
+html.theme-transition *,
+html.theme-transition *::before,
+html.theme-transition *::after {
+  transition:
+    background-color 1.0s cubic-bezier(0.4, 0, 0.2, 1),
+    border-color 1.0s cubic-bezier(0.4, 0, 0.2, 1),
+    color 1.0s cubic-bezier(0.4, 0, 0.2, 1),
+    fill 1.0s cubic-bezier(0.4, 0, 0.2, 1),
+    stroke 1.0s cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 1.0s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+/* Acessibilidade: quem pediu menos movimento não recebe o fade. */
+@media (prefers-reduced-motion: reduce) {
+  html.theme-transition,
+  html.theme-transition *,
+  html.theme-transition *::before,
+  html.theme-transition *::after {
+    transition: none !important;
+  }
+}

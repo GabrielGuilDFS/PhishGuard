@@ -22,22 +22,36 @@ import {
   Security as SecurityIcon,
   ArrowForward as ArrowForwardIcon,
 } from '@mui/icons-material';
+import { brandPalette, mutedTextFor } from '../theme';
 
-// Identidade visual: paleta clara e corporativa alinhada ao painel interno.
-// O dourado (#DAA520) é a cor primária do tema (ver App.tsx / AdminLayout),
-// reservado para pontos estratégicos de conversão e destaque.
-const GOLD = '#DAA520';
-const SILVER = '#878787ff';
+// Identidade visual: paleta AZUL travada no modo light (a página é envolvida pelo
+// <ForcedLightScope> em App.tsx e nunca responde ao toggle dark do painel).
+//
+// As cores vivem em constantes de módulo, e não no tema do MUI, porque esta tela pinta
+// quase tudo via `sx` explícito — um ThemeProvider sozinho não a alcançaria. Os valores
+// abaixo são os mesmos de `brandPalette.light` / `forcedLightTheme`; importados de lá
+// para não haver um segundo lugar onde a paleta possa divergir.
+const ACCENT = brandPalette.light.accent;        // #0600c2 — CTAs, ícones, destaques
+const ACCENT_HOVER = '#04008f';                  // ultramar mais fechado p/ hover
+const CARD_BG = '#ffffffff';      // #6682f5 — Surface 1 (cards)
+const BAND_BG = '#F0F0F0';    // #b2c1fa — Surface 2 (faixas/rodapé)
+const PAGE_BG = '#F0F0F0';   // #ffffff
+const FOOTER_BG = BAND_BG;
+const BORDER = '#c8c8c8ff';     // #b2c1fa
+const ACCENT_BORDER = 'rgba(6,0,194,0.35)';      // borda de destaque sutil
+const TEXT_DARK = brandPalette.light.text;       // #000000 — 6.08:1 sobre os cards
+const TEXT_MUTED = mutedTextFor('light');        // #05134d — 17.4:1 no branco, 5.04:1 no card
+// Sobre CARD_BG (#6682f5) só texto quase-preto passa em AA: o ACCENT como TEXTO daria
+// 3.40:1. Por isso o accent aparece nos cards apenas em ÍCONES e botões sólidos
+// (objetos gráficos, mínimo 3:1), nunca como corpo de texto.
+const CARD_SHADOW = '0 1px 3px rgba(6,0,194,0.10), 0 4px 12px rgba(6,0,194,0.06)';
+
+// Selos de PLANO: são medalhas (Bronze/Prata/Ouro) — cor semântica do nível, não
+// identidade de marca. Ficam fora da paleta azul pelo mesmo motivo dos status colors:
+// um selo "Ouro" azul perde o significado. Vão sobre chip branco para manter contraste.
 const BRONZE = '#CD7F32';
-const GOLD_HOVER = '#c6941c';
-const FOOTER_BG = "#e1e1e1ff"
-const PAGE_BG = '#F4F5F7'; // cinza bem suave para o fundo geral
-const SURFACE = '#F4F5F7'; // cards e superfícies elevadas
-const BORDER = '#c5c5c5ff'; // borda fina e discreta
-const GOLD_BORDER = 'rgba(218,165,32,0.35)'; // borda dourada sutil (destaques)
-const TEXT_DARK = '#0F172A'; // títulos e textos de alta legibilidade
-const TEXT_MUTED = '#475569'; // textos de apoio / subtítulos
-const CARD_SHADOW = '0 1px 3px rgba(15,23,42,0.08), 0 4px 12px rgba(15,23,42,0.05)';
+const SILVER = '#878787';
+const GOLD = '#DAA520';
 
 interface Recurso {
   icon: ReactNode;
@@ -162,19 +176,19 @@ export default function HomeLandingPage() {
         position="sticky"
         elevation={0}
         sx={{
-          backgroundColor: '#c6941c',
+          backgroundColor: PAGE_BG,
           backdropFilter: 'blur(8px)',
           borderBottom: `1px solid ${BORDER}`,
         }}
       >
         <Container maxWidth="lg">
           <Toolbar>
-            <SecurityIcon sx={{ mr: 1 }} />
+            <SecurityIcon sx={{ color: ACCENT, mr: 1 }} />
             <Typography
               variant="h6"
               sx={{ fontWeight: 800, letterSpacing: 0.5, flexGrow: 1, color: TEXT_DARK }}
             >
-              <span>PhishGuard</span>
+              Phish<Box component="span" sx={{ color: ACCENT }}>Guard</Box>
             </Typography>
 
             <Stack
@@ -186,7 +200,7 @@ export default function HomeLandingPage() {
                 component="button"
                 underline="none"
                 onClick={() => scrollPara('recursos')}
-                sx={{ color: 'Black', fontWeight: 500, '&:hover': { color: '#000000' } }}
+                sx={{ color: TEXT_DARK, fontWeight: 500, '&:hover': { color: ACCENT } }}
               >
                 Recursos
               </Link>
@@ -194,7 +208,7 @@ export default function HomeLandingPage() {
                 component="button"
                 underline="none"
                 onClick={() => scrollPara('precos')}
-                sx={{ color: 'Black', fontWeight: 500, '&:hover': { color: GOLD } }}
+                sx={{ color: TEXT_DARK, fontWeight: 500, '&:hover': { color: ACCENT } }}
               >
                 Preços
               </Link>
@@ -205,8 +219,10 @@ export default function HomeLandingPage() {
               to="/login"
               variant="outlined"
               sx={{
-                color: 'black',
-                border: 'none',
+                color: ACCENT,
+                borderColor: ACCENT_BORDER,
+                fontWeight: 700,
+                '&:hover': { borderColor: ACCENT, backgroundColor: 'rgba(6,0,194,0.06)' },
               }}
             >
               Login
@@ -220,18 +236,18 @@ export default function HomeLandingPage() {
         sx={{
           position: 'relative',
           overflow: 'hidden',
-          background: `radial-gradient(1200px 500px at 50% -10%, rgba(218,165,32,0.16), transparent 60%), ${SURFACE}`,
+          background: `radial-gradient(1200px 500px at 50% -10%, rgba(102,130,245,0.30), transparent 60%), ${PAGE_BG}`,
         }}
       >
         <Container maxWidth="md" sx={{ textAlign: 'center', py: { xs: 8, md: 14 } }}>
           <Chip
-            icon={<SecurityIcon sx={{ color: `${GOLD} !important` }} />}
+            icon={<SecurityIcon sx={{ color: `${ACCENT} !important` }} />}
             label="Conscientização em Segurança da Informação"
             sx={{
               mb: 3,
-              color: '#8a6d13',
-              backgroundColor: 'rgba(218,165,32,0.12)',
-              border: `1px solid ${GOLD_BORDER}`,
+              color: ACCENT,
+              backgroundColor: 'rgba(102,130,245,0.16)',
+              border: `1px solid ${ACCENT_BORDER}`,
               fontWeight: 600,
             }}
           />
@@ -245,7 +261,7 @@ export default function HomeLandingPage() {
             }}
           >
             Transforme a cultura de segurança da sua empresa contra ataques de{' '}
-            <Box component="span" sx={{ color: GOLD }}>
+            <Box component="span" sx={{ color: ACCENT }}>
               Phishing
             </Box>
           </Typography>
@@ -271,13 +287,13 @@ export default function HomeLandingPage() {
               endIcon={<ArrowForwardIcon />}
               onClick={() => scrollPara('precos')}
               sx={{
-                backgroundColor: GOLD,
-                color: '#111',
+                backgroundColor: ACCENT,
+                color: '#ffffff',
                 fontWeight: 700,
                 px: 4,
                 py: 1.5,
-                boxShadow: '0 4px 14px rgba(218,165,32,0.4)',
-                '&:hover': { backgroundColor: GOLD_HOVER },
+                boxShadow: '0 4px 14px rgba(6,0,194,0.35)',
+                '&:hover': { backgroundColor: ACCENT_HOVER },
               }}
             >
               Começar Agora
@@ -289,11 +305,11 @@ export default function HomeLandingPage() {
               sx={{
                 color: TEXT_DARK,
                 borderColor: BORDER,
-                backgroundColor: SURFACE,
+                backgroundColor: PAGE_BG,
                 fontWeight: 700,
                 px: 4,
                 py: 1.5,
-                '&:hover': { borderColor: GOLD, backgroundColor: 'rgba(218,165,32,0.08)' },
+                '&:hover': { borderColor: ACCENT, backgroundColor: 'rgba(6,0,194,0.06)' },
               }}
             >
               Agendar Demonstração
@@ -305,7 +321,7 @@ export default function HomeLandingPage() {
       {/* ---------- PROBLEMÁTICAS E RECURSOS ---------- */}
       <Container id="recursos" maxWidth="lg" sx={{ py: { xs: 8, md: 12 }, scrollMarginTop: 80 }}>
         <Box sx={{ textAlign: 'center', mb: 6 }}>
-          <Typography variant="overline" sx={{ color: GOLD, fontWeight: 700, letterSpacing: 2 }}>
+          <Typography variant="overline" sx={{ color: ACCENT, fontWeight: 700, letterSpacing: 2 }}>
             O problema é humano — a defesa também
           </Typography>
           <Typography variant="h3" sx={{ fontWeight: 800, mt: 1, fontSize: { xs: '1.8rem', md: '2.6rem' } }}>
@@ -331,18 +347,20 @@ export default function HomeLandingPage() {
               sx={{
                 p: 4,
                 height: '100%',
-                backgroundColor: SURFACE,
+                backgroundColor: CARD_BG,
                 border: `1px solid ${BORDER}`,
                 borderRadius: 3,
                 boxShadow: CARD_SHADOW,
                 transition: 'transform .2s, border-color .2s, box-shadow .2s',
                 '&:hover': {
                   transform: 'translateY(-4px)',
-                  borderColor: GOLD_BORDER,
-                  boxShadow: '0 10px 24px rgba(15,23,42,0.1)',
+                  borderColor: ACCENT_BORDER,
+                  boxShadow: '0 10px 24px rgba(6,0,194,0.22)',
                 },
               }}
             >
+              {/* Bolha branca: o ícone accent precisa de 3:1, e sobre o card (#6682f5)
+                  ele daria 3.40:1 — no branco sobe para 11.75:1 e fica nítido. */}
               <Box
                 sx={{
                   width: 60,
@@ -351,8 +369,8 @@ export default function HomeLandingPage() {
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  color: GOLD,
-                  backgroundColor: 'rgba(218,165,32,0.12)',
+                  color: ACCENT,
+                  backgroundColor: PAGE_BG,
                   mb: 2.5,
                 }}
               >
@@ -370,10 +388,10 @@ export default function HomeLandingPage() {
       </Container>
 
       {/* ---------- PRICING ---------- */}
-      <Box id="precos" sx={{ backgroundColor: SURFACE, py: { xs: 8, md: 12 }, scrollMarginTop: 80 }}>
+      <Box id="precos" sx={{ backgroundColor: BAND_BG, py: { xs: 8, md: 12 }, scrollMarginTop: 80 }}>
         <Container maxWidth="lg">
           <Box sx={{ textAlign: 'center', mb: 6 }}>
-            <Typography variant="overline" sx={{ color: GOLD, fontWeight: 700, letterSpacing: 2 }}>
+            <Typography variant="overline" sx={{ color: ACCENT, fontWeight: 700, letterSpacing: 2 }}>
               Planos e Preços
             </Typography>
             <Typography variant="h3" sx={{ fontWeight: 800, mt: 1, fontSize: { xs: '1.8rem', md: '2.6rem' } }}>
@@ -397,18 +415,16 @@ export default function HomeLandingPage() {
                 key={plano.id}
                 elevation={0}
                 sx={{
+                  color: TEXT_DARK,
                   position: 'relative',
                   p: 4,
                   display: 'flex',
                   flexDirection: 'column',
-                  backgroundColor: SURFACE,
-                  border: `${plano.destaque ? '2px' : '1px'} solid ${plano.destaque ? GOLD : BORDER}`,
+                  backgroundColor: CARD_BG,
+                  border: `${plano.destaque ? '2px' : '1px'} solid ${plano.destaque ? ACCENT : BORDER}`,
                   borderRadius: 3,
-                  background: plano.destaque
-                    ? `linear-gradient(180deg, rgba(218,165,32,0.06), ${SURFACE} 45%)`
-                    : SURFACE,
                   boxShadow: plano.destaque
-                    ? '0 12px 32px rgba(218,165,32,0.22)'
+                    ? '0 12px 32px rgba(6,0,194,0.28)'
                     : CARD_SHADOW,
                   transform: { md: plano.destaque ? 'scale(1.05)' : 'none' },
                   zIndex: plano.destaque ? 1 : 0,
@@ -423,8 +439,8 @@ export default function HomeLandingPage() {
                       top: -14,
                       left: '50%',
                       transform: 'translateX(-50%)',
-                      backgroundColor: GOLD,
-                      color: '#111',
+                      backgroundColor: ACCENT,
+                      color: '#ffffff',
                       fontWeight: 800,
                       letterSpacing: 1,
                     }}
@@ -435,11 +451,13 @@ export default function HomeLandingPage() {
                   <Typography variant="h5" sx={{ fontWeight: 800 }}>
                     {plano.nome}
                   </Typography>
+                  {/* Selo de medalha sobre chip BRANCO: bronze/prata/ouro sobre o card
+                      cobalto ficariam encardidos e sem contraste. */}
                   <Chip
                     label={plano.selo}
                     size="small"
                     sx={{
-                      backgroundColor: 'transparent',
+                      backgroundColor: PAGE_BG,
                       color: plano.cor,
                       border: `1px solid ${plano.cor}`,
                       fontWeight: 700,
@@ -465,7 +483,7 @@ export default function HomeLandingPage() {
                 <Stack spacing={1.5} sx={{ mb: 4, flexGrow: 1 }}>
                   {plano.recursos.map((item) => (
                     <Stack key={item} direction="row" spacing={1.2} alignItems="flex-start">
-                      <CheckCircleIcon sx={{ fontSize: 20, color: GOLD, mt: '2px' }} />
+                      <CheckCircleIcon sx={{ fontSize: 20, color: ACCENT, mt: '2px' }} />
                       <Typography variant="body2" sx={{ color: TEXT_DARK }}>
                         {item}
                       </Typography>
@@ -483,17 +501,18 @@ export default function HomeLandingPage() {
                   sx={
                     plano.destaque
                       ? {
-                        backgroundColor: GOLD,
-                        color: '#111',
+                        backgroundColor: ACCENT,
+                        color: '#ffffff',
                         fontWeight: 800,
-                        boxShadow: '0 4px 14px rgba(218,165,32,0.4)',
-                        '&:hover': { backgroundColor: GOLD_HOVER },
+                        boxShadow: '0 4px 14px ACCENT',
+                        '&:hover': { backgroundColor: ACCENT_HOVER },
                       }
                       : {
-                        color: TEXT_DARK,
-                        borderColor: BORDER,
+                        color: '#ffffff',
+                        borderColor: 'rgba(0, 0, 0, 0.19)',
+                        backgroundColor: ACCENT,
                         fontWeight: 700,
-                        '&:hover': { borderColor: GOLD, backgroundColor: 'rgba(218,165,32,0.08)' },
+                        '&:hover': { borderColor: PAGE_BG, backgroundColor: ACCENT_HOVER },
                       }
                   }
                 >
@@ -516,9 +535,9 @@ export default function HomeLandingPage() {
           >
             <Box>
               <Stack direction="row" alignItems="center" spacing={1}>
-                <SecurityIcon sx={{ color: GOLD }} />
-                <Typography variant="h6" sx={{ fontWeight: 800 }}>
-                  Phish<span style={{ color: GOLD }}>Guard</span>
+                <SecurityIcon sx={{ color: ACCENT }} />
+                <Typography variant="h6" sx={{ fontWeight: 800, color: TEXT_DARK }}>
+                  Phish<span style={{ color: ACCENT }}>Guard</span>
                 </Typography>
               </Stack>
               <Typography variant="body2" sx={{ color: TEXT_MUTED, mt: 1, maxWidth: 360 }}>
@@ -531,7 +550,7 @@ export default function HomeLandingPage() {
                 component="button"
                 underline="none"
                 onClick={() => scrollPara('recursos')}
-                sx={{ color: TEXT_MUTED, '&:hover': { color: GOLD } }}
+                sx={{ color: TEXT_MUTED, '&:hover': { color: ACCENT } }}
               >
                 Recursos
               </Link>
@@ -539,7 +558,7 @@ export default function HomeLandingPage() {
                 component="button"
                 underline="none"
                 onClick={() => scrollPara('precos')}
-                sx={{ color: TEXT_MUTED, '&:hover': { color: GOLD } }}
+                sx={{ color: TEXT_MUTED, '&:hover': { color: ACCENT } }}
               >
                 Preços
               </Link>
@@ -547,7 +566,7 @@ export default function HomeLandingPage() {
                 component={RouterLink}
                 to="/login"
                 underline="none"
-                sx={{ color: TEXT_MUTED, '&:hover': { color: GOLD } }}
+                sx={{ color: TEXT_MUTED, '&:hover': { color: ACCENT } }}
               >
                 Login
               </Link>

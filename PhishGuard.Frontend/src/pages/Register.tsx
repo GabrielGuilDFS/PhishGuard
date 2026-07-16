@@ -150,19 +150,44 @@ export default function Register() {
   };
 
   return (
-    <Container component="main" maxWidth="xs">
-      <Box
-        sx={{
-          marginTop: 8,
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-        }}
-      >
-        <Paper elevation={3} sx={{ p: 4, display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
-          <Typography component="h1" variant="h5">
-            Crie sua conta Admin
-          </Typography>
+    // Tela travada no light pelo <ForcedLightScope> (ver App.tsx). A marca entra pelo
+    // tint radial de Surface 1 (#6682f5) sobre o fundo branco.
+    <Box
+      sx={{
+        minHeight: '100vh',
+        background:
+          'radial-gradient(1000px 460px at 50% -10%, rgba(102,130,245,0.28), transparent 60%)',
+      }}
+    >
+      <Container component="main" maxWidth="xs">
+        <Box
+          sx={{
+            paddingTop: 8,
+            paddingBottom: 8,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+          }}
+        >
+          {/* Card BRANCO, não o `paper` (#6682f5) do tema: os erros de validação por
+              campo (helperText vermelho) dariam 1.06:1 sobre cobalto — invisíveis.
+              Ver a nota "cards de autenticação" em src/theme/forcedLight.ts. */}
+          <Paper
+            elevation={3}
+            sx={{
+              p: 4,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              width: '100%',
+              bgcolor: 'background.default',
+              border: 1,
+              borderColor: 'divider',
+            }}
+          >
+            <Typography component="h1" variant="h5">
+              Crie sua conta Admin
+            </Typography>
 
           <Box component="form" onSubmit={handleRegister} noValidate sx={{ mt: 1, width: '100%' }}>
 
@@ -248,9 +273,10 @@ export default function Register() {
               </Link>
             </Box>
 
-          </Box>
-        </Paper>
-      </Box>
-    </Container>
+            </Box>
+          </Paper>
+        </Box>
+      </Container>
+    </Box>
   );
 }

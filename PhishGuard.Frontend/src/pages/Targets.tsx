@@ -278,7 +278,7 @@ export default function Targets() {
                 </InputAdornment>
               ),
             }}
-            sx={{ backgroundColor: 'white', borderRadius: 1 }}
+            sx={{ backgroundColor: 'background.paper', borderRadius: 1 }}
           />
 
           <input
@@ -325,7 +325,8 @@ export default function Targets() {
 
       <TableContainer component={Paper} elevation={2}>
         <Table>
-          <TableHead sx={{ backgroundColor: '#f8f9fa' }}>
+          {/* O fundo do cabeçalho (Surface 2) vem do tema global — MuiTableCell.head. */}
+          <TableHead>
             <TableRow>
               <TableCell align="center"><strong>Nome</strong></TableCell>
               <TableCell align="center"><strong>E-mail</strong></TableCell>

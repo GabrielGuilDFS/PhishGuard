@@ -206,7 +206,8 @@ function CenariosTab({ registrado, onRegistrar, onRemover }: {
     <>
       <TableContainer component={Paper} elevation={2}>
         <Table>
-          <TableHead sx={{ backgroundColor: '#f8f9fa' }}>
+          {/* O fundo do cabeçalho (Surface 2) vem do tema global — MuiTableCell.head. */}
+          <TableHead>
             <TableRow>
               <TableCell align="center"><strong>Cenário</strong></TableCell>
               <TableCell align="center"><strong>Categoria</strong></TableCell>

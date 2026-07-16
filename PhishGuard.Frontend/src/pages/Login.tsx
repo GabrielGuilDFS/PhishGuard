@@ -50,63 +50,89 @@ export default function Login() {
   };
 
   return (
-    <Container component="main" maxWidth="xs">
-      <Box
-        sx={{
-          marginTop: 8,
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-        }}
-      >
-        <Paper elevation={3} sx={{ p: 4, display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
-          <Typography component="h1" variant="h5">
-            Phish<span style={{ color: '#DAA520' }}>Guard</span> Admin
-          </Typography>
-
-          <Box component="form" onSubmit={handleLogin} sx={{ mt: 1, width: '100%' }}>
-            <TextField
-              margin="normal"
-              required
-              fullWidth
-              label="Endereço de Email"
-              autoComplete="email"
-              autoFocus
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
-            <TextField
-              margin="normal"
-              required
-              fullWidth
-              label="Senha"
-              type="password"
-              autoComplete="current-password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
-
-            {erro && <Alert severity="error" sx={{ mt: 2 }}>{erro}</Alert>}
-
-            <Button
-              type="submit"
-              fullWidth
-              variant="contained"
-              sx={{ mt: 3, mb: 2 }}
-            >
-              Entrar no Sistema
-            </Button>
-          </Box>
-          <Link
-            component={RouterLink}
-            to="/Register"
-            variant="body2"
-            sx={{ color: 'primary.main', fontWeight: 'bold' }}
+    // Tela travada no light pelo <ForcedLightScope> (ver App.tsx). A marca entra pelo
+    // tint radial de Surface 1 (#6682f5) sobre o fundo branco.
+    <Box
+      sx={{
+        minHeight: '100vh',
+        background:
+          'radial-gradient(1000px 460px at 50% -10%, rgba(102,130,245,0.28), transparent 60%)',
+      }}
+    >
+      <Container component="main" maxWidth="xs">
+        <Box
+          sx={{
+            paddingTop: 8,
+            paddingBottom: 8,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+          }}
+        >
+          {/* Card BRANCO, não o `paper` (#6682f5) do tema: este formulário mostra erros
+              de validação em vermelho, e vermelho sobre cobalto dá 1.06:1 — invisível.
+              Ver a nota "cards de autenticação" em src/theme/forcedLight.ts. */}
+          <Paper
+            elevation={3}
+            sx={{
+              p: 4,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              width: '100%',
+              bgcolor: 'background.default',
+              border: 1,
+              borderColor: 'divider',
+            }}
           >
-            {"Sem conta? Cadastre-se"}
-          </Link>
-        </Paper>
-      </Box>
-    </Container>
+            <Typography component="h1" variant="h5">
+              Phish<Box component="span" sx={{ color: 'primary.main' }}>Guard</Box> Admin
+            </Typography>
+
+            <Box component="form" onSubmit={handleLogin} sx={{ mt: 1, width: '100%' }}>
+              <TextField
+                margin="normal"
+                required
+                fullWidth
+                label="Endereço de Email"
+                autoComplete="email"
+                autoFocus
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
+              <TextField
+                margin="normal"
+                required
+                fullWidth
+                label="Senha"
+                type="password"
+                autoComplete="current-password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+
+              {erro && <Alert severity="error" sx={{ mt: 2 }}>{erro}</Alert>}
+
+              <Button
+                type="submit"
+                fullWidth
+                variant="contained"
+                sx={{ mt: 3, mb: 2 }}
+              >
+                Entrar no Sistema
+              </Button>
+            </Box>
+            <Link
+              component={RouterLink}
+              to="/Register"
+              variant="body2"
+              sx={{ color: 'primary.main', fontWeight: 'bold' }}
+            >
+              {"Sem conta? Cadastre-se"}
+            </Link>
+          </Paper>
+        </Box>
+      </Container>
+    </Box>
   );
 }
