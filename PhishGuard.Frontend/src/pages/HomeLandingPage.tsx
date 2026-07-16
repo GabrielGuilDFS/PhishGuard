@@ -28,6 +28,11 @@ import { brandPalette, mutedTextFor } from '../theme';
 // silencioso em produção. A netflix-bg.png vive em public/ por outro motivo — é usada
 // dentro de uma string de HTML cru (landingTemplates.ts), onde não existe import.
 import fotoAnalista from '../assets/templates/pexels-arina-krasnikova-7005399.jpg';
+// Versão de 1800px (147 KB) do original de 7952x5304 (5.1 MB, ainda no repo). O hero é
+// a primeira dobra da porta de entrada do produto: 5 MB destruiriam o LCP. A 1800px a
+// foto ainda tem o DOBRO do necessário — o container ocupa 45% de ~1920 = 864 CSS px
+// (1728 em telas 2x). Para reverter, aponte o import de volta para o arquivo original.
+import fotoTecnologia from '../assets/templates/pexels-thisisengineering-3861957-1800w.jpg';
 
 // Identidade visual: paleta AZUL travada no modo light (a página é envolvida pelo
 // <ForcedLightScope> em App.tsx e nunca responde ao toggle dark do painel).
@@ -58,6 +63,14 @@ const CARD_SHADOW = '0 1px 3px rgba(6,0,194,0.10), 0 4px 12px rgba(6,0,194,0.06)
 // fica opaca a 45%: o notebook (canto esquerdo da foto) esmaece para dentro da página
 // e a profissional, que está no centro-direita, permanece nítida.
 const FADE_FOTO = 'linear-gradient(to right, transparent 0%, rgba(0,0,0,0.55) 22%, #000 45%)';
+
+// Fade da foto de FUNDO do hero. Aqui ele não é enfeite, é o que mantém o "alto
+// contraste" pedido: o conteúdo do hero é centralizado (max-w-4xl) e a foto ocupa os
+// 45% da direita, então os dois SE SOBREPÕEM em qualquer viewport — 100% da foto fica
+// sob o texto em 900px, e 41% ainda em 1920px. Sem o fade, o texto preto cai para
+// 1.85:1 sobre a tampa escura do notebook (o mínimo AA é 4.5:1). Com ele, a foto só
+// ganha força no trecho à direita onde o texto centralizado não alcança.
+const FADE_HERO = 'linear-gradient(to right, transparent 0%, rgba(0,0,0,0.35) 40%, #000 75%)';
 
 // Selos de PLANO: são medalhas (Bronze/Prata/Ouro) — cor semântica do nível, não
 // identidade de marca. Ficam fora da paleta azul pelo mesmo motivo dos status colors:
@@ -245,6 +258,7 @@ export default function HomeLandingPage() {
       </AppBar>
 
       {/* ---------- HERO ---------- */}
+      {/* Pai já é `relative overflow-hidden`: a foto abaixo é posicionada contra ele. */}
       <Box
         sx={{
           position: 'relative',
@@ -252,7 +266,41 @@ export default function HomeLandingPage() {
           background: `radial-gradient(1200px 500px at 50% -10%, rgba(102,130,245,0.30), transparent 60%), ${PAGE_BG}`,
         }}
       >
-        <Container maxWidth="md" sx={{ textAlign: 'center', py: { xs: 8, md: 14 } }}>
+        {/* Foto de fundo, ancorada à direita (z-0). Decorativa → background-image, sem
+            alt. `pointerEvents: none` + `userSelect: none` garantem que ela nunca
+            intercepte clique nos CTAs nem entre numa seleção de texto. */}
+        <Box
+          sx={{
+            position: 'absolute',
+            right: 0,
+            top: 0,
+            bottom: 0,
+            width: { xs: '100%', md: '45%' },
+            zIndex: 0,
+            pointerEvents: 'none',
+            userSelect: 'none',
+            opacity: { xs: 0.4, md: 0.85 },
+            transition: 'opacity 1s',
+            backgroundImage: `url(${fotoTecnologia})`,
+            backgroundSize: 'cover',
+            backgroundPosition: { xs: 'left', md: 'center' },
+            maskImage: FADE_HERO,
+            WebkitMaskImage: FADE_HERO,
+          }}
+        />
+
+        {/* Conteúdo centralizado (z-10, acima da foto). `Container maxWidth="md"` = 900px
+            ≈ max-w-4xl (896px), com `mx: auto` e `text-align: center` já embutidos. */}
+        <Container
+          maxWidth="md"
+          sx={{
+            position: 'relative',
+            zIndex: 1,
+            pointerEvents: 'auto',
+            textAlign: 'center',
+            py: { xs: 8, md: 14 },
+          }}
+        >
           <Chip
             icon={<SecurityIcon sx={{ color: `${ACCENT} !important` }} />}
             label="Conscientização em Segurança da Informação"
