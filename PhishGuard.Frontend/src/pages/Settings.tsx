@@ -124,12 +124,12 @@ export default function Settings() {
   useEffect(() => {
     const fetchSmtpConfig = async () => {
       try {
-        const token = localStorage.getItem('phishguard_token'); 
+        const token = localStorage.getItem('phishguard_token');
         if (!token) {
           showNotify("Sessão expirada. Faça login novamente.", "error");
           return;
         }
-        
+
         const response = await fetch('http://localhost:5000/api/SmtpConfig', {
           method: 'GET',
           headers: {
@@ -137,7 +137,7 @@ export default function Settings() {
             'Content-Type': 'application/json'
           }
         });
-  
+
         if (response.ok) {
           const data = await response.json();
           // A API serializa em camelCase (host/porta/usuario), não PascalCase.
@@ -203,7 +203,7 @@ export default function Settings() {
 
   const handleSaveSmtp = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     try {
       const token = localStorage.getItem('phishguard_token');
       if (!token) {
@@ -216,14 +216,14 @@ export default function Settings() {
         showNotify("A porta SMTP deve ser um número válido (1-65535).", "error");
         return;
       }
-      
+
       const payload = {
         Host: smtp.host,
         Porta: porta,
         Usuario: smtp.user,
         Senha: smtp.password
       };
-  
+
       const response = await fetch('http://localhost:5000/api/SmtpConfig', {
         method: 'PUT',
         headers: {
@@ -232,11 +232,11 @@ export default function Settings() {
         },
         body: JSON.stringify(payload)
       });
-  
+
       if (response.ok) {
         showNotify("Configurações de SMTP salvas com sucesso!", "success");
         // Opcional: limpar o campo de senha da tela após salvar, já que o C# processou
-        setSmtp(prev => ({ ...prev, password: '' })); 
+        setSmtp(prev => ({ ...prev, password: '' }));
       } else {
         showNotify("Falha ao salvar as configurações. Verifique os dados.", "error");
       }
@@ -248,34 +248,34 @@ export default function Settings() {
   const handleTestEmail = async () => {
 
     const emailDestino = window.prompt("Digite o e-mail que receberá a mensagem de teste do PhishGuard:");
-    
-    if (!emailDestino) return; 
-  
+
+    if (!emailDestino) return;
+
     showNotify("Tentando enviar e-mail de teste...", "info");
-  
+
     try {
-      const token = localStorage.getItem('phishguard_token'); 
-      
+      const token = localStorage.getItem('phishguard_token');
+
       const response = await fetch('http://localhost:5000/api/SmtpConfig/Testar', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           host: smtp.host,
           porta: Number(smtp.port) || 0,
           usuario: smtp.user,
           senha: smtp.password,
-          emailDestino: emailDestino 
-        }) 
+          emailDestino: emailDestino
+        })
       });
-  
+
       if (response.ok) {
         showNotify("Teste de conexão bem-sucedido! Verifique a caixa de entrada.", "success");
       } else {
         // Se der erro (ex: senha errada), o backend vai mandar a mensagem no BadRequest
-        const errorText = await response.text(); 
+        const errorText = await response.text();
         showNotify(`Falha no envio: ${errorText}`, "error");
       }
     } catch (error) {
@@ -293,9 +293,9 @@ export default function Settings() {
           `divider` (Surface 2) é o que delimita o painel. */}
       <Paper elevation={2} sx={{ border: 1, borderColor: 'divider' }}>
         <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-          <Tabs 
-            value={tabValue} 
-            onChange={handleChangeTab} 
+          <Tabs
+            value={tabValue}
+            onChange={handleChangeTab}
             aria-label="config tabs"
             textColor="primary"
             indicatorColor="primary"
@@ -318,7 +318,7 @@ export default function Settings() {
               label="Nome do Administrador"
               margin="normal"
               value={profile.nome}
-              onChange={(e) => setProfile({...profile, nome: e.target.value})}
+              onChange={(e) => setProfile({ ...profile, nome: e.target.value })}
             />
             <TextField
               fullWidth
@@ -329,7 +329,7 @@ export default function Settings() {
             />
 
             <Divider sx={{ my: 3 }} />
-            
+
             <Typography variant="h6" gutterBottom>Alterar Senha</Typography>
             <TextField
               fullWidth
@@ -337,7 +337,7 @@ export default function Settings() {
               label="Senha Atual"
               margin="normal"
               value={profile.senhaAtual}
-              onChange={(e) => setProfile({...profile, senhaAtual: e.target.value})}
+              onChange={(e) => setProfile({ ...profile, senhaAtual: e.target.value })}
             />
             <TextField
               fullWidth
@@ -345,7 +345,7 @@ export default function Settings() {
               label="Nova Senha"
               margin="normal"
               value={profile.novaSenha}
-              onChange={(e) => setProfile({...profile, novaSenha: e.target.value})}
+              onChange={(e) => setProfile({ ...profile, novaSenha: e.target.value })}
             />
 
             <Box sx={{ mt: 3 }}>
@@ -365,9 +365,9 @@ export default function Settings() {
                   Defina qual servidor será usado para enviar os ataques simulados.
                 </Typography>
               </Box>
-              <Button 
-                onClick={handleTestEmail} 
-                color="secondary" 
+              <Button
+                onClick={handleTestEmail}
+                color="secondary"
                 startIcon={<SendIcon />} // Ou o ícone que você estiver usando
               >
                 TESTAR CONEXÃO
@@ -381,7 +381,7 @@ export default function Settings() {
                 placeholder="smtp.gmail.com"
                 margin="normal"
                 value={smtp.host}
-                onChange={(e) => setSmtp({...smtp, host: e.target.value})}
+                onChange={(e) => setSmtp({ ...smtp, host: e.target.value })}
               />
               <TextField
                 sx={{ width: 150 }}
@@ -391,7 +391,7 @@ export default function Settings() {
                 margin="normal"
                 value={smtp.port}
                 inputProps={{ min: 1, max: 65535, step: 1 }}
-                onChange={(e) => setSmtp({...smtp, port: e.target.value})}
+                onChange={(e) => setSmtp({ ...smtp, port: e.target.value })}
               />
             </Stack>
 
@@ -400,7 +400,7 @@ export default function Settings() {
               label="Usuário SMTP / E-mail"
               margin="normal"
               value={smtp.user}
-              onChange={(e) => setSmtp({...smtp, user: e.target.value})}
+              onChange={(e) => setSmtp({ ...smtp, user: e.target.value })}
             />
             <TextField
               fullWidth
@@ -408,7 +408,7 @@ export default function Settings() {
               label="Senha / App Password"
               margin="normal"
               value={smtp.password}
-              onChange={(e) => setSmtp({...smtp, password: e.target.value})}
+              onChange={(e) => setSmtp({ ...smtp, password: e.target.value })}
               InputProps={{
                 startAdornment: <InputAdornment position="start"><LockIcon fontSize="small" /></InputAdornment>,
               }}
@@ -426,24 +426,6 @@ export default function Settings() {
           <Box sx={{ maxWidth: 560 }}>
             {/* Card de destaque com um dos gradientes da paleta (azul-escuro nos dois
                 modos → conteúdo em branco fixo, não no `text` do modo). */}
-            <Box
-              sx={{
-                background: 'var(--linearPrimaryAccent)',
-                color: '#ffffff',
-                borderRadius: 2,
-                p: 2.5,
-                mb: 3,
-              }}
-            >
-              <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
-                Identidade visual PhishGuard
-              </Typography>
-              <Typography variant="body2" sx={{ opacity: 0.85 }}>
-                A paleta azul é aplicada a todo o painel. Alertas, erros e confirmações
-                mantêm as cores universais de status.
-              </Typography>
-            </Box>
-
             <Typography variant="h6" gutterBottom>Tema do Painel</Typography>
             <Typography variant="body2" color="textSecondary" mb={3}>
               Escolha entre o modo claro e o modo escuro. A preferência é salva neste

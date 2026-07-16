@@ -11,6 +11,12 @@ import {
 } from '@mui/material';
 import { useNavigate, Link as RouterLink } from 'react-router-dom';
 import { useNotify } from '../context/NotificationContext';
+import { brandPalette } from '../theme';
+// Deep import (não o barrel `@mui/icons-material`): named imports do barrel quebram o
+// Vitest no Windows com EMFILE (milhares de ícones abertos de uma vez) — gotcha já
+// documentado no projeto.
+import SecurityIcon from '@mui/icons-material/Security';
+
 
 export default function Login() {
   const navigate = useNavigate();
@@ -19,6 +25,11 @@ export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [erro, setErro] = useState('');
+
+  const ACCENT = brandPalette.light.accent;        // #0600c2 — CTAs, ícones, destaques
+  const TEXT_DARK = brandPalette.light.text;       // #000000 — 21:1 sobre os cards brancos
+
+
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -55,6 +66,9 @@ export default function Login() {
     <Box
       sx={{
         minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
         background:
           'radial-gradient(1000px 460px at 50% -10%, rgba(102,130,245,0.28), transparent 60%)',
       }}
@@ -62,13 +76,47 @@ export default function Login() {
       <Container component="main" maxWidth="xs">
         <Box
           sx={{
-            paddingTop: 8,
-            paddingBottom: 8,
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
+            width: '100%',
           }}
         >
+          {/* Logo clicável: volta para a LandingHome via SPA (RouterLink), sem reload.
+              `component={RouterLink}` no lugar do <div> padrão do Box preserva o
+              posicionamento absoluto existente — só a semântica/interatividade muda. */}
+          <Box
+            component={RouterLink}
+            to="/"
+            aria-label="Voltar para a página inicial do PhishGuard"
+            sx={{
+              position: 'absolute',
+              top: 24,
+              left: 24,
+              display: 'flex',
+              alignItems: 'center',
+              textDecoration: 'none',
+              color: 'inherit',
+              borderRadius: 1,
+              transition: 'opacity 300ms ease',
+              '&:hover': { opacity: 0.9 },
+              '&:focus-visible': {
+                outline: 'none',
+                // Anel de foco em Surface 1 (var(--primary) = #6682f5), distinto do
+                // accent (#0600c2) usado no texto/ícone — só existe dentro do escopo
+                // `.forced-light-theme` (ForcedLightScope), que define essa variável.
+                boxShadow: '0 0 0 2px var(--primary)',
+              },
+            }}
+          >
+            <SecurityIcon sx={{ color: ACCENT, mr: 1 }} />
+            <Typography
+              variant="h6"
+              sx={{ fontWeight: 800, letterSpacing: 0.5, color: TEXT_DARK }}
+            >
+              Phish<Box component="span" sx={{ color: ACCENT }}>Guard</Box>
+            </Typography>
+          </Box>
           {/* Card BRANCO, não o `paper` (#6682f5) do tema: este formulário mostra erros
               de validação em vermelho, e vermelho sobre cobalto dá 1.06:1 — invisível.
               Ver a nota "cards de autenticação" em src/theme/forcedLight.ts. */}
@@ -86,7 +134,7 @@ export default function Login() {
             }}
           >
             <Typography component="h1" variant="h5">
-              Phish<Box component="span" sx={{ color: 'primary.main' }}>Guard</Box> Admin
+              <Box textAlign="center">Login</Box>
             </Typography>
 
             <Box component="form" onSubmit={handleLogin} sx={{ mt: 1, width: '100%' }}>

@@ -10,6 +10,11 @@ import {
   Link
 } from '@mui/material';
 import { useNavigate, useSearchParams, Link as RouterLink } from 'react-router-dom';
+import { brandPalette } from '../theme';
+// Deep import (não o barrel `@mui/icons-material`): named imports do barrel quebram o
+// Vitest no Windows com EMFILE (milhares de ícones abertos de uma vez) — gotcha já
+// documentado no projeto.
+import SecurityIcon from '@mui/icons-material/Security';
 
 export default function Register() {
   const navigate = useNavigate();
@@ -17,17 +22,23 @@ export default function Register() {
   // Plano escolhido na landing (?plano=bronze|prata|ouro). Encaminhado ao checkout.
   const planoSelecionado = searchParams.get('plano');
 
+  const ACCENT = brandPalette.light.accent;
+  const TEXT_DARK = brandPalette.light.text;
+
   const [nomeEmpresa, setNomeEmpresa] = useState('');
   const [cnpj, setCNPJ] = useState('');
   const [nome, setNome] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmarSenha, setConfirmarSenha] = useState('');
 
   const [erro, setErro] = useState('');
   const [sucesso, setSucesso] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  type CampoFormulario = 'nomeEmpresa' | 'cnpj' | 'nome' | 'email' | 'password';
+  // 'confirmarSenha' é validação client-side pura — nunca é enviada à API nem consta
+  // no mapaCamposApi (o backend não conhece esse campo).
+  type CampoFormulario = 'nomeEmpresa' | 'cnpj' | 'nome' | 'email' | 'password' | 'confirmarSenha';
   const [fieldErrors, setFieldErrors] = useState<Partial<Record<CampoFormulario, string>>>({});
 
   // Chaves em minúsculo para permitir busca case-insensitive.
@@ -81,6 +92,10 @@ export default function Register() {
 
     if (password.length < 3) {
       errosCliente.password = 'A senha deve ter pelo menos 3 caracteres.';
+    }
+
+    if (confirmarSenha !== password) {
+      errosCliente.confirmarSenha = 'As senhas não coincidem.';
     }
 
     if (Object.keys(errosCliente).length > 0) {
@@ -155,6 +170,9 @@ export default function Register() {
     <Box
       sx={{
         minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
         background:
           'radial-gradient(1000px 460px at 50% -10%, rgba(102,130,245,0.28), transparent 60%)',
       }}
@@ -162,13 +180,47 @@ export default function Register() {
       <Container component="main" maxWidth="xs">
         <Box
           sx={{
-            paddingTop: 8,
-            paddingBottom: 8,
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
+            width: '100%',
           }}
         >
+          {/* Logo clicável: volta para a LandingHome via SPA (RouterLink), sem reload.
+              `component={RouterLink}` no lugar do <div> padrão do Box preserva o
+              posicionamento absoluto existente — só a semântica/interatividade muda. */}
+          <Box
+            component={RouterLink}
+            to="/"
+            aria-label="Voltar para a página inicial do PhishGuard"
+            sx={{
+              position: 'absolute',
+              top: 24,
+              left: 24,
+              display: 'flex',
+              alignItems: 'center',
+              textDecoration: 'none',
+              color: 'inherit',
+              borderRadius: 1,
+              transition: 'opacity 300ms ease',
+              '&:hover': { opacity: 0.9 },
+              '&:focus-visible': {
+                outline: 'none',
+                // Anel de foco em Surface 1 (var(--primary) = #6682f5), distinto do
+                // accent (#0600c2) usado no texto/ícone — só existe dentro do escopo
+                // `.forced-light-theme` (ForcedLightScope), que define essa variável.
+                boxShadow: '0 0 0 2px var(--primary)',
+              },
+            }}
+          >
+            <SecurityIcon sx={{ color: ACCENT, mr: 1 }} />
+            <Typography
+              variant="h6"
+              sx={{ fontWeight: 800, letterSpacing: 0.5, color: TEXT_DARK }}
+            >
+              Phish<Box component="span" sx={{ color: ACCENT }}>Guard</Box>
+            </Typography>
+          </Box>
           {/* Card BRANCO, não o `paper` (#6682f5) do tema: os erros de validação por
               campo (helperText vermelho) dariam 1.06:1 sobre cobalto — invisíveis.
               Ver a nota "cards de autenticação" em src/theme/forcedLight.ts. */}
@@ -186,92 +238,104 @@ export default function Register() {
             }}
           >
             <Typography component="h1" variant="h5">
-              Crie sua conta Admin
+              Cadastre-se
             </Typography>
 
-          <Box component="form" onSubmit={handleRegister} noValidate sx={{ mt: 1, width: '100%' }}>
+            <Box component="form" onSubmit={handleRegister} noValidate sx={{ mt: 1, width: '100%' }}>
 
-            <TextField
-              margin="normal"
-              required
-              fullWidth
-              label="Nome da Empresa"
-              autoFocus
-              value={nomeEmpresa}
-              onChange={(e) => setNomeEmpresa(e.target.value)}
-              error={!!fieldErrors.nomeEmpresa}
-              helperText={fieldErrors.nomeEmpresa || ''}
-            />
+              <TextField
+                margin="normal"
+                required
+                fullWidth
+                label="Nome da Empresa"
+                autoFocus
+                value={nomeEmpresa}
+                onChange={(e) => setNomeEmpresa(e.target.value)}
+                error={!!fieldErrors.nomeEmpresa}
+                helperText={fieldErrors.nomeEmpresa || ''}
+              />
 
-            <TextField
-              margin="normal"
-              required
-              fullWidth
-              label="CNPJ"
-              value={cnpj}
-              onChange={(e) => setCNPJ(formatarCNPJ(e.target.value))}
-              error={!!fieldErrors.cnpj}
-              helperText={fieldErrors.cnpj || ''}
-            />
+              <TextField
+                margin="normal"
+                required
+                fullWidth
+                label="CNPJ"
+                value={cnpj}
+                onChange={(e) => setCNPJ(formatarCNPJ(e.target.value))}
+                error={!!fieldErrors.cnpj}
+                helperText={fieldErrors.cnpj || ''}
+              />
 
-            <TextField
-              margin="normal"
-              required
-              fullWidth
-              label="Nome Completo"
-              value={nome}
-              onChange={(e) => setNome(e.target.value)}
-              error={!!fieldErrors.nome}
-              helperText={fieldErrors.nome || ''}
-            />
+              <TextField
+                margin="normal"
+                required
+                fullWidth
+                label="Nome Completo"
+                value={nome}
+                onChange={(e) => setNome(e.target.value)}
+                error={!!fieldErrors.nome}
+                helperText={fieldErrors.nome || ''}
+              />
 
-            <TextField
-              margin="normal"
-              required
-              fullWidth
-              label="Endereço de Email"
-              type="text"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              error={!!fieldErrors.email}
-              helperText={fieldErrors.email || ''}
-            />
+              <TextField
+                margin="normal"
+                required
+                fullWidth
+                label="Endereço de Email"
+                type="text"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                error={!!fieldErrors.email}
+                helperText={fieldErrors.email || ''}
+              />
 
-            <TextField
-              margin="normal"
-              required
-              fullWidth
-              label="Senha"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              error={!!fieldErrors.password}
-              helperText={fieldErrors.password || ''}
-            />
+              <TextField
+                margin="normal"
+                required
+                fullWidth
+                label="Senha"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                error={!!fieldErrors.password}
+                helperText={fieldErrors.password || ''}
+              />
 
-            {erro && <Alert severity="error" sx={{ mt: 2 }}>{erro}</Alert>}
-            {sucesso && <Alert severity="success" sx={{ mt: 2 }}>Cadastro realizado! Redirecionando...</Alert>}
+              <TextField
+                margin="normal"
+                required
+                fullWidth
+                label="Confirmar Senha"
+                type="password"
+                value={confirmarSenha}
+                onChange={(e) => setConfirmarSenha(e.target.value)}
+                error={!!fieldErrors.confirmarSenha}
+                helperText={fieldErrors.confirmarSenha || ''}
+              />
 
-            <Button
-              type="submit"
-              fullWidth
-              variant="contained"
-              sx={{ mt: 3, mb: 2 }}
-              disabled={sucesso || loading}
-            >
-              {loading ? 'Carregando...' : 'CADASTRAR'}
-            </Button>
+              {erro && <Alert severity="error" sx={{ mt: 2 }}>{erro}</Alert>}
+              {sucesso && <Alert severity="success" sx={{ mt: 2 }}>Cadastro realizado! Redirecionando...</Alert>}
 
-            <Box sx={{ display: 'flex', justifyContent: 'center' }}>
-              <Link
-                component={RouterLink}
-                to="/login"
-                variant="body2"
-                sx={{ color: 'primary.main', fontWeight: 'bold' }}
+              <Button
+                type="submit"
+                fullWidth
+                variant="contained"
+                sx={{ mt: 3, mb: 2 }}
+                disabled={sucesso || loading}
               >
-                Já tem uma conta? Faça Login
-              </Link>
-            </Box>
+                {loading ? 'Carregando...' : 'CADASTRAR'}
+              </Button>
+
+              <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+                <Link
+                  component={RouterLink}
+                  to="/login"
+                  variant="body2"
+                  sx={{ color: 'primary.main', fontWeight: 'bold' }}
+                >
+                  Já tem uma conta? Faça Login
+                </Link>
+              </Box>
 
             </Box>
           </Paper>
