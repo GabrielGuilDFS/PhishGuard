@@ -23,6 +23,12 @@
 @import "tailwindcss/theme.css" layer(theme);
 @import "tailwindcss/utilities.css" layer(utilities);
 
+/* Variante `dark:` do Tailwind ancorada na CLASSE `.dark` do <html> (que o
+   ThemeModeContext alterna junto com data-theme), NÃO no `prefers-color-scheme`
+   padrão do v4. Sem isto, `dark:` seguiria o tema do SISTEMA OPERACIONAL e ignoraria
+   o toggle de tema do painel — um utilitário `dark:bg-...` não reagiria ao botão. */
+@custom-variant dark (&:where(.dark, .dark *));
+
 /* ─── Identidade visual OFICIAL: paleta azul (Realtime Colors) ────────────────
    Fonte de verdade das cores do PAINEL ADMINISTRATIVO, espelhando src/theme/index.ts
    (`brandPalette`, que alimenta o tema MUI). Ao mudar um hex aqui, mude lá também.

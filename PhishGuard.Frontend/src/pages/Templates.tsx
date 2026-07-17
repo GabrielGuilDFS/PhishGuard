@@ -1,10 +1,10 @@
 import { useState, useMemo } from 'react';
 import {
   Button, Typography, Paper, Table, TableBody, TableCell,
-  TableContainer, TableHead, TableRow, IconButton, Dialog,
+  TableContainer, TableHead, TableRow, Dialog,
   DialogTitle, DialogContent, DialogActions, Stack,
   Chip, Tabs, Tab, ToggleButton, ToggleButtonGroup,
-  TextField, MenuItem, Grid, Tooltip
+  TextField, MenuItem, Grid
 } from '@mui/material';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import MarkEmailReadIcon from '@mui/icons-material/MarkEmailRead';
@@ -90,6 +90,14 @@ function CenariosTab() {
 
   return (
     <>
+      {/* Dica de interação sutil: a linha inteira é clicável (não há mais botão de ação). */}
+      <Stack direction="row" alignItems="center" spacing={0.5} sx={{ mb: 1, color: 'text.secondary' }}>
+        <VisibilityIcon sx={{ fontSize: 16 }} />
+        <Typography variant="caption">
+          Clique em um cenário para visualizar o preview (e-mail e página falsa).
+        </Typography>
+      </Stack>
+
       <TableContainer component={Paper} elevation={2}>
         <Table>
           {/* O fundo do cabeçalho (Surface 2) vem do tema global — MuiTableCell.head. */}
@@ -98,7 +106,8 @@ function CenariosTab() {
               <TableCell align="center"><strong>Cenário</strong></TableCell>
               <TableCell align="center"><strong>Categoria</strong></TableCell>
               <TableCell align="center"><strong>Amarração (E-mail ⇄ Página Falsa)</strong></TableCell>
-              <TableCell align="center"><strong>Ações</strong></TableCell>
+              {/* Coluna "Ações" removida — a affordance de clique vive na própria linha. */}
+              <TableCell aria-hidden sx={{ width: 56 }} />
             </TableRow>
           </TableHead>
           <TableBody>
@@ -106,9 +115,30 @@ function CenariosTab() {
               const isca = iscaPorId.get(s.emailTemplateId);
               const landing = landingPorId.get(s.landingTemplateId);
               return (
-                <TableRow key={s.id} hover>
+                // Linha inteira clicável (mouse) + acessível por teclado (Enter/Espaço).
+                // Affordance via Tailwind: cursor-pointer + hover suave no fundo (claro/escuro),
+                // e o grupo nomeado `group/row` revela o ícone-olho e realça o título no hover.
+                // Sem a prop `hover` do MUI de propósito: a emotion do MUI (sem @layer) venceria
+                // o `hover:bg-*` do Tailwind (camada utilities, menor precedência).
+                <TableRow
+                  key={s.id}
+                  onClick={() => abrirPreview(s)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); abrirPreview(s); }
+                  }}
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`Visualizar ${s.nome}`}
+                  className="group/row cursor-pointer transition-colors hover:bg-neutral-100/50 dark:hover:bg-neutral-900/50 focus-visible:outline-none focus-visible:bg-neutral-100/50 dark:focus-visible:bg-neutral-900/50"
+                >
                   <TableCell align="center" sx={{ verticalAlign: 'middle' }}>
-                    <Typography variant="body2" sx={{ fontWeight: 600 }}>{s.nome}</Typography>
+                    <Typography
+                      variant="body2"
+                      sx={{ fontWeight: 600 }}
+                      className="transition-colors underline-offset-4 group-hover/row:text-accent group-hover/row:underline"
+                    >
+                      {s.nome}
+                    </Typography>
                     <Typography variant="caption" color="text.secondary">{s.descricao}</Typography>
                   </TableCell>
                   <TableCell align="center" sx={{ verticalAlign: 'middle' }}>
@@ -118,10 +148,12 @@ function CenariosTab() {
                     <Typography variant="caption" display="block">{isca?.nome ?? s.emailTemplateId}</Typography>
                     <Typography variant="caption" color="text.secondary" display="block">{landing?.nome ?? s.landingTemplateId}</Typography>
                   </TableCell>
-                  <TableCell align="center" sx={{ verticalAlign: 'middle' }}>
-                    <Tooltip title="Visualizar previews (E-mail e Página Falsa)">
-                      <IconButton aria-label={`Visualizar ${s.nome}`} color="primary" onClick={() => abrirPreview(s)}><VisibilityIcon fontSize="small" /></IconButton>
-                    </Tooltip>
+                  {/* Ícone-olho discreto: invisível até o hover/focus da linha (group/row). */}
+                  <TableCell align="right" sx={{ verticalAlign: 'middle', color: 'text.secondary' }}>
+                    <VisibilityIcon
+                      fontSize="small"
+                      className="opacity-0 transition-opacity duration-200 group-hover/row:opacity-100 group-focus-visible/row:opacity-100"
+                    />
                   </TableCell>
                 </TableRow>
               );

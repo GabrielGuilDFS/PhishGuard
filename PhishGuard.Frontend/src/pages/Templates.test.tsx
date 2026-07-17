@@ -63,21 +63,36 @@ describe('Templates (Biblioteca de Modelos)', () => {
     await waitFor(() => expect(landingFrame.getAttribute('srcdoc')).toContain('bg-[#131921]'));
   });
 
-  it('a aba Cenários é um catálogo somente-leitura: só Visualizar, sem Registrar nem Descartar', async () => {
+  it('a aba Cenários é um catálogo somente-leitura: linha clicável, sem coluna Ações nem Registrar/Descartar', async () => {
     await renderTela();
 
-    // A única ação por cenário é o preview. Os botões de registrar e de descartar
-    // (delete) foram removidos da listagem principal — evita registro opcional e
-    // exclusões acidentais direto daqui.
-    expect(screen.getByRole('button', { name: `Visualizar ${CENARIO_AMAZON}` })).toBeInTheDocument();
+    // Não há mais coluna "Ações" nem botões de registrar/descartar (evita registro
+    // opcional e exclusões acidentais direto da listagem principal).
+    expect(screen.queryByRole('columnheader', { name: /Ações/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: `Registrar ${CENARIO_AMAZON}` })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: `Remover ${CENARIO_AMAZON}` })).not.toBeInTheDocument();
+
+    // A affordance de preview vive na LINHA inteira (role=button + tabIndex p/ teclado).
+    const linha = screen.getByRole('button', { name: `Visualizar ${CENARIO_AMAZON}` });
+    expect(linha.tagName).toBe('TR');
+    expect(linha).toHaveAttribute('tabindex', '0');
+
+    // Dica textual sutil de que a linha é clicável.
+    expect(screen.getByText(/Clique em um cenário para visualizar o preview/i)).toBeInTheDocument();
 
     // Navegar/visualizar a tela nunca dispara escrita no backend (nem POST nem DELETE).
     const escritas = fetchMock.mock.calls.filter(
       (c) => (c[1] as { method?: string } | undefined)?.method && (c[1] as { method?: string }).method !== 'GET',
     );
     expect(escritas).toHaveLength(0);
+  });
+
+  it('abre o preview clicando em QUALQUER lugar da linha do cenário', async () => {
+    await renderTela();
+
+    // Clicar numa célula interna (a categoria) — não num botão dedicado — abre o preview.
+    fireEvent.click(screen.getByText(CENARIO_AMAZON));
+    expect(await screen.findByTitle('Email Preview')).toBeInTheDocument();
   });
 
   it('o diálogo de preview não oferece ação de registrar cenário', async () => {
