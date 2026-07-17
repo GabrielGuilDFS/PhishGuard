@@ -57,10 +57,16 @@ describe('Templates (Biblioteca de Modelos)', () => {
     const emailFrame = await screen.findByTitle('Email Preview') as HTMLIFrameElement;
     await waitFor(() => expect(emailFrame.getAttribute('srcdoc')).toContain('Alerta de segurança'));
 
-    // Alterna para a Página Falsa (molde Amazon com Tailwind intacto).
+    // Alterna para a Página Falsa (molde Amazon auto-contido: CSS embutido, sem CDN).
     fireEvent.click(screen.getByRole('button', { name: /Página Falsa/i }));
     const landingFrame = await screen.findByTitle('Landing Preview') as HTMLIFrameElement;
-    await waitFor(() => expect(landingFrame.getAttribute('srcdoc')).toContain('bg-[#131921]'));
+    const srcdoc = () => landingFrame.getAttribute('srcdoc') ?? '';
+    // A cor do header Amazon (#131921) vive agora no <style> embutido, não numa classe
+    // Tailwind — e NÃO pode mais depender do Play CDN (bloqueado pelo sandbox do iframe).
+    await waitFor(() => expect(srcdoc()).toContain('#131921'));
+    expect(srcdoc()).not.toContain('cdn.tailwindcss.com');
+    // Reset anti "tudo azul sublinhado": links herdam a cor e não sublinham por padrão.
+    expect(srcdoc()).toContain('text-decoration: none');
   });
 
   it('a aba Cenários é um catálogo somente-leitura: linha clicável, sem coluna Ações nem Registrar/Descartar', async () => {
