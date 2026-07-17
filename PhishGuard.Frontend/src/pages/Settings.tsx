@@ -13,16 +13,18 @@ import {
   ToggleButton,
   ToggleButtonGroup
 } from '@mui/material';
-import {
-  Save as SaveIcon,
-  Lock as LockIcon,
-  Email as EmailIcon,
-  Settings as SettingsIcon,
-  Send as SendIcon,
-  Palette as PaletteIcon,
-  LightMode as LightModeIcon,
-  DarkMode as DarkModeIcon
-} from '@mui/icons-material';
+// Deep imports (não o barrel `@mui/icons-material`): named imports do barrel quebram
+// o Vitest no Windows com EMFILE (milhares de ícones abertos de uma vez) — gotcha já
+// documentado no projeto.
+import SaveIcon from '@mui/icons-material/Save';
+import LockIcon from '@mui/icons-material/Lock';
+import EmailIcon from '@mui/icons-material/Email';
+import SettingsIcon from '@mui/icons-material/Settings';
+import SendIcon from '@mui/icons-material/Send';
+import PaletteIcon from '@mui/icons-material/Palette';
+import LightModeIcon from '@mui/icons-material/LightMode';
+import DarkModeIcon from '@mui/icons-material/DarkMode';
+import { alpha } from '@mui/material/styles';
 import { useNotify } from '../context/NotificationContext';
 import { useThemeMode } from '../context/ThemeModeContext';
 import type { AppThemeMode } from '../theme';
@@ -289,10 +291,15 @@ export default function Settings() {
         Configurações do Sistema
       </Typography>
 
-      {/* Paper e fundo da página compartilham o mesmo neutro da paleta — a borda
-          `divider` (Surface 2) é o que delimita o painel. */}
-      <Paper elevation={2} sx={{ border: 1, borderColor: 'divider' }}>
-        <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+      {/* Sem borda: `elevation={2}` já dá ao painel uma sombra suave, suficiente para
+          delimitá-lo do fundo (mesmo neutro que a página) sem precisar de um contorno
+          — a mesma lógica "flutuante" aplicada ao header/sidebar do AdminLayout. */}
+      <Paper elevation={2}>
+        {/* Separador funcional (faixa de abas → conteúdo): mantém a borda, mas diluída
+            — mesmo alpha usado nos <Divider /> do AdminLayout, já que aqui ela também
+            está cercada de conteúdo e não precisa competir por atenção como o contorno
+            externo do painel. */}
+        <Box sx={{ borderBottom: 1, borderColor: (theme) => alpha(theme.palette.divider, 0.16) }}>
           <Tabs
             value={tabValue}
             onChange={handleChangeTab}

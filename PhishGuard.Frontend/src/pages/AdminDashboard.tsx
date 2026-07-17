@@ -24,8 +24,9 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RTooltip,
   ResponsiveContainer, Cell, Legend
 } from 'recharts';
+import { alpha } from '@mui/material/styles';
 import PageContainer from '../components/PageContainer';
-import { brandPalette, statusColors, mutedTextFor, rgbChannelsOf } from '../theme';
+import { brandPalette, statusColors, mutedTextFor, rgbChannelsOf, SOFT_BORDER_ALPHA } from '../theme';
 import { useThemeMode } from '../context/ThemeModeContext';
 
 const API_BASE = 'http://localhost:5000/api';
@@ -75,14 +76,17 @@ export default function AdminDashboard() {
   const { mode } = useThemeMode();
   const C = brandPalette[mode];
   const ACCENT = C.accent;
-  const chartGridStroke = C.secondary;
+  // Recharts é SVG puro — não lê o tema do MUI, então os overrides globais de
+  // MuiCard/MuiPaper (SOFT_BORDER_ALPHA) não alcançam o grid do gráfico. Mesmo
+  // tratamento aplicado manualmente aqui para manter a identidade visual consistente.
+  const chartGridStroke = alpha(C.secondary, SOFT_BORDER_ALPHA);
   const chartTick = { fontSize: 12, fill: mutedTextFor(mode) };
   // Tooltip = Surface 1 (`primary`), a surface de ÊNFASE da paleta: destaca a bolha
   // sobre o fundo neutro da página. O texto acompanha o `text` do modo — preto sobre
   // #6682f5 (5.6:1) e branco sobre #0a2799 (12:1), ambos acima do mínimo AA.
   const chartTooltipStyle = {
     backgroundColor: C.primary,
-    border: `1px solid ${C.secondary}`,
+    border: `1px solid ${alpha(C.secondary, SOFT_BORDER_ALPHA)}`,
     borderRadius: 8,
     color: C.text,
   } as const;

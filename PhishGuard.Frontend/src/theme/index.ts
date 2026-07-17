@@ -1,4 +1,4 @@
-import { createTheme, type Theme } from '@mui/material/styles';
+import { createTheme, alpha, type Theme } from '@mui/material/styles';
 
 /**
  * Identidade visual OFICIAL do PhishGuard — paleta azul (Realtime Colors), aplicada a
@@ -56,6 +56,21 @@ export const brandPalette = {
 } as const;
 
 export type AppThemeMode = keyof typeof brandPalette;
+
+/**
+ * Opacidade padrão das bordas "estruturais" (Card, TableCell, Paper outlined, grid de
+ * gráficos) — o que delimita um container contra um fundo da MESMA cor (`paper` ===
+ * `background`, ver nota "Surface 1"), sem apelar para sombra. Mesmo a 100% de opacidade
+ * essa borda nunca teve contraste de LUMINÂNCIA alto (secondary é deliberadamente próximo
+ * do neutro do modo: ~1.76:1 no light, ~1.21:1 no dark — ambos abaixo do 3:1 de UI da
+ * WCAG, ou seja, nunca foi "contraste" que a tornava vibrante). O que lê como vibrante é
+ * a SATURAÇÃO — azul puro sobre um neutro absoluto (#fff/#000). Diluir com alpha() ataca
+ * exatamente isso: mistura a cor para perto do fundo sem apagar o traço.
+ * NÃO usar este valor para separadores funcionais dentro de uma lista/menu (Divider) —
+ * esses usam um alpha mais baixo (~0.16, ver AdminLayout.tsx), pois já estão cercados de
+ * conteúdo e não precisam competir visualmente por atenção como o contorno de um card.
+ */
+export const SOFT_BORDER_ALPHA = 0.35;
 
 /**
  * Cores semânticas de status — papéis EXCLUSIVOS, IGUAIS nos dois modos e IMUNES à
@@ -127,22 +142,30 @@ export function createAppTheme(mode: AppThemeMode = 'light'): Theme {
       MuiPaper: {
         styleOverrides: {
           root: { backgroundImage: 'none' },
+          // Paper `variant="outlined"` (previewers, cards de molde) usa por padrão
+          // `theme.palette.divider` a 100% — mesma borda vibrante do Card. Diluída
+          // aqui para o painel inteiro herdar a suavização sem precisar de sx local
+          // em cada tela que usa a variante.
+          outlined: { borderColor: alpha(c.secondary, SOFT_BORDER_ALPHA) },
         },
       },
       MuiCard: {
         styleOverrides: {
           root: {
             borderRadius: 16,
-            // Com paper == background, a BORDA é o que delimita o card (não o fundo).
-            border: `1px solid ${c.secondary}`,
+            // Com paper == background, a BORDA é o que delimita o card (não o fundo) —
+            // por isso ela não vira `border: 'none'` (ver SOFT_BORDER_ALPHA acima):
+            // sem sombra e sem diferença de fundo, um card sem borda nenhuma some.
+            border: `1px solid ${alpha(c.secondary, SOFT_BORDER_ALPHA)}`,
           },
         },
       },
       MuiTableCell: {
         styleOverrides: {
-          root: { borderBottom: `1px solid ${c.secondary}` },
-          // Cabeçalho de tabela = Surface 2. O texto acompanha o `text` do modo
-          // (não branco fixo): no light, branco sobre #b2c1fa daria 1.6:1 — ilegível.
+          root: { borderBottom: `1px solid ${alpha(c.secondary, SOFT_BORDER_ALPHA)}` },
+          // Cabeçalho de tabela = Surface 2 SÓLIDA (preenchimento, não borda — fora do
+          // escopo da suavização). O texto acompanha o `text` do modo (não branco
+          // fixo): no light, branco sobre #b2c1fa daria 1.6:1 — ilegível.
           head: {
             backgroundColor: c.secondary,
             color: c.text,
