@@ -1,10 +1,12 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using PhishGuard.Backend.BackgroundServices;
 using PhishGuard.Backend.Controllers;
 using PhishGuard.Backend.Data;
+using PhishGuard.Backend.DTOs;
 using PhishGuard.Backend.Models;
 using PhishGuard.Backend.Services;
 using System;
@@ -40,6 +42,31 @@ public class CampaignsControllerTests
             Chamadas++;
             campaign.Status = CampaignStatus.EmAndamento;
             return Task.CompletedTask;
+        }
+    }
+
+    // Dispatcher que SEMPRE falha com uma exceção dada — usado para exercitar a
+    // classificação de falha (log robusto) do worker sem SMTP real.
+    private sealed class ThrowingDispatchService : ICampaignDispatchService
+    {
+        private readonly Exception _erro;
+        public ThrowingDispatchService(Exception erro) => _erro = erro;
+        public Task DispatchAsync(Campaign campaign, CancellationToken cancellationToken = default) => throw _erro;
+    }
+
+    // Logger que captura as mensagens FORMATADAS, para asserir a categoria de falha logada.
+    private sealed class CapturingLogger<T> : ILogger<T>
+    {
+        public List<string> Mensagens { get; } = new();
+        public IDisposable BeginScope<TState>(TState state) where TState : notnull => NullScope.Instance;
+        public bool IsEnabled(LogLevel logLevel) => true;
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception,
+            Func<TState, Exception?, string> formatter) => Mensagens.Add(formatter(state, exception));
+
+        private sealed class NullScope : IDisposable
+        {
+            public static readonly NullScope Instance = new();
+            public void Dispose() { }
         }
     }
 
@@ -292,5 +319,130 @@ public class CampaignsControllerTests
         Assert.Equal(CampaignStatus.Finalizada, vencidaDb.Status);     // encerrada
         Assert.Equal(CampaignStatus.EmAndamento, coletandoDb.Status);  // ainda coletando
         Assert.Equal(CampaignStatus.EmAndamento, semPrazoDb.Status);   // sem prazo, segue ativa
+    }
+
+    // ------------------------------------------------------------------------------------
+    // TIMEZONE: a data de agendamento recebida é normalizada para UTC na fronteira da API.
+    // Sem isto, um DateTime 'Unspecified' (ex.: chamada via Swagger sem 'Z') seria rejeitado
+    // pelo Npgsql ao gravar em 'timestamp with time zone', e/ou desalinharia a comparação do
+    // worker (que usa DateTime.UtcNow). O provedor InMemory preserva o Kind, então o teste
+    // enxerga a normalização diretamente.
+    // ------------------------------------------------------------------------------------
+    [Fact]
+    public async Task PostCampaign_NormalizaDatasParaUtc_MesmoRecebendoSemFuso()
+    {
+        // Arrange
+        var (context, tenantProvider) = CriarContexto();
+        var tenantId = Guid.NewGuid();
+        tenantProvider.TenantIdAtivo = tenantId;
+
+        var tenant = new Tenant { Id = tenantId, NomeEmpresa = "Empresa", Cnpj = "11111111000191", Ativo = true, CriadoEm = DateTime.UtcNow, Plano = PlanoTenant.Bronze };
+        var template = new Template { Id = Guid.NewGuid(), TenantId = tenantId, Nome = "Isca", Assunto = "A", RemetenteNome = "R", RemetenteEmail = "r@t.com", CorpoHtml = "hbomax-redefinicao-senha" };
+        var phishing = new PhishingPage { Id = Guid.NewGuid(), TenantId = tenantId, Nome = "Pagina", HtmlCaptura = "x" };
+        var edu = new EducationalPage { Id = Guid.NewGuid(), TenantId = tenantId, Nome = "Edu", HtmlEducacional = "x" };
+        var alvo = new Target { Id = Guid.NewGuid(), TenantId = tenantId, Nome = "Alvo", Email = "a@t.com", Departamento = "TI" };
+        context.Tenants.Add(tenant);
+        context.Templates.Add(template);
+        context.PhishingPages.Add(phishing);
+        context.EducationalPages.Add(edu);
+        context.Targets.Add(alvo);
+        await context.SaveChangesAsync();
+
+        var controller = new CampaignsController(context, tenantProvider);
+
+        // Datas SEM fuso (Kind=Unspecified) — o cenário problemático.
+        var input = new CampaignInputDto
+        {
+            NomeCampanha = "Nova",
+            DataInicio = new DateTime(2030, 1, 15, 12, 0, 0, DateTimeKind.Unspecified),
+            DataFim = new DateTime(2030, 1, 16, 12, 0, 0, DateTimeKind.Unspecified),
+            EmailTemplateId = template.Id,
+            LandingPageId = phishing.Id,
+            EducationalPageId = edu.Id,
+            TargetIds = new List<Guid> { alvo.Id }
+        };
+
+        // Act
+        var resultado = await controller.PostCampaign(input);
+
+        // Assert: persistida como UTC (Kind e valor preservado — Unspecified assume UTC).
+        Assert.IsType<CreatedAtActionResult>(resultado);
+        var persistida = await context.Campaigns.IgnoreQueryFilters().FirstAsync();
+        Assert.Equal(DateTimeKind.Utc, persistida.DataInicio.Kind);
+        Assert.Equal(new DateTime(2030, 1, 15, 12, 0, 0, DateTimeKind.Utc), persistida.DataInicio);
+        Assert.Equal(DateTimeKind.Utc, persistida.DataFim!.Value.Kind);
+    }
+
+    // ------------------------------------------------------------------------------------
+    // LOG ROBUSTO: quando o disparo falha, o worker CLASSIFICA a causa provável no log para
+    // isolar, sem ler stack trace, se o problema foi autenticação SMTP vs. configuração/fila.
+    // A campanha reivindicada (Processando) NÃO regride e é reprocessada no próximo ciclo.
+    // ------------------------------------------------------------------------------------
+    [Fact]
+    public async Task Worker_FalhaAutenticacaoSmtp_ClassificaNoLog_ECampanhaFicaProcessando()
+    {
+        // Arrange
+        var (context, tenantProvider) = CriarContexto();
+        var tenant = new Tenant { Id = Guid.NewGuid(), NomeEmpresa = "Empresa", Cnpj = "11111111000191", Ativo = true, CriadoEm = DateTime.UtcNow, Plano = PlanoTenant.Bronze };
+        context.Tenants.Add(tenant);
+        await context.SaveChangesAsync();
+
+        var agendada = await SemearCampanhaRascunhoAsync(context, tenantProvider, tenant.Id, DateTime.UtcNow.AddMinutes(-5));
+        agendada.Status = CampaignStatus.Agendada;
+        await context.SaveChangesAsync();
+
+        var logger = new CapturingLogger<CampaignSchedulerWorker>();
+        var dispatch = new ThrowingDispatchService(new MailKit.Security.AuthenticationException("credenciais inválidas"));
+        var worker = new CampaignSchedulerWorker(new SingleScopeFactory(context, dispatch), logger);
+
+        // Act
+        await worker.ProcessarCampanhasElegiveisAsync(CancellationToken.None);
+
+        // Assert: claim feito (Agendada→Processando), disparo falhou → permanece Processando.
+        var db = await context.Campaigns.IgnoreQueryFilters().FirstAsync(c => c.Id == agendada.Id);
+        Assert.Equal(CampaignStatus.Processando, db.Status);
+
+        // O log isola a categoria: AUTENTICAÇÃO SMTP.
+        Assert.Contains(logger.Mensagens, m => m.Contains("AUTENTICAÇÃO SMTP"));
+    }
+
+    [Fact]
+    public async Task Worker_FalhaDeConfiguracaoOuFila_ClassificaComoConfiguracao()
+    {
+        // Arrange
+        var (context, tenantProvider) = CriarContexto();
+        var tenant = new Tenant { Id = Guid.NewGuid(), NomeEmpresa = "Empresa", Cnpj = "11111111000191", Ativo = true, CriadoEm = DateTime.UtcNow, Plano = PlanoTenant.Bronze };
+        context.Tenants.Add(tenant);
+        await context.SaveChangesAsync();
+
+        var agendada = await SemearCampanhaRascunhoAsync(context, tenantProvider, tenant.Id, DateTime.UtcNow.AddMinutes(-5));
+        agendada.Status = CampaignStatus.Agendada;
+        await context.SaveChangesAsync();
+
+        var logger = new CapturingLogger<CampaignSchedulerWorker>();
+        // InvalidOperationException é o que o CampaignDispatchService lança quando o SMTP não
+        // está configurado para o tenant, ou template/alvos estão ausentes.
+        var dispatch = new ThrowingDispatchService(new InvalidOperationException("Configuração SMTP não encontrada para o tenant da campanha."));
+        var worker = new CampaignSchedulerWorker(new SingleScopeFactory(context, dispatch), logger);
+
+        // Act
+        await worker.ProcessarCampanhasElegiveisAsync(CancellationToken.None);
+
+        // Assert
+        Assert.Contains(logger.Mensagens, m => m.Contains("CONFIGURAÇÃO/FILA"));
+    }
+
+    [Fact]
+    public void ClassificarFalhaDisparo_MapeiaCadaCategoria()
+    {
+        // Contrato do classificador de falhas (usado no log robusto do worker).
+        Assert.Contains("AUTENTICAÇÃO SMTP",
+            CampaignSchedulerWorker.ClassificarFalhaDisparo(new MailKit.Security.AuthenticationException()));
+        Assert.Contains("CONEXÃO",
+            CampaignSchedulerWorker.ClassificarFalhaDisparo(new System.Net.Sockets.SocketException()));
+        Assert.Contains("CONFIGURAÇÃO/FILA",
+            CampaignSchedulerWorker.ClassificarFalhaDisparo(new InvalidOperationException()));
+        Assert.Contains("NÃO CLASSIFICADA",
+            CampaignSchedulerWorker.ClassificarFalhaDisparo(new Exception()));
     }
 }

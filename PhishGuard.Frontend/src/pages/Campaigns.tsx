@@ -80,6 +80,56 @@ const mensagemAmigavel = (erro: string): string => {
 
 const emailValido = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
 
+// ---- Atualização reativa do status (short polling inteligente) ----
+// Intervalo de checagem enquanto houver campanha "em trânsito" de status. 8s fica na
+// faixa pedida (5–10s): responsivo o suficiente para o disparo (worker roda a cada 1min)
+// sem martelar a API.
+const POLL_INTERVAL_MS = 8000;
+// Janela em que a badge "pisca" após uma transição de status (casa com o fade de 1s do tema).
+const FLASH_MS = 1800;
+
+// Status que mantêm o polling LIGADO — a campanha ainda vai mudar sozinha:
+//   Agendada  → o worker dispara ao chegar a DataInicio (vira Processando);
+//   Processando → o lote está sendo enviado (vira Em Andamento ao concluir).
+// Em Andamento/Finalizada/Rascunho são estáveis do ponto de vista do timer: não geram polling.
+const STATUS_PENDENTES: string[] = [CampaignStatus.Agendada, CampaignStatus.Processando];
+
+// Cor semântica da badge por status (paleta do tema; ver theme/themeHelper.ts).
+const STATUS_CHIP_COLOR: Record<string, 'default' | 'warning' | 'info' | 'success'> = {
+    [CampaignStatus.Rascunho]: 'default',
+    [CampaignStatus.Agendada]: 'warning',    // aguardando o horário
+    [CampaignStatus.Processando]: 'info',     // disparando o lote
+    [CampaignStatus.EmAndamento]: 'success',  // disparado / coletando
+    [CampaignStatus.Finalizada]: 'default',   // encerrada
+};
+
+// Badge de status com transição suave de cor (1s, padrão do tema) e um "flash" discreto
+// quando o status ACABOU de mudar — feedback claro de que a tela atualizou em tempo real.
+function StatusBadge({ status, flashing }: { status: string; flashing: boolean }) {
+    const color = STATUS_CHIP_COLOR[status] ?? 'default';
+    return (
+        <Chip
+            label={status}
+            color={color}
+            size="small"
+            variant={status === CampaignStatus.Finalizada ? 'outlined' : 'filled'}
+            sx={{
+                fontWeight: 600,
+                // Cor/borda migram no mesmo 1s do fade global de tema (cubic-bezier premium).
+                transition: 'background-color 1s cubic-bezier(0.4,0,0.2,1), color 1s cubic-bezier(0.4,0,0.2,1), border-color 1s cubic-bezier(0.4,0,0.2,1)',
+                // Pisca 2x (halo + brilho) só no instante da transição; removido após FLASH_MS.
+                ...(flashing && {
+                    animation: 'statusFlash 800ms ease-in-out 2',
+                    '@keyframes statusFlash': {
+                        '0%, 100%': { boxShadow: '0 0 0 0 rgba(102,130,245,0)', filter: 'brightness(1)' },
+                        '50%': { boxShadow: '0 0 0 4px rgba(102,130,245,0.45)', filter: 'brightness(1.18)' },
+                    },
+                }),
+            }}
+        />
+    );
+}
+
 export default function Campaigns() {
     const { showNotify } = useNotify();
 
@@ -108,6 +158,11 @@ export default function Campaigns() {
     const [importSummary, setImportSummary] = useState<ImportSummary | null>(null);
     const csvInputRef = useRef<HTMLInputElement>(null);
 
+    // Reatividade do status: ids que devem "piscar" (transição recém-detectada) e o mapa
+    // do último status conhecido por campanha (para diferenciar mudanças entre polls).
+    const [flashingIds, setFlashingIds] = useState<Set<string>>(new Set());
+    const statusAnteriorRef = useRef<Map<string, string>>(new Map());
+
     const API_BASE = 'http://localhost:5000/api';
 
     const token = localStorage.getItem('phishguard_token');
@@ -127,10 +182,52 @@ export default function Campaigns() {
         fetchCampaigns();
     }, []);
 
+    // Existe alguma campanha "em trânsito" (Agendada/Processando)? Controla o polling.
+    const temPendentes = useMemo(
+        () => campaigns.some(c => STATUS_PENDENTES.includes(c.status)),
+        [campaigns]
+    );
+
+    // POLLING INTELIGENTE: só cria o intervalo quando há campanhas pendentes; quando a
+    // última pendente resolve, `temPendentes` vira false, este efeito re-executa e o
+    // cleanup limpa o intervalo imediatamente (não fica batendo na API à toa). Também é
+    // limpo ao desmontar a tela.
+    useEffect(() => {
+        if (!temPendentes) return;
+        const intervalo = window.setInterval(() => { fetchCampaigns(); }, POLL_INTERVAL_MS);
+        return () => window.clearInterval(intervalo);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [temPendentes]);
+
     const fetchCampaigns = async () => {
         try {
             const res = await fetch(`${API_BASE}/Campaigns`, { headers });
-            if (res.ok) setCampaigns(await res.json());
+            if (!res.ok) return;
+            const novas: Campaign[] = await res.json();
+
+            // Detecta transições de status vs. o último snapshot conhecido. Só conta como
+            // mudança quando já havia um status anterior (não pisca tudo na 1ª carga).
+            const mudaram = novas
+                .filter(c => {
+                    const anterior = statusAnteriorRef.current.get(c.id);
+                    return anterior !== undefined && anterior !== c.status;
+                })
+                .map(c => c.id);
+
+            statusAnteriorRef.current = new Map(novas.map(c => [c.id, c.status]));
+            setCampaigns(novas);
+
+            // Dispara o "flash" nas linhas que mudaram e o remove após a janela de animação.
+            if (mudaram.length > 0) {
+                setFlashingIds(prev => new Set([...prev, ...mudaram]));
+                window.setTimeout(() => {
+                    setFlashingIds(prev => {
+                        const s = new Set(prev);
+                        mudaram.forEach(id => s.delete(id));
+                        return s;
+                    });
+                }, FLASH_MS);
+            }
         } catch (error) {
             console.error('Erro ao buscar campanhas', error);
             showNotify('Não foi possível carregar as campanhas.', 'error');
@@ -465,7 +562,9 @@ export default function Campaigns() {
                         {filtered.map(c => (
                             <TableRow key={c.id}>
                                 <TableCell>{c.nomeCampanha}</TableCell>
-                                <TableCell>{c.status}</TableCell>
+                                <TableCell>
+                                    <StatusBadge status={c.status} flashing={flashingIds.has(c.id)} />
+                                </TableCell>
                                 <TableCell>{new Date(c.dataInicio).toLocaleString()}</TableCell>
                                 <TableCell>{c.dataFim ? new Date(c.dataFim).toLocaleString() : '-'}</TableCell>
                                 <TableCell>{c.templateNome}</TableCell>

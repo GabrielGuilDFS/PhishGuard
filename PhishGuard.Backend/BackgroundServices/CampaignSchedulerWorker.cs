@@ -139,6 +139,13 @@ namespace PhishGuard.Backend.BackgroundServices
                         }
                     }
 
+                    // Log de INÍCIO: marca no timeline o momento em que o claim já foi feito e
+                    // o disparo (I/O de SMTP) vai começar. Se a próxima linha do log for uma
+                    // falha classificada, fica claro que o erro é no ENVIO, não no claim/fila.
+                    _logger.LogInformation(
+                        "Iniciando disparo da campanha {Id} ({Total} alvo(s)).",
+                        campanha.Id, campanha.Targets.Count);
+
                     await dispatcher.DispatchAsync(campanha, stoppingToken);
                     _logger.LogInformation("Campanha {Id} disparada automaticamente.", campanha.Id);
                 }
@@ -148,10 +155,43 @@ namespace PhishGuard.Backend.BackgroundServices
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Falha ao disparar a campanha {Id}. Prosseguindo com as demais.", campanha.Id);
+                    // LOG ROBUSTO: classifica a causa provável para isolar, em produção, se a
+                    // falha foi de AUTENTICAÇÃO SMTP, de CONEXÃO, de PROTOCOLO/TLS ou de
+                    // CONFIGURAÇÃO/FILA (SMTP ausente, template/alvos faltando) — sem precisar
+                    // decifrar a stack trace crua. A campanha permanece em 'Processando' e é
+                    // reprocessada no próximo ciclo de forma idempotente; as demais seguem.
+                    var categoria = ClassificarFalhaDisparo(ex);
+                    _logger.LogError(ex,
+                        "Falha ao disparar a campanha {Id}. Categoria provável: {Categoria}. A campanha " +
+                        "permanece em '{Status}' e será reprocessada no próximo ciclo; as demais seguem normalmente.",
+                        campanha.Id, categoria, campanha.Status);
                 }
             }
         }
+
+        // Classifica a causa PROVÁVEL de uma falha de disparo para o log operacional. Os
+        // tipos são totalmente qualificados de propósito: 'AuthenticationException' existe em
+        // MailKit.Security E em System.Security.Authentication, e o disparo pode lançar
+        // 'InvalidOperationException' (config/fila) — qualificar evita ambiguidade e imports.
+        // Só a conexão/autenticação SMTP inicial e a resolução de config/fila propagam até
+        // aqui; falhas por-alvo já são tratadas e registradas dentro do CampaignDispatchService.
+        internal static string ClassificarFalhaDisparo(Exception ex) => ex switch
+        {
+            MailKit.Security.AuthenticationException =>
+                "AUTENTICAÇÃO SMTP — usuário/senha do tenant inválidos ou expirados",
+            MailKit.Security.SslHandshakeException =>
+                "TLS/SSL — falha no handshake StartTls (porta ou certificado do servidor SMTP)",
+            MailKit.Net.Smtp.SmtpProtocolException =>
+                "PROTOCOLO SMTP — erro no diálogo/handshake com o servidor",
+            MailKit.Net.Smtp.SmtpCommandException =>
+                "COMANDO SMTP — servidor rejeitou um comando (remetente/relay/porta)",
+            System.Net.Sockets.SocketException =>
+                "CONEXÃO — host/porta SMTP inacessível (rede/firewall)",
+            InvalidOperationException =>
+                "CONFIGURAÇÃO/FILA — SMTP não configurado para o tenant, ou template/alvos ausentes",
+            _ =>
+                "NÃO CLASSIFICADA — ver stack trace",
+        };
 
         // (2) FINALIZAÇÃO: encerra automaticamente a janela de coleta das campanhas
         // "Em Andamento" cuja Data de Encerramento da Coleta (DataFim) já passou,

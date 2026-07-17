@@ -101,8 +101,8 @@ namespace PhishGuard.Backend.Controllers
                 Id = Guid.NewGuid(),
                 TenantId = tenantId,
                 NomeCampanha = input.NomeCampanha,
-                DataInicio = input.DataInicio,
-                DataFim = input.DataFim,
+                DataInicio = ParaUtc(input.DataInicio),
+                DataFim = ParaUtc(input.DataFim),
                 EmailTemplateId = input.EmailTemplateId,
                 LandingPageId = input.LandingPageId,
                 EducationalPageId = input.EducationalPageId,
@@ -184,8 +184,8 @@ namespace PhishGuard.Backend.Controllers
                 .ToListAsync();
 
             campaignExistente.NomeCampanha = input.NomeCampanha;
-            campaignExistente.DataInicio = input.DataInicio;
-            campaignExistente.DataFim = input.DataFim;
+            campaignExistente.DataInicio = ParaUtc(input.DataInicio);
+            campaignExistente.DataFim = ParaUtc(input.DataFim);
             campaignExistente.EmailTemplateId = input.EmailTemplateId;
             campaignExistente.LandingPageId = input.LandingPageId;
             campaignExistente.EducationalPageId = input.EducationalPageId;
@@ -216,6 +216,24 @@ namespace PhishGuard.Backend.Controllers
 
             return NoContent();
         }
+
+        // TIMEZONE (blindagem de agendamento): as colunas de data são 'timestamp with time
+        // zone' (timestamptz) e o worker compara o agendamento contra DateTime.UtcNow. Por
+        // isso normalizamos toda data recebida para UTC AQUI, na fronteira da API:
+        //  - Utc         → mantém (o front envia ISO 8601 com 'Z');
+        //  - Local       → converte para UTC (preserva o instante);
+        //  - Unspecified → ASSUME UTC (contrato explícito da API). Sem isto, o Npgsql
+        //                  REJEITA um DateTime 'Unspecified' ao gravar em timestamptz, e a
+        //                  criação/edição da campanha falharia (ex.: chamada via Swagger sem
+        //                  fuso). Garante também que a comparação do worker seja UTC × UTC.
+        private static DateTime ParaUtc(DateTime valor) => valor.Kind switch
+        {
+            DateTimeKind.Utc => valor,
+            DateTimeKind.Local => valor.ToUniversalTime(),
+            _ => DateTime.SpecifyKind(valor, DateTimeKind.Utc)
+        };
+
+        private static DateTime? ParaUtc(DateTime? valor) => valor.HasValue ? ParaUtc(valor.Value) : null;
 
         private async Task<bool> ResourcesExistAndBelongToTenant(CampaignInputDto input, Guid tenantId)
         {
