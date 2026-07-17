@@ -12,8 +12,13 @@ import { brandPalette, statusColors, mutedTextFor } from './index';
  *   2. CSS  → a classe `.forced-light-theme` (index.css) redeclara as variáveis da
  *             paleta no subtree, vencendo o `:root[data-theme="dark"]` por herança.
  *
- * Os 5 valores são IDÊNTICOS aos do modo light global (`brandPalette.light`) — por isso
+ * Os valores são IDÊNTICOS aos do modo light global (`brandPalette.light`) — por isso
  * são importados de lá, e não recopiados: a vitrine é o tema light, apenas congelado.
+ *
+ * ⚠️ Usa `L.surface` (branco puro), NÃO `L.background` — desde a identidade minimalista
+ * (ver theme/index.ts), `background` virou o canvas fosco (#f5f5f5), reservado ao painel
+ * administrativo. A vitrine pública é intencionalmente mais brilhante/corporativa que o
+ * canvas do painel, então mantém o branco puro que sempre teve.
  */
 const L = brandPalette.light;
 
@@ -21,8 +26,8 @@ export const forcedLightTheme: Theme = createTheme({
   palette: {
     mode: 'light',
     background: {
-      default: L.background, // #ffffff
-      paper: L.primary,      // #6682f5 — Surface 1 (ver nota "cards de autenticação")
+      default: L.surface,  // #ffffff
+      paper: L.primary,    // #6682f5 — Surface 1 (ver nota "cards de autenticação")
     },
     primary: { main: L.accent, contrastText: '#ffffff' },  // #0600c2 Accent/Brand
     secondary: { main: L.secondary },                      // #b2c1fa Surface 2
@@ -68,4 +73,4 @@ export const forcedLightTheme: Theme = createTheme({
  * O valor `paper: #6682f5` do tema segue valendo para os cards da landing e para
  * qualquer surface interna do MUI.
  */
-export const AUTH_CARD_BG = brandPalette.light.background;
+export const AUTH_CARD_BG = brandPalette.light.surface;

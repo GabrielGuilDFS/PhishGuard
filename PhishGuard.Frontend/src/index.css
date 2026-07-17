@@ -37,7 +37,10 @@
   :root,
   :root[data-theme="light"] {
     --text: #000000;
-    --background: #ffffff;
+    /* Canvas da página — off-white fosco (reduz o brilho do branco puro). */
+    --background: #f5f5f5;
+    /* Fundo de Card/Paper/AppBar/Drawer — branco puro, contraste contra o canvas. */
+    --surface: #ffffff;
     --primary: #6682f5;
     --secondary: #b2c1fa;
     --accent: #0600c2;
@@ -55,7 +58,10 @@
   .dark,
   :root[data-theme="dark"] {
     --text: #ffffff;
-    --background: #000000;
+    /* Canvas da página — preto fosco/grafite (evita a fadiga do preto absoluto). */
+    --background: #0a0a0a;
+    /* Fundo de Card/Paper/AppBar/Drawer — leve elevação sobre o canvas. */
+    --surface: #121212;
     --primary: #0a2799;
     --secondary: #05134d;
     --accent: #443dff;
@@ -69,7 +75,9 @@
      diferentes (CSS var/Tailwind vs. palette do MUI). */
   .forced-light-theme {
     --text: #000000;
+    /* Vitrine pública: sempre branco puro (não adota o canvas fosco do painel admin). */
     --background: #ffffff;
+    --surface: #ffffff;
     --primary: #6682f5;
     --secondary: #b2c1fa;
     --accent: #0600c2;
@@ -92,6 +100,7 @@
 @theme inline {
   --color-text: var(--text);
   --color-background: var(--background);
+  --color-surface: var(--surface);
   --color-primary: var(--primary);
   --color-secondary: var(--secondary);
   --color-accent: var(--accent);

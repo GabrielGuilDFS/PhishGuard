@@ -25,12 +25,13 @@ import { brandPalette, statusColors, mutedTextFor, brandActionFor } from './inde
 import type { AppThemeMode } from './index';
 
 /**
- * PALETA DE MARCA — 5 cores por modo, alternadas por `<html data-theme>`.
+ * PALETA DE MARCA — 6 cores por modo, alternadas por `<html data-theme>`.
  *
  * | Papel        | Light     | Dark      | MUI (sx / palette)   | Tailwind        | CSS var        |
  * |--------------|-----------|-----------|----------------------|-----------------|----------------|
  * | Texto        | #000000   | #ffffff   | `text.primary`       | `text-text`     | `var(--text)`  |
- * | Fundo/Paper  | #ffffff   | #000000   | `background.paper`   | `bg-background` | `var(--background)` |
+ * | Fundo/canvas | #f5f5f5   | #0a0a0a   | `background.default` | `bg-background` | `var(--background)` |
+ * | Surface/Paper| #ffffff   | #121212   | `background.paper`   | `bg-surface`    | `var(--surface)`    |
  * | Surface 1    | #6682f5   | #0a2799   | (ênfase — ver nota)  | `bg-primary`    | `var(--primary)`    |
  * | Surface 2    | #b2c1fa   | #05134d   | `divider`            | `border-secondary` | `var(--secondary)` |
  * | Accent/Brand | #0600c2   | #443dff   | `primary.main`       | `text-accent`   | `var(--accent)`     |
@@ -43,8 +44,10 @@ export const THEME_COLORS = {
   brand: {
     /** Texto principal. MUI: `text.primary` · TW: `text-text` · CSS: `var(--text)` */
     text: { light: brandPalette.light.text, dark: brandPalette.dark.text },
-    /** Fundo da página E das surfaces. MUI: `background.default` / `background.paper` */
+    /** Fundo de página/canvas. MUI: `background.default` · TW: `bg-background` */
     background: { light: brandPalette.light.background, dark: brandPalette.dark.background },
+    /** Fundo de Card/Paper/AppBar/Drawer. MUI: `background.paper` · TW: `bg-surface` */
+    surface: { light: brandPalette.light.surface, dark: brandPalette.dark.surface },
     /** Surface 1 — ênfase (ver SURFACE_1_USAGE). MUI: sem token; use este hex/`var(--primary)` */
     primary: { light: brandPalette.light.primary, dark: brandPalette.dark.primary },
     /** Surface 2 — bordas/divisores/cabeçalho de tabela. MUI: `divider` */
@@ -82,9 +85,9 @@ export const THEME_COLORS = {
 /**
  * RECEITUÁRIO — "qual classe/propriedade uso para...?"
  *
- * Fundo de tela .............. `sx={{ bgcolor: 'background.default' }}`  (ou deixe o
+ * Fundo de tela (canvas) ..... `sx={{ bgcolor: 'background.default' }}`  (ou deixe o
  *                              CssBaseline resolver: ele já pinta o body)
- * Fundo de card/painel ....... `<Paper>` / `<Card>` (herdam `background.paper`)
+ * Fundo de card/painel ....... `<Paper>` / `<Card>` (herdam `background.paper` = surface)
  * Texto principal ............ `sx={{ color: 'text.primary' }}` — ou nada: é o default
  * Texto de apoio ............. `sx={{ color: 'text.secondary' }}` / `color="textSecondary"`
  * Borda de card .............. `sx={{ border: 1, borderColor: 'divider' }}`

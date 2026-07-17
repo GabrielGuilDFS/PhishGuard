@@ -51,7 +51,8 @@ describe('ForcedLightScope — trava da vitrine pública no modo light', () => {
     expect(document.documentElement.getAttribute('data-theme')).toBe('dark');
 
     expect(screen.getByTestId('mode').textContent).toBe('light');
-    expect(screen.getByTestId('bg').textContent).toBe(brandPalette.light.background); // #ffffff
+    // A vitrine usa `surface` (branco puro), não `background` (canvas fosco do painel).
+    expect(screen.getByTestId('bg').textContent).toBe(brandPalette.light.surface); // #ffffff
     expect(screen.getByTestId('text').textContent).toBe(brandPalette.light.text);     // #000000
     expect(screen.getByTestId('primary').textContent).toBe(brandPalette.light.accent); // #0600c2
     expect(screen.getByTestId('paper').textContent).toBe(brandPalette.light.primary);  // #6682f5
@@ -102,6 +103,6 @@ describe('ForcedLightScope — trava da vitrine pública no modo light', () => {
     );
 
     expect(screen.getByTestId('mode').textContent).toBe('dark');
-    expect(screen.getByTestId('bg').textContent).toBe(brandPalette.dark.background); // #000000
+    expect(screen.getByTestId('bg').textContent).toBe(brandPalette.dark.background); // #0a0a0a
   });
 });
