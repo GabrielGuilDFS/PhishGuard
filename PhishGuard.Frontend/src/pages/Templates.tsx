@@ -1,14 +1,12 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import {
-  Box, Button, Typography, Paper, Table, TableBody, TableCell,
+  Button, Typography, Paper, Table, TableBody, TableCell,
   TableContainer, TableHead, TableRow, IconButton, Dialog,
-  DialogTitle, DialogContent, DialogActions, Stack, Snackbar, Alert,
-  CircularProgress, Chip, Tabs, Tab, ToggleButton, ToggleButtonGroup,
+  DialogTitle, DialogContent, DialogActions, Stack,
+  Chip, Tabs, Tab, ToggleButton, ToggleButtonGroup,
   TextField, MenuItem, Grid, Tooltip
 } from '@mui/material';
-import DeleteIcon from '@mui/icons-material/Delete';
 import VisibilityIcon from '@mui/icons-material/Visibility';
-import PlaylistAddCheckIcon from '@mui/icons-material/PlaylistAddCheck';
 import MarkEmailReadIcon from '@mui/icons-material/MarkEmailRead';
 import WebIcon from '@mui/icons-material/Web';
 import { templatesPredefinidos } from '../data/predefinedTemplates';
@@ -17,128 +15,30 @@ import { landingTemplates } from '../data/landingTemplates';
 import { educationalTemplates } from '../data/educationalTemplates';
 import PageContainer from '../components/PageContainer';
 
-// Biblioteca de Modelos — tela unificada de gerenciamento.
+// Biblioteca de Modelos — catálogo NAVEGÁVEL (somente leitura) dos moldes do sistema.
 //
-// Fusão das antigas abas "Cenários (E-mails)" e "Páginas Falsas": um Cenário de
-// Simulação amarra estritamente uma isca de e-mail à sua página falsa (ver
-// simulationScenarios em predefinedTemplates.ts). A tela tem duas abas:
-//   1. Cenários de Simulação  — preview emparelhado (E-mail SMTP ⇄ Página Falsa)
-//      e registro do par no backend (uma linha em Templates + uma em PhishingPages).
-//   2. Páginas Educativas      — listagem fixa dos moldes pedagógicos + previewer,
-//      sem qualquer edição de HTML bruto.
+// Duas abas, ambas somente-leitura:
+//   1. Cenários de Simulação  — preview emparelhado (E-mail SMTP ⇄ Página Falsa).
+//   2. Páginas Educativas      — moldes pedagógicos + previewer.
 //
-// Persistência por identificador: os registros guardam APENAS o id do molde
-// (corpoHtml = id da isca; conteudoHtml = id da landing/educacional). O backend
-// resolve o id de volta para o HTML no disparo.
-
-const API_TEMPLATES = 'http://localhost:5000/api/Templates';
-const API_PHISHING = 'http://localhost:5000/api/PhishingPages';
+// Um Cenário amarra estritamente uma isca de e-mail à sua página falsa (ver
+// simulationScenarios em predefinedTemplates.ts). O admin NÃO registra nem descarta
+// cenários por aqui: as linhas de Templates/PhishingPages que um cenário representa
+// são provisionadas sob demanda (find-or-create) ao SALVAR a campanha que o usa
+// (garantirCenario em Campaigns.tsx) — o mesmo padrão já adotado para as páginas
+// educativas. Isso remove fricção sem propósito no modelo mental do usuário e evita
+// exclusões acidentais direto desta listagem principal.
+//
+// Persistência por identificador (no fluxo de campanha): os registros guardam APENAS
+// o id do molde (corpoHtml = id da isca; conteudoHtml = id da landing/educacional).
+// O backend resolve o id de volta para o HTML no disparo.
 
 // Índices auxiliares dos catálogos estáticos (id -> objeto).
 const iscaPorId = new Map(templatesPredefinidos.map((i) => [i.id, i]));
 const landingPorId = new Map(landingTemplates.map((l) => [l.id, l]));
 
-interface TemplateRow { id: string; nome: string; corpoHtml: string; }
-interface PageRow { id: string; nome: string; conteudoHtml: string; }
-
-type Notify = { open: boolean; message: string; type: 'success' | 'error' | 'info' };
-
 export default function Templates() {
   const [aba, setAba] = useState(0);
-  const [loading, setLoading] = useState(false);
-
-  const [templates, setTemplates] = useState<TemplateRow[]>([]);
-  const [phishingPages, setPhishingPages] = useState<PageRow[]>([]);
-
-  const [notify, setNotify] = useState<Notify>({ open: false, message: '', type: 'success' });
-  const showNotify = (message: string, type: Notify['type'] = 'success') =>
-    setNotify({ open: true, message, type });
-
-  const token = localStorage.getItem('phishguard_token');
-  const authHeaders = { Authorization: `Bearer ${token}` };
-  const jsonHeaders = { 'Content-Type': 'application/json', ...authHeaders };
-
-  // ------- Carga inicial -------
-  const fetchAll = async () => {
-    setLoading(true);
-    try {
-      const [tRes, pRes] = await Promise.all([
-        fetch(API_TEMPLATES, { headers: authHeaders }),
-        fetch(API_PHISHING, { headers: authHeaders }),
-      ]);
-      if (tRes.ok) setTemplates(await tRes.json());
-      if (pRes.ok) setPhishingPages(await pRes.json());
-    } catch {
-      showNotify('Erro ao conectar com o servidor', 'error');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => { fetchAll(); }, []);
-
-  // Um cenário está "registrado" quando existe uma linha de Template (isca) e uma
-  // linha de PhishingPage (landing) com os identificadores do cenário.
-  const templateDoCenario = (s: SimulationScenario) =>
-    templates.find((t) => t.corpoHtml === s.emailTemplateId);
-  const landingDoCenario = (s: SimulationScenario) =>
-    phishingPages.find((p) => p.conteudoHtml === s.landingTemplateId);
-  const cenarioRegistrado = (s: SimulationScenario) =>
-    Boolean(templateDoCenario(s) && landingDoCenario(s));
-
-  // ------- Registro / remoção de Cenário (par Template + PhishingPage) -------
-  const registrarCenario = async (s: SimulationScenario) => {
-    const isca = iscaPorId.get(s.emailTemplateId);
-    const landing = landingPorId.get(s.landingTemplateId);
-    if (!isca || !landing) {
-      showNotify('Cenário inválido: molde não encontrado no catálogo.', 'error');
-      return;
-    }
-    try {
-      const requisicoes: Promise<Response>[] = [];
-      if (!templateDoCenario(s)) {
-        requisicoes.push(fetch(API_TEMPLATES, {
-          method: 'POST', headers: jsonHeaders,
-          body: JSON.stringify({
-            nome: isca.nome, assunto: isca.assunto,
-            remetenteNome: isca.remetenteNome, remetenteEmail: isca.remetenteEmail,
-            corpoHtml: isca.id,
-          }),
-        }));
-      }
-      if (!landingDoCenario(s)) {
-        requisicoes.push(fetch(API_PHISHING, {
-          method: 'POST', headers: jsonHeaders,
-          body: JSON.stringify({ nome: landing.nome, conteudoHtml: landing.id }),
-        }));
-      }
-      const respostas = await Promise.all(requisicoes);
-      if (respostas.every((r) => r.ok)) {
-        showNotify('Cenário registrado! Já pode ser usado em campanhas.', 'success');
-        fetchAll();
-      } else {
-        showNotify('Falha ao registrar o cenário.', 'error');
-      }
-    } catch {
-      showNotify('Erro de rede ao registrar o cenário.', 'error');
-    }
-  };
-
-  const removerCenario = async (s: SimulationScenario) => {
-    if (!window.confirm(`Remover o cenário "${s.nome}"? As campanhas que o utilizam podem ficar sem referência.`)) return;
-    const tRow = templateDoCenario(s);
-    const pRow = landingDoCenario(s);
-    try {
-      const requisicoes: Promise<Response>[] = [];
-      if (tRow) requisicoes.push(fetch(`${API_TEMPLATES}/${tRow.id}`, { method: 'DELETE', headers: authHeaders }));
-      if (pRow) requisicoes.push(fetch(`${API_PHISHING}/${pRow.id}`, { method: 'DELETE', headers: authHeaders }));
-      await Promise.all(requisicoes);
-      showNotify('Cenário removido.', 'success');
-      fetchAll();
-    } catch {
-      showNotify('Erro ao remover o cenário.', 'error');
-    }
-  };
 
   return (
     <PageContainer>
@@ -152,35 +52,21 @@ export default function Templates() {
         <Tab label="Páginas Educativas" icon={<WebIcon />} iconPosition="start" />
       </Tabs>
 
-      {loading && (
-        <Box display="flex" justifyContent="center" p={3}><CircularProgress /></Box>
-      )}
-
-      {!loading && aba === 0 && (
-        <CenariosTab
-          registrado={cenarioRegistrado}
-          onRegistrar={registrarCenario}
-          onRemover={removerCenario}
-        />
-      )}
-
-      {!loading && aba === 1 && <EducativasTab />}
-
-      <Snackbar open={notify.open} autoHideDuration={4000} onClose={() => setNotify({ ...notify, open: false })} anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}>
-        <Alert severity={notify.type} variant="filled" sx={{ width: '100%' }}>{notify.message}</Alert>
-      </Snackbar>
+      {aba === 0 && <CenariosTab />}
+      {aba === 1 && <EducativasTab />}
     </PageContainer>
   );
 }
 
 // ===========================================================================
-// Aba 1 — Cenários de Simulação
+// Aba 1 — Cenários de Simulação (catálogo SOMENTE LEITURA)
 // ===========================================================================
-function CenariosTab({ registrado, onRegistrar, onRemover }: {
-  registrado: (s: SimulationScenario) => boolean;
-  onRegistrar: (s: SimulationScenario) => void;
-  onRemover: (s: SimulationScenario) => void;
-}) {
+//
+// Só a ação de Visualizar (preview emparelhado) sobrevive. Registrar e Descartar
+// cenário foram removidos: a listagem principal é um catálogo, não um painel de
+// escrita/exclusão. O par Template+PhishingPage nasce sob demanda ao salvar a
+// campanha (ver garantirCenario em Campaigns.tsx).
+function CenariosTab() {
   const [preview, setPreview] = useState<SimulationScenario | null>(null);
   const [modo, setModo] = useState<'email' | 'landing'>('email');
 
@@ -219,7 +105,6 @@ function CenariosTab({ registrado, onRegistrar, onRemover }: {
             {simulationScenarios.map((s) => {
               const isca = iscaPorId.get(s.emailTemplateId);
               const landing = landingPorId.get(s.landingTemplateId);
-              const jaRegistrado = registrado(s);
               return (
                 <TableRow key={s.id} hover>
                   <TableCell align="center" sx={{ verticalAlign: 'middle' }}>
@@ -237,15 +122,6 @@ function CenariosTab({ registrado, onRegistrar, onRemover }: {
                     <Tooltip title="Visualizar previews (E-mail e Página Falsa)">
                       <IconButton aria-label={`Visualizar ${s.nome}`} color="primary" onClick={() => abrirPreview(s)}><VisibilityIcon fontSize="small" /></IconButton>
                     </Tooltip>
-                    {jaRegistrado ? (
-                      <Tooltip title="Remover cenário">
-                        <IconButton aria-label={`Remover ${s.nome}`} color="error" onClick={() => onRemover(s)}><DeleteIcon fontSize="small" /></IconButton>
-                      </Tooltip>
-                    ) : (
-                      <Tooltip title="Registrar cenário para uso em campanhas">
-                        <IconButton aria-label={`Registrar ${s.nome}`} color="success" onClick={() => onRegistrar(s)}><PlaylistAddCheckIcon fontSize="small" /></IconButton>
-                      </Tooltip>
-                    )}
                   </TableCell>
                 </TableRow>
               );
@@ -281,11 +157,6 @@ function CenariosTab({ registrado, onRegistrar, onRemover }: {
         </DialogContent>
         <DialogActions sx={{ p: 2 }}>
           <Button onClick={() => setPreview(null)} color="inherit">Fechar</Button>
-          {preview && !registrado(preview) && (
-            <Button variant="contained" onClick={() => { onRegistrar(preview); setPreview(null); }}>
-              Registrar Cenário
-            </Button>
-          )}
         </DialogActions>
       </Dialog>
     </>

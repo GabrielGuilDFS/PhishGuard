@@ -4,24 +4,16 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 // (padrão de espelhamento / mirroring adotado no frontend).
 import Templates from './Templates';
 
-// Refatoração "Cenários de Simulação": a Biblioteca de Modelos tem duas abas
-// (Cenários de Simulação / Páginas Educativas). Um Cenário amarra a isca de e-mail
-// à sua página falsa. Registrar um cenário persiste o PAR: uma linha em Templates
-// (corpoHtml = id da isca) e uma em PhishingPages (conteudoHtml = id da landing).
+// A Biblioteca de Modelos é um CATÁLOGO somente-leitura com duas abas (Cenários de
+// Simulação / Páginas Educativas). Um Cenário amarra a isca de e-mail à sua página
+// falsa. Registrar/Descartar cenário foram REMOVIDOS desta tela: o par de linhas
+// (Templates + PhishingPages) nasce sob demanda ao salvar a campanha que o usa
+// (garantirCenario em Campaigns.tsx). Aqui a tela não escreve nada no backend.
 const CENARIO_AMAZON = 'Amazon — Alerta de Segurança';
-const ISCA_AMAZON_ID = 'amazon-notificacao-seguranca';
-const LANDING_AMAZON_ID = 'amazon-login';
-const API_TEMPLATES = 'http://localhost:5000/api/Templates';
-const API_PHISHING = 'http://localhost:5000/api/PhishingPages';
 
-// GET (listagens) devolve [] (nada registrado); POST/DELETE devolvem ok.
-const fetchMock = vi.fn((_url: string, options?: { method?: string }) => {
-  const method = options?.method ?? 'GET';
-  if (method === 'GET') {
-    return Promise.resolve({ ok: true, json: async () => [] });
-  }
-  return Promise.resolve({ ok: true, json: async () => ({ id: 'novo-id' }) });
-});
+// A tela é 100% estática (não faz fetch): o mock existe só para flagrar qualquer
+// escrita indevida que uma regressão venha a introduzir.
+const fetchMock = vi.fn(() => Promise.resolve({ ok: true, json: async () => [] }));
 
 beforeEach(() => {
   fetchMock.mockClear();
@@ -71,33 +63,31 @@ describe('Templates (Biblioteca de Modelos)', () => {
     await waitFor(() => expect(landingFrame.getAttribute('srcdoc')).toContain('bg-[#131921]'));
   });
 
-  it('ao registrar um cenário, persiste o PAR (Templates + PhishingPages) por identificador', async () => {
+  it('a aba Cenários é um catálogo somente-leitura: só Visualizar, sem Registrar nem Descartar', async () => {
     await renderTela();
 
-    fireEvent.click(screen.getByRole('button', { name: `Registrar ${CENARIO_AMAZON}` }));
+    // A única ação por cenário é o preview. Os botões de registrar e de descartar
+    // (delete) foram removidos da listagem principal — evita registro opcional e
+    // exclusões acidentais direto daqui.
+    expect(screen.getByRole('button', { name: `Visualizar ${CENARIO_AMAZON}` })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: `Registrar ${CENARIO_AMAZON}` })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: `Remover ${CENARIO_AMAZON}` })).not.toBeInTheDocument();
 
-    await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledWith(API_TEMPLATES, expect.objectContaining({ method: 'POST' }));
-      expect(fetchMock).toHaveBeenCalledWith(API_PHISHING, expect.objectContaining({ method: 'POST' }));
-    });
-
-    const postTemplate = fetchMock.mock.calls.find(
-      (c) => c[0] === API_TEMPLATES && (c[1] as { method?: string })?.method === 'POST',
+    // Navegar/visualizar a tela nunca dispara escrita no backend (nem POST nem DELETE).
+    const escritas = fetchMock.mock.calls.filter(
+      (c) => (c[1] as { method?: string } | undefined)?.method && (c[1] as { method?: string }).method !== 'GET',
     );
-    const postPhishing = fetchMock.mock.calls.find(
-      (c) => c[0] === API_PHISHING && (c[1] as { method?: string })?.method === 'POST',
-    );
-    expect(postTemplate).toBeTruthy();
-    expect(postPhishing).toBeTruthy();
+    expect(escritas).toHaveLength(0);
+  });
 
-    const corpoTemplate = JSON.parse((postTemplate![1] as { body: string }).body);
-    const corpoPhishing = JSON.parse((postPhishing![1] as { body: string }).body);
+  it('o diálogo de preview não oferece ação de registrar cenário', async () => {
+    await renderTela();
 
-    // Persistência por identificador: nunca o HTML bruto.
-    expect(corpoTemplate.corpoHtml).toBe(ISCA_AMAZON_ID);
-    expect(corpoTemplate.corpoHtml).not.toContain('<html');
-    expect(corpoPhishing.conteudoHtml).toBe(LANDING_AMAZON_ID);
-    expect(corpoPhishing.conteudoHtml).not.toContain('<html');
+    fireEvent.click(screen.getByRole('button', { name: `Visualizar ${CENARIO_AMAZON}` }));
+    await screen.findByTitle('Email Preview');
+
+    expect(screen.getByRole('button', { name: /Fechar/i })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Registrar Cenário/i })).not.toBeInTheDocument();
   });
 
   it('na aba Páginas Educativas, é um catálogo somente-leitura (sem botão de registrar)', async () => {

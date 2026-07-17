@@ -12,10 +12,16 @@ import SendIcon from '@mui/icons-material/Send';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
 import DoneAllIcon from '@mui/icons-material/DoneAll';
 import ClearAllIcon from '@mui/icons-material/ClearAll';
-import { simulationScenarios, type SimulationScenario } from '../data/predefinedTemplates';
+import { simulationScenarios, templatesPredefinidos, type SimulationScenario } from '../data/predefinedTemplates';
+import { landingTemplates } from '../data/landingTemplates';
 import { educationalTemplates } from '../data/educationalTemplates';
 import { CampaignStatus } from '../data/campaignStatus';
 import { useNotify } from '../context/NotificationContext';
+
+// Índices dos catálogos estáticos (id -> objeto), para provisionar sob demanda as
+// linhas (Template + PhishingPage) que um cenário representa — ver garantirCenario.
+const iscaPorId = new Map(templatesPredefinidos.map((i) => [i.id, i]));
+const landingPorId = new Map(landingTemplates.map((l) => [l.id, l]));
 
 
 interface Campaign {
@@ -36,12 +42,6 @@ interface LookupItem {
     departamento?: string;
     corpoHtml?: string;    // Templates: carrega o id da isca de e-mail.
     conteudoHtml?: string; // PhishingPages/EducationalPages: id da landing / html educativo.
-}
-
-// Cenário resolvido para linhas concretas do banco (Template + PhishingPage).
-interface CenarioDisponivel extends SimulationScenario {
-    emailRowId: string;
-    landingRowId: string;
 }
 
 type EduMolde = (typeof educationalTemplates)[number];
@@ -95,7 +95,7 @@ export default function Campaigns() {
         nomeCampanha: '',
         dataInicio: '',
         dataFim: '',
-        cenario: null as CenarioDisponivel | null,
+        cenario: null as SimulationScenario | null,
         educationalMolde: null as EduMolde | null,
         targetsSelecionados: [] as LookupItem[]
     });
@@ -115,17 +115,6 @@ export default function Campaigns() {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'
     };
-
-    const cenariosDisponiveis = useMemo<CenarioDisponivel[]>(() => {
-        return simulationScenarios
-            .map((s) => {
-                const emailRow = templates.find((t) => t.corpoHtml === s.emailTemplateId);
-                const landingRow = phishingPages.find((p) => p.conteudoHtml === s.landingTemplateId);
-                if (!emailRow || !landingRow) return null;
-                return { ...s, emailRowId: emailRow.id, landingRowId: landingRow.id };
-            })
-            .filter((c): c is CenarioDisponivel => c !== null);
-    }, [templates, phishingPages]);
 
     // Departamentos distintos cadastrados no tenant (para seleção por setor).
     const departamentos = useMemo<string[]>(() => {
@@ -192,14 +181,12 @@ export default function Campaigns() {
 
                     const alvosPreSelecionados = loadedTargets.filter(t => data.targetIds?.includes(t.id));
 
-                    const cenarioReconstruido = simulationScenarios
-                        .map((s) => {
-                            const emailRow = loadedTemplates.find((t) => t.corpoHtml === s.emailTemplateId);
-                            const landingRow = loadedPhishingPages.find((p) => p.conteudoHtml === s.landingTemplateId);
-                            if (!emailRow || !landingRow) return null;
-                            return { ...s, emailRowId: emailRow.id, landingRowId: landingRow.id } as CenarioDisponivel;
-                        })
-                        .find((c) => c?.emailRowId === data.emailTemplateId) ?? null;
+                    // A campanha persiste o id da LINHA de Template; mapeia-o de volta ao
+                    // cenário estático pelo corpoHtml (= id da isca) que a linha carrega.
+                    const emailRowDaCampanha = loadedTemplates.find((t) => t.id === data.emailTemplateId);
+                    const cenarioReconstruido = emailRowDaCampanha
+                        ? simulationScenarios.find((s) => s.emailTemplateId === emailRowDaCampanha.corpoHtml) ?? null
+                        : null;
 
                     // Reconstrói o molde educativo (catálogo estático) a partir do nome persistido.
                     const moldeReconstruido = educationalTemplates.find(m => m.nome === data.educationalPageNome) ?? null;
@@ -233,6 +220,47 @@ export default function Campaigns() {
 
     const closeModal = () => setOpen(false);
 
+    // Provisiona sob demanda o PAR de linhas (Template + PhishingPage) que o cenário
+    // estático representa — find-or-create, espelhando garantirPaginaEducativa. Substitui
+    // o antigo botão "Registrar" da Biblioteca de Modelos: o admin escolhe o cenário no
+    // catálogo e as linhas nascem de forma transparente ao salvar a campanha.
+    // Persistência por identificador: corpoHtml = id da isca, conteudoHtml = id da landing.
+    const garantirCenario = async (s: SimulationScenario): Promise<{ emailRowId: string; landingRowId: string }> => {
+        const isca = iscaPorId.get(s.emailTemplateId);
+        const landing = landingPorId.get(s.landingTemplateId);
+        if (!isca || !landing) throw new Error('Cenário inválido: molde não encontrado no catálogo.');
+
+        let emailRow = templates.find((t) => t.corpoHtml === s.emailTemplateId);
+        if (!emailRow) {
+            const res = await fetch(`${API_BASE}/Templates`, {
+                method: 'POST', headers,
+                body: JSON.stringify({
+                    nome: isca.nome, assunto: isca.assunto,
+                    remetenteNome: isca.remetenteNome, remetenteEmail: isca.remetenteEmail,
+                    corpoHtml: isca.id,
+                }),
+            });
+            if (!res.ok) throw new Error(await extrairMensagemDeErro(res));
+            const nova = await res.json();
+            emailRow = { id: nova.id, nome: isca.nome, corpoHtml: isca.id };
+            setTemplates(prev => [...prev, emailRow!]);
+        }
+
+        let landingRow = phishingPages.find((p) => p.conteudoHtml === s.landingTemplateId);
+        if (!landingRow) {
+            const res = await fetch(`${API_BASE}/PhishingPages`, {
+                method: 'POST', headers,
+                body: JSON.stringify({ nome: landing.nome, conteudoHtml: landing.id }),
+            });
+            if (!res.ok) throw new Error(await extrairMensagemDeErro(res));
+            const nova = await res.json();
+            landingRow = { id: nova.id, nome: landing.nome, conteudoHtml: landing.id };
+            setPhishingPages(prev => [...prev, landingRow!]);
+        }
+
+        return { emailRowId: emailRow.id, landingRowId: landingRow.id };
+    };
+
     // Fase 1: provisiona a linha de EducationalPages sob demanda (find-or-create). O admin
     // não precisa mais "registrar" o molde manualmente na Biblioteca de Modelos.
     const garantirPaginaEducativa = async (molde: EduMolde): Promise<string> => {
@@ -258,14 +286,17 @@ export default function Campaigns() {
 
         setLoading(true);
         try {
+            // Provisiona (find-or-create) o par de linhas do cenário e a página educativa
+            // ANTES de montar o payload — substitui o registro manual da Biblioteca.
+            const { emailRowId, landingRowId } = await garantirCenario(formData.cenario);
             const educationalPageId = await garantirPaginaEducativa(formData.educationalMolde);
 
             const payload = {
                 nomeCampanha: formData.nomeCampanha,
                 dataInicio: new Date(formData.dataInicio).toISOString(),
                 dataFim: formData.dataFim ? new Date(formData.dataFim).toISOString() : null,
-                emailTemplateId: formData.cenario.emailRowId,
-                landingPageId: formData.cenario.landingRowId,
+                emailTemplateId: emailRowId,
+                landingPageId: landingRowId,
                 educationalPageId,
                 targetIds: formData.targetsSelecionados.map(t => t.id)
             };
@@ -508,12 +539,11 @@ export default function Campaigns() {
                             </Box>
 
                             <Autocomplete
-                                options={cenariosDisponiveis}
+                                options={simulationScenarios}
                                 getOptionLabel={(option) => option.nome || ''}
                                 value={formData.cenario}
                                 onChange={(_, newValue) => setFormData({ ...formData, cenario: newValue })}
                                 isOptionEqualToValue={(option, value) => option.id === value?.id}
-                                noOptionsText="Nenhum cenário registrado. Registre um na Biblioteca de Modelos."
                                 renderInput={(params) => (
                                     <TextField
                                         {...params}
