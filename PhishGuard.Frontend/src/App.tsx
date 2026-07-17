@@ -1,5 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate, useSearchParams } from 'react-router-dom';
-import { type ReactNode } from 'react';
+import { BrowserRouter, Routes, Route, useSearchParams } from 'react-router-dom';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import AdminLayout from './layouts/AdminLayout';
@@ -11,16 +10,12 @@ import Templates from './pages/Templates';
 import { ThemeModeProvider } from './context/ThemeModeContext';
 import { NotificationProvider } from './context/NotificationContext';
 import ForcedLightScope from './theme/ForcedLightScope';
+import PrivateRoute from './auth/PrivateRoute';
 
 import LandingPage from './pages/LandingPage';
 import HomeLandingPage from './pages/HomeLandingPage';
 import CheckoutPage from './pages/CheckoutPage';
 import { educationalTemplates } from './data/educationalTemplates';
-
-const PrivateRoute = ({ children }: { children: ReactNode }) => {
-  const token = localStorage.getItem('phishguard_token');
-  return token ? children : <Navigate to="/login" replace />;
-};
 
 // Rota padrão de feedback educacional: renderiza o molde educacional indicado por
 // ?template= (ex.: 'basico_phishing'), reutilizando o catálogo central estático em

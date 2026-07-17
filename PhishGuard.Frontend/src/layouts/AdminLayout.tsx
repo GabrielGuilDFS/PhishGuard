@@ -16,6 +16,7 @@ import {
   CssBaseline
 } from '@mui/material';
 import { alpha } from '@mui/material/styles';
+import { clearSession } from '../auth/session';
 // Deep imports (não o barrel `@mui/icons-material`): named imports do barrel quebram
 // o Vitest no Windows com EMFILE (milhares de ícones abertos de uma vez) — gotcha já
 // documentado no projeto.
@@ -39,7 +40,8 @@ export default function AdminLayout() {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('phishguard_token');
+    // Destruição completa da sessão (não só o token): ver src/auth/session.ts.
+    clearSession();
     navigate('/login');
   };
 

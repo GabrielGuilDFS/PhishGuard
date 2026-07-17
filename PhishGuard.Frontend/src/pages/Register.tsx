@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Box,
   Button,
@@ -10,6 +10,7 @@ import {
   Link
 } from '@mui/material';
 import { useNavigate, useSearchParams, Link as RouterLink } from 'react-router-dom';
+import { clearSession } from '../auth/session';
 import { brandPalette } from '../theme';
 // Deep import (não o barrel `@mui/icons-material`): named imports do barrel quebram o
 // Vitest no Windows com EMFILE (milhares de ícones abertos de uma vez) — gotcha já
@@ -24,6 +25,14 @@ export default function Register() {
 
   const ACCENT = brandPalette.light.accent;
   const TEXT_DARK = brandPalette.light.text;
+
+  // Isolamento de sessão: entrar no fluxo de NOVA conta destrói qualquer sessão
+  // residual do navegador (token de um login anterior). Sem isto, o checkout
+  // desembocava no painel da conta ANTIGA — o token velho passava no PrivateRoute
+  // e todas as telas requisitavam a API com o tenant errado.
+  useEffect(() => {
+    clearSession();
+  }, []);
 
   const [nomeEmpresa, setNomeEmpresa] = useState('');
   const [cnpj, setCNPJ] = useState('');

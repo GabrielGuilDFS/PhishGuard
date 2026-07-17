@@ -1,5 +1,6 @@
-import { useMemo, useState, type ReactNode, type SyntheticEvent } from 'react';
+import { useEffect, useMemo, useState, type ReactNode, type SyntheticEvent } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { clearSession } from '../auth/session';
 import {
   Box,
   Button,
@@ -17,14 +18,15 @@ import {
   Chip,
   Backdrop,
 } from '@mui/material';
-import {
-  ContentCopy as ContentCopyIcon,
-  CheckCircle as CheckCircleIcon,
-  Lock as LockIcon,
-  Pix as PixIcon,
-  CreditCard as CreditCardIcon,
-  ArrowBack as ArrowBackIcon,
-} from '@mui/icons-material';
+// Deep imports (não o barrel `@mui/icons-material`): named imports do barrel quebram
+// o Vitest no Windows com EMFILE (milhares de ícones abertos de uma vez) — gotcha já
+// documentado no projeto.
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import LockIcon from '@mui/icons-material/Lock';
+import PixIcon from '@mui/icons-material/Pix';
+import CreditCardIcon from '@mui/icons-material/CreditCard';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { useNotify } from '../context/NotificationContext';
 
 // Paleta corporativa clara com detalhes em dourado (alinhada à HomeLandingPage / painel).
@@ -149,6 +151,14 @@ export default function CheckoutPage() {
   const [aba, setAba] = useState(0);
   const [processando, setProcessando] = useState(false);
 
+  // Isolamento de sessão: o checkout SÓ é alcançável pelo fluxo de nova conta
+  // (Register → /checkout). Qualquer token residual aqui é de OUTRA conta do mesmo
+  // navegador — destruído na entrada, para que nada deste fluxo (nem a ativação de
+  // plano abaixo, nem o redirecionamento final) execute no escopo do tenant errado.
+  useEffect(() => {
+    clearSession();
+  }, []);
+
   // Campos do cartão (simulados).
   const [numeroCartao, setNumeroCartao] = useState('');
   const [titular, setTitular] = useState('');
@@ -175,11 +185,17 @@ export default function CheckoutPage() {
   // Simula a resposta da API financeira e, em seguida, o envio de um payload ao
   // backend C# .NET que ativa o Tenant. O endpoint real ainda não existe, então a
   // chamada é best-effort (a simulação prossegue mesmo se indisponível).
+  //
+  // ⚠️ Segurança (correção de isolamento): a chamada é ANÔNIMA de propósito. A conta
+  // recém-criada ainda não tem token (o register não emite JWT), e a versão anterior
+  // anexava o Bearer RESIDUAL da conta antiga do navegador — o que ativaria o plano
+  // no tenant ERRADO. Quando o endpoint real existir, a amarração conta↔pagamento
+  // deve vir de um token de ativação de uso único emitido pelo próprio register,
+  // nunca da sessão que estiver caída no storage.
   const finalizarAssinatura = () => {
     setProcessando(true);
 
     setTimeout(async () => {
-      const token = localStorage.getItem('phishguard_token');
       const payload = {
         plano: planoId,
         metodoPagamento: aba === 0 ? 'pix' : 'cartao_credito',
@@ -189,18 +205,18 @@ export default function CheckoutPage() {
       try {
         await fetch('http://localhost:5000/api/Tenants/ativar', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
         });
       } catch {
         // Simulação: ignora a indisponibilidade do endpoint financeiro.
       }
 
-      showNotify('Pagamento aprovado! Assinatura ativada.', 'success');
-      navigate('/admin/dashboard');
+      // A conta nova nunca autenticou: o único caminho legítimo para o painel é um
+      // login limpo. Redirecionar direto a /admin abriria o painel da conta que
+      // estivesse logada antes neste navegador (o bug original).
+      showNotify('Pagamento aprovado! Assinatura ativada — faça login para acessar o painel.', 'success');
+      navigate('/login');
     }, 2000);
   };
 

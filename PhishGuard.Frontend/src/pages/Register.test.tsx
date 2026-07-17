@@ -4,6 +4,8 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 // Teste de UI co-located (padrão de espelhamento do frontend).
 import Register from './Register';
+import { TOKEN_KEY } from '../auth/session';
+import { jwtDeTeste } from '../test/jwt';
 
 function SondaHome() {
   return <div>sonda-home</div>;
@@ -21,7 +23,37 @@ function renderRegister() {
 }
 
 beforeEach(() => {
+  localStorage.clear();
+  sessionStorage.clear();
   vi.stubGlobal('fetch', vi.fn());
+});
+
+describe('Register — isolamento de sessão (entrada do fluxo de nova conta)', () => {
+  it('destrói a sessão residual de outra conta ao montar a tela', () => {
+    // Usuário anterior deste navegador deixou uma sessão VÁLIDA para trás.
+    localStorage.setItem(
+      TOKEN_KEY,
+      jwtDeTeste({ tenant_id: '11111111-1111-1111-1111-111111111111', exp: Math.floor(Date.now() / 1000) + 86400 })
+    );
+    sessionStorage.setItem(TOKEN_KEY, 'residuo-session-storage');
+
+    renderRegister();
+
+    // Criar conta nova = ambiente limpo: nenhum vestígio da sessão anterior pode
+    // sobreviver para o checkout/painel que vêm a seguir.
+    expect(localStorage.getItem(TOKEN_KEY)).toBeNull();
+    expect(sessionStorage.getItem(TOKEN_KEY)).toBeNull();
+  });
+
+  it('preserva preferências de UI que não identificam usuário (tema)', () => {
+    localStorage.setItem(TOKEN_KEY, 'token-antigo');
+    localStorage.setItem('phishguard_theme_mode', 'dark');
+
+    renderRegister();
+
+    expect(localStorage.getItem(TOKEN_KEY)).toBeNull();
+    expect(localStorage.getItem('phishguard_theme_mode')).toBe('dark');
+  });
 });
 
 describe('Register — logo clicável', () => {

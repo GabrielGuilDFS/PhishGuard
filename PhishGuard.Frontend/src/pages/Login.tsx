@@ -11,6 +11,7 @@ import {
 } from '@mui/material';
 import { useNavigate, Link as RouterLink } from 'react-router-dom';
 import { useNotify } from '../context/NotificationContext';
+import { setToken } from '../auth/session';
 import { brandPalette } from '../theme';
 // Deep import (não o barrel `@mui/icons-material`): named imports do barrel quebram o
 // Vitest no Windows com EMFILE (milhares de ícones abertos de uma vez) — gotcha já
@@ -47,7 +48,9 @@ export default function Login() {
       }
 
       const token = await response.text();
-      localStorage.setItem('phishguard_token', token);
+      // setToken purga a sessão anterior ANTES de gravar: o novo login jamais
+      // convive com resíduos (storage/cookies) do usuário anterior do navegador.
+      setToken(token);
 
       showNotify("Login realizado com sucesso!", "success");
 
