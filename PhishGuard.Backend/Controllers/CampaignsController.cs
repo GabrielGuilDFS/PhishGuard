@@ -42,6 +42,10 @@ namespace PhishGuard.Backend.Controllers
                     nomeCampanha = c.NomeCampanha,
                     status = c.Status,
                     dataInicio = c.DataInicio,
+                    // Data de Encerramento da Coleta: incluída na LISTAGEM (antes só o GET
+                    // por id a trazia), por isso a coluna aparecia vazia mesmo em campanhas
+                    // que já tinham o prazo definido. Nula = coleta sem prazo (indefinida).
+                    dataFim = c.DataFim,
                     templateNome = c.Template.Nome,
                     landingPageNome = c.PhishingPage.Nome,
                     educationalPageNome = c.EducationalPage.Nome

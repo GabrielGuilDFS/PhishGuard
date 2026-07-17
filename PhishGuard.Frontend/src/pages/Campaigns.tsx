@@ -54,7 +54,18 @@ interface ImportSummary {
     invalidos: number;
 }
 
-const toDateTimeLocal = (iso?: string | null) => (iso ? iso.slice(0, 16) : '');
+// Converte um instante ISO (UTC, vindo da API) para o valor de um <input type="datetime-local">,
+// que espera a HORA LOCAL (wall-clock) no formato 'YYYY-MM-DDTHH:mm'. Antes fazia só
+// `iso.slice(0,16)`, o que jogava a hora UTC crua dentro do input local — a data exibida (e
+// re-enviada ao editar) escorregava pelo offset do fuso a cada round-trip. Aqui compensamos o
+// offset; usa só getTime() (epoch) + getTimezoneOffset() + toISOString() (UTC) → determinístico.
+export const toDateTimeLocal = (iso?: string | null): string => {
+    if (!iso) return '';
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return '';
+    const localMs = d.getTime() - d.getTimezoneOffset() * 60000;
+    return new Date(localMs).toISOString().slice(0, 16);
+};
 
 // Extrai uma mensagem legível de uma resposta de erro do ASP.NET Core (lê o corpo UMA vez).
 const extrairMensagemDeErro = async (res: Response): Promise<string> => {
@@ -127,6 +138,58 @@ function StatusBadge({ status, flashing }: { status: string; flashing: boolean }
                 }),
             }}
         />
+    );
+}
+
+// Célula "Encerramento da Coleta". Três casos, para nunca ficar vazia/quebrada:
+//  - com prazo + já coletando (Em Andamento/Finalizada) → só a data real;
+//  - com prazo + ainda não ativada (Rascunho/Agendada)  → data + tag "prevista" (o prazo
+//    só começa a valer ao ativar) — é a "previsão" de quando a coleta expirará;
+//  - sem prazo (DataFim nula) → indicador sutil "Sem prazo" (coleta indefinida), não '-'.
+function ColetaFimCell({ campanha }: { campanha: Campaign }) {
+    // Aceita QUALQUER data válida vinda da listagem (string ISO do GET /api/Campaigns).
+    // A condicional é frouxa de propósito: qualquer valor que o `new Date` consiga
+    // interpretar é tratado como prazo definido. Só cai em "Sem prazo" quando o campo é
+    // genuinamente ausente/nulo/vazio OU uma string inválida (nunca renderiza "Invalid Date").
+    // ⚠️ Se o campo vier `undefined` (ausente do payload da LISTA), isto também exibirá
+    //    "Sem prazo" — nesse caso o problema é o endpoint não estar mandando `dataFim`,
+    //    não esta renderização (o GET /api/Campaigns/{id} do modal manda; a lista precisa
+    //    mandar igual). Ver CampaignsController.GetCampaigns.
+    const data = campanha.dataFim ? new Date(campanha.dataFim) : null;
+    const temPrazoValido = data !== null && !Number.isNaN(data.getTime());
+
+    if (!temPrazoValido) {
+        return (
+            <Tooltip title="Sem data de encerramento: a coleta fica ativa por tempo indeterminado até ser encerrada manualmente.">
+                <Chip
+                    label="Sem prazo"
+                    size="small"
+                    variant="outlined"
+                    sx={{ color: 'text.secondary', borderStyle: 'dashed' }}
+                />
+            </Tooltip>
+        );
+    }
+
+    const quando = data.toLocaleString();
+    const aindaNaoColeta =
+        campanha.status === CampaignStatus.Rascunho || campanha.status === CampaignStatus.Agendada;
+
+    return (
+        <Stack direction="row" spacing={0.75} alignItems="center" sx={{ flexWrap: 'wrap' }}>
+            <Typography variant="body2">{quando}</Typography>
+            {aindaNaoColeta && (
+                <Tooltip title="Data prevista: a coleta será encerrada neste horário assim que a campanha for ativada.">
+                    <Chip
+                        label="prevista"
+                        size="small"
+                        color="warning"
+                        variant="outlined"
+                        sx={{ height: 20, fontSize: '0.68rem' }}
+                    />
+                </Tooltip>
+            )}
+        </Stack>
     );
 }
 
@@ -566,7 +629,7 @@ export default function Campaigns() {
                                     <StatusBadge status={c.status} flashing={flashingIds.has(c.id)} />
                                 </TableCell>
                                 <TableCell>{new Date(c.dataInicio).toLocaleString()}</TableCell>
-                                <TableCell>{c.dataFim ? new Date(c.dataFim).toLocaleString() : '-'}</TableCell>
+                                <TableCell><ColetaFimCell campanha={c} /></TableCell>
                                 <TableCell>{c.templateNome}</TableCell>
                                 <TableCell>{c.landingPageNome}</TableCell>
                                 <TableCell>{c.educationalPageNome}</TableCell>

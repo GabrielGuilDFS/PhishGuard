@@ -146,6 +146,135 @@ public class CampaignsControllerTests
         return campanha;
     }
 
+    // Semeia os recursos referenciados por uma campanha (isca/página falsa/educativa/alvo)
+    // no tenant informado. Requer tenantProvider já apontando para o tenant (o SaveChanges
+    // carimba TenantId nas entidades novas).
+    private static async Task<(Template template, PhishingPage phishing, EducationalPage edu, Target alvo)>
+        SemearRecursosAsync(AppDbContext context, Guid tenantId)
+    {
+        var template = new Template { Id = Guid.NewGuid(), TenantId = tenantId, Nome = "Isca", Assunto = "A", RemetenteNome = "R", RemetenteEmail = "r@t.com", CorpoHtml = "x" };
+        var phishing = new PhishingPage { Id = Guid.NewGuid(), TenantId = tenantId, Nome = "Pagina", HtmlCaptura = "x" };
+        var edu = new EducationalPage { Id = Guid.NewGuid(), TenantId = tenantId, Nome = "Edu", HtmlEducacional = "x" };
+        var alvo = new Target { Id = Guid.NewGuid(), TenantId = tenantId, Nome = "Alvo", Email = "a@t.com", Departamento = "TI" };
+        context.Templates.Add(template);
+        context.PhishingPages.Add(phishing);
+        context.EducationalPages.Add(edu);
+        context.Targets.Add(alvo);
+        await context.SaveChangesAsync();
+        return (template, phishing, edu, alvo);
+    }
+
+    // BINDING REAL DA API: exercita a desserialização (System.Text.Json, Web defaults) que
+    // o [FromBody] usa. Se a chave camelCase 'dataFim' do front não casasse com a
+    // propriedade PascalCase 'DataFim', o prazo chegaria null no controller — exatamente o
+    // sintoma "salva Sem prazo". Este teste fecha a lacuna que os testes que montam o DTO
+    // direto em C# não cobrem.
+    [Fact]
+    public void CampaignInputDto_DesserializaDataFim_DeJsonCamelCase()
+    {
+        const string json = @"{
+            ""nomeCampanha"": ""C"",
+            ""dataInicio"": ""2030-01-15T12:00:00.000Z"",
+            ""dataFim"": ""2030-01-20T18:30:00.000Z"",
+            ""emailTemplateId"": ""11111111-1111-1111-1111-111111111111"",
+            ""landingPageId"": ""22222222-2222-2222-2222-222222222222"",
+            ""educationalPageId"": ""33333333-3333-3333-3333-333333333333"",
+            ""targetIds"": []
+        }";
+
+        var opts = new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web);
+        var dto = System.Text.Json.JsonSerializer.Deserialize<CampaignInputDto>(json, opts);
+
+        Assert.NotNull(dto);
+        Assert.True(dto!.DataFim.HasValue);
+        Assert.Equal(new DateTime(2030, 1, 20, 18, 30, 0, DateTimeKind.Utc), dto.DataFim!.Value.ToUniversalTime());
+    }
+
+    // POST com DataFim → persiste no banco E reaparece na leitura por id (mesma data).
+    [Fact]
+    public async Task PostCampaign_ComDataFim_PersisteEReapareceNoGet()
+    {
+        // Arrange
+        var (context, tenantProvider) = CriarContexto();
+        var tenantId = Guid.NewGuid();
+        tenantProvider.TenantIdAtivo = tenantId;
+        context.Tenants.Add(new Tenant { Id = tenantId, NomeEmpresa = "E", Cnpj = "11111111000191", Ativo = true, CriadoEm = DateTime.UtcNow, Plano = PlanoTenant.Bronze });
+        await context.SaveChangesAsync();
+        var (template, phishing, edu, alvo) = await SemearRecursosAsync(context, tenantId);
+
+        var controller = new CampaignsController(context, tenantProvider);
+        var dataFim = new DateTime(2030, 9, 10, 22, 0, 0, DateTimeKind.Utc);
+        var input = new CampaignInputDto
+        {
+            NomeCampanha = "Com prazo",
+            DataInicio = new DateTime(2030, 9, 1, 12, 0, 0, DateTimeKind.Utc),
+            DataFim = dataFim,
+            EmailTemplateId = template.Id,
+            LandingPageId = phishing.Id,
+            EducationalPageId = edu.Id,
+            TargetIds = new List<Guid> { alvo.Id }
+        };
+
+        // Act
+        var post = await controller.PostCampaign(input);
+
+        // Assert: persistiu no banco...
+        Assert.IsType<CreatedAtActionResult>(post);
+        var salva = await context.Campaigns.IgnoreQueryFilters().SingleAsync();
+        Assert.Equal(dataFim, salva.DataFim);
+
+        // ...e reaparece na leitura por id com a MESMA data (não vira Sem prazo).
+        var get = await controller.GetCampaign(salva.Id);
+        var ok = Assert.IsType<OkObjectResult>(get.Result);
+        var prop = ok.Value!.GetType().GetProperty("dataFim");
+        Assert.NotNull(prop);
+        Assert.Equal(dataFim, (DateTime?)prop!.GetValue(ok.Value));
+    }
+
+    // PUT definindo um prazo numa campanha que estava SEM prazo → o novo DataFim persiste.
+    [Fact]
+    public async Task PutCampaign_DefinindoDataFim_PersisteONovoPrazo()
+    {
+        // Arrange
+        var (context, tenantProvider) = CriarContexto();
+        var tenantId = Guid.NewGuid();
+        tenantProvider.TenantIdAtivo = tenantId;
+        context.Tenants.Add(new Tenant { Id = tenantId, NomeEmpresa = "E", Cnpj = "11111111000191", Ativo = true, CriadoEm = DateTime.UtcNow, Plano = PlanoTenant.Bronze });
+        await context.SaveChangesAsync();
+        var (template, phishing, edu, alvo) = await SemearRecursosAsync(context, tenantId);
+
+        var campanha = new Campaign
+        {
+            Id = Guid.NewGuid(), TenantId = tenantId, NomeCampanha = "Sem prazo ainda",
+            Status = CampaignStatus.Rascunho, DataInicio = DateTime.UtcNow.AddHours(1), DataFim = null,
+            EmailTemplateId = template.Id, LandingPageId = phishing.Id, EducationalPageId = edu.Id,
+            CriadoEm = DateTime.UtcNow, Targets = new List<Target> { alvo }
+        };
+        context.Campaigns.Add(campanha);
+        await context.SaveChangesAsync();
+
+        var controller = new CampaignsController(context, tenantProvider);
+        var novoPrazo = new DateTime(2031, 2, 2, 8, 30, 0, DateTimeKind.Utc);
+        var input = new CampaignInputDto
+        {
+            NomeCampanha = "Sem prazo ainda",
+            DataInicio = campanha.DataInicio,
+            DataFim = novoPrazo,
+            EmailTemplateId = template.Id,
+            LandingPageId = phishing.Id,
+            EducationalPageId = edu.Id,
+            TargetIds = new List<Guid> { alvo.Id }
+        };
+
+        // Act
+        var put = await controller.PutCampaign(campanha.Id, input);
+
+        // Assert
+        Assert.IsType<NoContentResult>(put);
+        var atualizada = await context.Campaigns.IgnoreQueryFilters().FirstAsync(c => c.Id == campanha.Id);
+        Assert.Equal(novoPrazo, atualizada.DataFim);
+    }
+
     [Fact]
     public async Task Ativar_ComDataInicioNoFuturo_TransicionaParaAgendadaSemDisparar()
     {
@@ -430,6 +559,50 @@ public class CampaignsControllerTests
 
         // Assert
         Assert.Contains(logger.Mensagens, m => m.Contains("CONFIGURAÇÃO/FILA"));
+    }
+
+    // ------------------------------------------------------------------------------------
+    // LISTAGEM: a coluna "Encerramento da Coleta" ficava vazia porque a projeção do GET
+    // (lista) não incluía DataFim — só o GET por id incluía. A listagem DEVE trazer o campo
+    // mesmo em Rascunho (a data já existe; só passa a valer quando a campanha é ativada).
+    // ------------------------------------------------------------------------------------
+    [Fact]
+    public async Task GetCampaigns_IncluiDataFim_MesmoEmRascunho()
+    {
+        // Arrange
+        var (context, tenantProvider) = CriarContexto();
+        var tenantId = Guid.NewGuid();
+        tenantProvider.TenantIdAtivo = tenantId;
+
+        var template = new Template { Id = Guid.NewGuid(), TenantId = tenantId, Nome = "Isca", Assunto = "A", RemetenteNome = "R", RemetenteEmail = "r@t.com", CorpoHtml = "x" };
+        var phishing = new PhishingPage { Id = Guid.NewGuid(), TenantId = tenantId, Nome = "Pagina", HtmlCaptura = "x" };
+        var edu = new EducationalPage { Id = Guid.NewGuid(), TenantId = tenantId, Nome = "Edu", HtmlEducacional = "x" };
+        var dataFim = new DateTime(2030, 5, 20, 10, 0, 0, DateTimeKind.Utc);
+        var campanha = new Campaign
+        {
+            Id = Guid.NewGuid(), TenantId = tenantId, NomeCampanha = "Rascunho com prazo",
+            Status = CampaignStatus.Rascunho, DataInicio = DateTime.UtcNow.AddHours(1), DataFim = dataFim,
+            EmailTemplateId = template.Id, LandingPageId = phishing.Id, EducationalPageId = edu.Id,
+            CriadoEm = DateTime.UtcNow, Template = template, PhishingPage = phishing, EducationalPage = edu
+        };
+        context.Templates.Add(template);
+        context.PhishingPages.Add(phishing);
+        context.EducationalPages.Add(edu);
+        context.Campaigns.Add(campanha);
+        await context.SaveChangesAsync();
+
+        var controller = new CampaignsController(context, tenantProvider);
+
+        // Act
+        var resultado = await controller.GetCampaigns();
+
+        // Assert: o item projetado expõe 'dataFim' com o valor persistido (não some em Rascunho).
+        var ok = Assert.IsType<OkObjectResult>(resultado.Result);
+        var lista = Assert.IsAssignableFrom<System.Collections.IEnumerable>(ok.Value);
+        var item = lista.Cast<object>().Single();
+        var prop = item.GetType().GetProperty("dataFim");
+        Assert.NotNull(prop);
+        Assert.Equal(dataFim, (DateTime?)prop!.GetValue(item));
     }
 
     [Fact]
