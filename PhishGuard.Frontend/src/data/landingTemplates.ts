@@ -170,8 +170,10 @@ const hboMaxRedefinicaoSenhaHtml = `<!DOCTYPE html>
 </body>
 </html>`;
 
-// Interface simulada "Netflix - Acesse sua conta" (login/captura). Consolidação do
-// clone Next.js + MUI + Tailwind originalmente em ".Pagina" (NetflixHero): os
+// Interface simulada "NetsFlix - Acesse sua conta" (login/captura) — paródia FICTÍCIA
+// (compliance de IP: sem logo/fita curvada, sem "Netflix" no texto; logo = "N" plano em
+// CSS #E50914). Consolidação do clone Next.js + MUI + Tailwind originalmente em ".Pagina"
+// (Hero): os
 // componentes React e o estilo utilitário foram unificados numa ÚNICA string de
 // HTML com CSS embutido (Tailwind não compila neste frontend — ver a nota do HBO).
 //
@@ -188,19 +190,23 @@ const netflixLoginHtml = `<!DOCTYPE html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Netflix</title>
+<title>NetsFlix</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased; }
   .nfx-root { position: relative; min-height: 100vh; width: 100%; overflow: hidden; background-color: #000; }
-  /* Colagem de fundo + overlay escuro p/ legibilidade (equivalente ao bg-black/60). */
-  .nfx-bg { position: absolute; inset: 0; background-image: url('/netflix-bg.png'); background-size: cover; background-position: center; }
-  .nfx-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.6); }
+  /* Colagem de fundo: blur + brightness MODERADOS — suaviza os pôsteres (ainda dá p/
+     perceber alguns), sem escurecer a tela por completo. O scale(1.1) evita que o blur
+     revele as bordas transparentes do container. */
+  .nfx-bg { position: absolute; inset: 0; background-image: url('/netflix-bg.png'); background-size: cover; background-position: center; filter: blur(8px) brightness(0.8); transform: scale(1.1); }
+  .nfx-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.5); }
   .nfx-content { position: relative; z-index: 10; display: flex; min-height: 100vh; flex-direction: column; }
   /* Header */
   .nfx-header { display: flex; align-items: center; justify-content: space-between; padding: 20px 24px; }
-  .nfx-logo { user-select: none; font-size: 1.75rem; font-weight: 800; letter-spacing: -0.02em; color: #e50914; }
-  @media (min-width: 768px) { .nfx-header { padding: 20px 48px; } .nfx-logo { font-size: 1.9rem; } }
+  /* Logo parodiado: letra "N" plana (2D), Arial Black / geométrica, vermelho de marca,
+     leve escala vertical p/ manter o peso visual — sem imagem/SVG da fita curvada. */
+  .nfx-logo { user-select: none; display: inline-block; font-family: 'Arial Black', 'Helvetica Neue', Arial, sans-serif; font-size: 2.25rem; font-weight: 900; line-height: 1; letter-spacing: -0.02em; color: #E50914; transform: scaleY(1.1); }
+  @media (min-width: 768px) { .nfx-header { padding: 20px 48px; } .nfx-logo { font-size: 2.6rem; } }
   /* Hero */
   .nfx-hero { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px 24px 96px; text-align: center; }
   .nfx-title { max-width: 42rem; font-size: 2.25rem; font-weight: 800; line-height: 1.15; color: #fff; }
@@ -235,7 +241,7 @@ const netflixLoginHtml = `<!DOCTYPE html>
     <div class="nfx-overlay" aria-hidden="true"></div>
     <div class="nfx-content">
       <header class="nfx-header">
-        <span class="nfx-logo">NETFLIX</span>
+        <span class="nfx-logo">N</span>
       </header>
       <section class="nfx-hero">
         <h1 class="nfx-title">Filmes, séries e muito mais, sem limites</h1>
@@ -648,7 +654,7 @@ export const landingTemplates: TemplateModel[] = [
   },
   {
     id: 'netflix-login',
-    nome: 'Netflix - Acesse sua conta',
+    nome: 'NetsFlix - Acesse sua conta',
     categoria: 'Streaming',
     html: netflixLoginHtml,
   },
