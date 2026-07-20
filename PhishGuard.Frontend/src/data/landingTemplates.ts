@@ -644,6 +644,107 @@ const microCorpLoginHtml = `<!DOCTYPE html>
 </body>
 </html>`;
 
+// ---------------------------------------------------------------------------
+// LANDING FICTÍCIA "Mercado Liv" (paródia do Mercado Livre p/ compliance de IP;
+// vetor e-commerce/marketplace). Par da isca de e-mail 'mercado-liv-novo-acesso'.
+// Consolidação do app v0 em .paginaFalsa/ (App.tsx + Logo.tsx + LoginForm.tsx) numa
+// ÚNICA string HTML com CSS embutido (Tailwind não compila aqui — dangerouslySetInnerHTML
+// + preview em iframe). SEM logo/fonte/dados cadastrais reais: logo = ícone genérico do
+// componente (SVG elipse + aperto de mãos), e o "Ebazar.com.br LTDA." real do rodapé foi
+// substituído por assinatura fictícia. Telemetria = padrão HBO/Netflix/Amazon: <form
+// onsubmit> inline → POST /api/tracking/submit/{{CAMPAIGN_ID}}/{{TARGET_ID}} com metadados
+// (flags/tamanho), NUNCA e-mail/senha reais (LGPD) → /educational-feedback. Strings e
+// data-testid (ml-logo/ml-email/ml-password/ml-submit) explícitos p/ Vitest.
+// ---------------------------------------------------------------------------
+const mercadoLivLoginHtml = `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Alterar senha | Mercado Liv</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { min-height: 100vh; display: flex; flex-direction: column; background: #ffffff; color: #1a1a1a; font-family: Arial, Helvetica, sans-serif; -webkit-font-smoothing: antialiased; }
+  a { text-decoration: none; color: inherit; }
+  .ml-header { background: #ffe600; }
+  .ml-header-in { max-width: 1200px; margin: 0 auto; display: flex; align-items: center; padding: 12px 24px; }
+  .ml-logo { display: flex; align-items: center; gap: 8px; }
+  .ml-logo-text { font-size: 18px; font-weight: 800; line-height: 0.95; color: #2d3277; }
+  .ml-main { flex: 1; }
+  .ml-wrap { max-width: 1200px; margin: 0 auto; padding: 56px 24px; display: grid; grid-template-columns: 1fr; gap: 40px; }
+  @media (min-width: 768px) { .ml-wrap { grid-template-columns: 1fr 1fr; gap: 32px; padding: 80px 24px; } }
+  .ml-h1 { max-width: 28rem; font-size: 1.9rem; font-weight: 600; line-height: 1.2; color: #1a1a1a; }
+  @media (min-width: 768px) { .ml-h1 { font-size: 2.35rem; } }
+  .ml-help { margin-top: 40px; max-width: 28rem; }
+  .ml-secbtn { display: flex; align-items: center; gap: 12px; width: 100%; border: 1px solid #e0e0e0; background: #ffffff; border-radius: 6px; padding: 16px; text-align: left; box-shadow: 0 1px 2px rgba(0,0,0,0.06); cursor: pointer; font-family: inherit; }
+  .ml-secbtn:hover { background: #fafafa; }
+  .ml-secbtn .ml-secbtn-label { flex: 1; font-size: 15px; color: #1a1a1a; }
+  .ml-secbtn .ml-shield { width: 28px; height: 28px; color: #1a1a1a; }
+  .ml-secbtn .ml-chevron { width: 20px; height: 20px; }
+  .ml-helplink { margin-top: 24px; display: inline-block; font-size: 15px; font-weight: 500; color: #3483fa; }
+  .ml-helplink:hover { text-decoration: underline; }
+  .ml-cardwrap { display: flex; justify-content: center; }
+  @media (min-width: 768px) { .ml-cardwrap { justify-content: flex-end; } }
+  .ml-card { width: 100%; max-width: 490px; border: 1px solid #e0e0e0; background: #ffffff; border-radius: 8px; padding: 20px; box-shadow: 0 1px 2px rgba(0,0,0,0.08); }
+  .ml-label { display: block; margin-bottom: 6px; font-size: 15px; color: #1a1a1a; }
+  .ml-input { width: 100%; height: 48px; margin-bottom: 20px; border: 1px solid #3483fa; border-radius: 6px; padding: 0 12px; font-size: 15px; font-family: inherit; color: #1a1a1a; background: #ffffff; outline: none; }
+  .ml-input:focus { box-shadow: 0 0 0 2px rgba(52,131,250,0.25); }
+  .ml-submit { height: 48px; width: 100%; border: none; border-radius: 6px; background: #3483fa; color: #ffffff; font-size: 15px; font-weight: 600; font-family: inherit; cursor: pointer; transition: background .15s ease; }
+  .ml-submit:hover { background: #2968c8; }
+  .ml-footer { background: #ededed; }
+  .ml-footer-in { max-width: 1200px; margin: 0 auto; padding: 16px 24px; font-size: 13px; color: #767676; display: flex; flex-direction: column; gap: 8px; }
+  @media (min-width: 768px) { .ml-footer-in { flex-direction: row; align-items: center; justify-content: space-between; } }
+  .ml-footer a { color: #3483fa; }
+  .ml-footer a:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+  <header class="ml-header">
+    <div class="ml-header-in">
+      <div class="ml-logo" data-testid="ml-logo">
+        <svg width="52" height="38" viewBox="0 0 52 38" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><ellipse cx="26" cy="19" rx="25" ry="16" fill="#FFF1B8" stroke="#2D3277" stroke-width="1.5"/><path d="M14 15c2.5-2.5 5.5-2.5 8 0l4 4 4-4c2.5-2.5 5.5-2.5 8 0" stroke="#2D3277" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/><path d="M18 19.5c1.6 1.8 3.4 3.2 5.2 4.4 1.6 1.1 3.4 1.1 5 0M22 26c1.4 1 2.9 1.6 4.4 1.7" stroke="#2D3277" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
+        <span class="ml-logo-text">Mercado<br>Liv</span>
+      </div>
+    </div>
+  </header>
+
+  <main class="ml-main">
+    <div class="ml-wrap">
+      <div>
+        <h1 class="ml-h1">Digite seu e-mail e senha atual para alterar sua senha</h1>
+        <div class="ml-help">
+          <button type="button" class="ml-secbtn" onclick="window.location.href='/educational-feedback?template=basico_phishing';">
+            <svg class="ml-shield" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6l7-3z"></path><line x1="12" y1="8.5" x2="12" y2="12.5"></line><circle cx="12" cy="15.5" r="0.6" fill="currentColor"></circle></svg>
+            <span class="ml-secbtn-label">Tenho um problema de segurança</span>
+            <svg class="ml-chevron" viewBox="0 0 24 24" fill="none" stroke="#767676" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"></path></svg>
+          </button>
+          <a href="#" class="ml-helplink">Preciso de ajuda</a>
+        </div>
+      </div>
+
+      <div class="ml-cardwrap">
+        <div class="ml-card">
+          <form onsubmit="event.preventDefault();var e=(document.getElementById('ml-email')||{}).value||'';var p=(document.getElementById('ml-password')||{}).value||'';var meta={camposPreenchidos:(e.length>0&&p.length>0),senhasCoincidem:true,tamanhoSenha:p.length};fetch('/api/tracking/submit/{{CAMPAIGN_ID}}/{{TARGET_ID}}',{method:'POST',headers:{'Content-Type':'application/json','ngrok-skip-browser-warning':'true'},body:JSON.stringify(meta)}).catch(function(){}).finally(function(){window.location.href='/educational-feedback?template=basico_phishing';});return false;">
+            <label class="ml-label" for="ml-email">E-mail</label>
+            <input class="ml-input" id="ml-email" name="email" type="text" autocomplete="username" required>
+            <label class="ml-label" for="ml-password">Senha</label>
+            <input class="ml-input" id="ml-password" name="password" type="password" autocomplete="current-password" required>
+            <button type="submit" class="ml-submit">Continuar</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer class="ml-footer">
+    <div class="ml-footer-in">
+      <p><a href="#">Como cuidamos da sua privacidade</a> &mdash; Copyright &copy; 1999-2026 Mercado Liv (marca fictícia, sem afiliação real).</p>
+      <p>Protegido por reCAPTCHA &mdash; <a href="#" style="color:#1a1a1a;">Privacidade</a> &middot; <a href="#" style="color:#1a1a1a;">Condições</a></p>
+    </div>
+  </footer>
+</body>
+</html>`;
+
 // Moldes estáticos de landing pages disponíveis no seletor "Escolha a Interface".
 export const landingTemplates: TemplateModel[] = [
   {
@@ -669,5 +770,11 @@ export const landingTemplates: TemplateModel[] = [
     nome: 'MicroCorp - Entrar na conta',
     categoria: 'Corporativo',
     html: microCorpLoginHtml,
+  },
+  {
+    id: 'mercado-liv-login',
+    nome: 'Mercado Liv - Alterar Senha',
+    categoria: 'Varejo',
+    html: mercadoLivLoginHtml,
   },
 ];

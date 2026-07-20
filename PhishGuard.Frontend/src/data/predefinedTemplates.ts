@@ -1170,6 +1170,26 @@ Amazon.com, Amazon.com.br, a logo de Amazon.com são marcas comerciais registrad
     categoria: 'Corporativo',
     corpoHtml: `<!DOCTYPE html><html lang="pt"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="X-UA-Compatible" content="IE=edge"><title>Sua senha da rede expira em breve</title></head><body style="margin:0;padding:0;background-color:#f4f4f4;-webkit-text-size-adjust:100%;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;background-color:#f4f4f4;"><tbody><tr><td align="center" style="padding:20px;"><table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" align="center" style="border-collapse:collapse;width:600px;max-width:600px;background-color:#ffffff;border:1px solid #dddddd;font-family:'Segoe UI',Arial,Helvetica,sans-serif;"><tbody><tr><td style="padding:20px 20px 0 20px;"><table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;"><tbody><tr><td valign="middle" style="padding-right:8px;line-height:0;font-size:0;"><svg width="24" height="24" viewBox="0 0 21 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:block;"><path d="M10.5 0 L21 4 V11 C21 17 16.5 22 10.5 24 C4.5 22 0 17 0 11 V4 Z" fill="#0067b8"/><path d="M6 11 L9 14 L15 8" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></td><td valign="middle" style="font-family:'Segoe UI',Arial,Helvetica,sans-serif;font-size:15px;font-weight:600;color:#5e5e5e;">MicroCorp</td></tr></tbody></table></td></tr><tr><td style="padding:20px;font-family:'Segoe UI',Arial,Helvetica,sans-serif;font-size:14px;line-height:22px;color:#333333;"><p style="margin:0 0 16px 0;">Prezado(a) <strong>{{NOME}}</strong>,</p><p style="margin:0 0 16px 0;">Sua senha de acesso à rede expirará em <strong>24 horas</strong>.</p><p style="margin:0;">Para evitar o bloqueio da sua conta, atualize suas credenciais imediatamente no portal de segurança.</p></td></tr><tr><td align="center" style="padding:10px 20px 30px 20px;"><table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:separate;"><tbody><tr><td align="center" bgcolor="#0078d4" style="border-radius:4px;"><a href="{{LINK_PHISHING}}" target="_blank" style="display:inline-block;padding:12px 24px;font-family:'Segoe UI',Arial,Helvetica,sans-serif;font-size:14px;font-weight:bold;color:#ffffff;text-decoration:none;border-radius:4px;">Manter minha senha atual</a></td></tr></tbody></table></td></tr><tr><td style="padding:0 20px 20px 20px;font-family:'Segoe UI',Arial,Helvetica,sans-serif;font-size:12px;line-height:18px;color:#666666;">Equipe de TI - MicroCorp<br>Este é um e-mail automático.</td></tr></tbody></table></td></tr></tbody></table></body></html>`,
   },
+  {
+    // Isca FICTÍCIA "Mercado Liv" (paródia do Mercado Livre p/ compliance de IP; vetor
+    // e-commerce/marketplace). Alerta de "novo acesso à conta". Baseada na linguagem
+    // visual extraída de recuperacao.eml (via parse-email.js), porém SEM assets/fontes
+    // proprietários: logo oficial e a "Proxima Nova" (mlstatic) foram REMOVIDOS. O logo
+    // é o ícone genérico do componente .paginaFalsa/components/Logo.tsx (SVG inline:
+    // elipse amarela + aperto de mãos), fonte Arial. HTML seguro p/ e-mail: tabelas +
+    // estilos inline. Placeholders {{NOME}}/{{LINK_PHISHING}} resolvidos server-side no
+    // disparo (o backend também anexa o pixel de abertura). Espelhado no recurso embutido
+    // Resources/OfficialBaits/mercado-liv-novo-acesso.html (editar os DOIS). Strings e
+    // data-testid (ml-title/ml-body/ml-cta/ml-alert-card/ml-logo) explícitos p/ Vitest.
+    id: 'mercado-liv-novo-acesso',
+    nome: 'Mercado Liv - Novo Acesso à Conta',
+    assunto: 'Detectamos um novo acesso à sua conta',
+    remetenteNome: 'Mercado Liv',
+    remetenteEmail: 'no-reply@mercadoliv.com',
+    isPredefinido: true,
+    categoria: 'Varejo',
+    corpoHtml: `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="color-scheme" content="light"><title>Detectamos um novo acesso à sua conta</title></head><body style="margin:0;padding:0;background-color:#f5f5f5;-webkit-text-size-adjust:100%;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;background-color:#f5f5f5;"><tbody><tr><td align="center" style="padding:0;"><table role="presentation" width="640" cellpadding="0" cellspacing="0" border="0" align="center" style="border-collapse:collapse;width:640px;max-width:640px;font-family:Arial,Helvetica,sans-serif;"><tbody><tr><td data-testid="ml-header" style="background-color:#FFF159;padding:16px 24px;"><table role="presentation" cellpadding="0" cellspacing="0" border="0"><tbody><tr><td valign="middle" data-testid="ml-logo" style="padding-right:10px;line-height:0;font-size:0;"><svg width="52" height="38" viewBox="0 0 52 38" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:block;" aria-hidden="true"><ellipse cx="26" cy="19" rx="25" ry="16" fill="#FFF1B8" stroke="#2D3277" stroke-width="1.5"/><path d="M14 15c2.5-2.5 5.5-2.5 8 0l4 4 4-4c2.5-2.5 5.5-2.5 8 0" stroke="#2D3277" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/><path d="M18 19.5c1.6 1.8 3.4 3.2 5.2 4.4 1.6 1.1 3.4 1.1 5 0M22 26c1.4 1 2.9 1.6 4.4 1.7" stroke="#2D3277" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></td><td valign="middle" style="font-family:Arial,Helvetica,sans-serif;font-size:18px;font-weight:800;line-height:1;color:#2D3277;">Mercado Liv</td></tr></tbody></table></td></tr><tr><td style="padding:16px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tbody><tr><td style="background:#ffffff;border-radius:6px;box-shadow:0 1px 2px rgba(0,0,0,0.12);padding:24px;"><h1 data-testid="ml-title" style="margin:0 0 12px 0;font-family:Arial,Helvetica,sans-serif;font-size:20px;font-weight:700;line-height:26px;color:rgba(0,0,0,0.9);">Detectamos um novo acesso à sua conta</h1><p data-testid="ml-body" style="margin:0 0 16px 0;font-size:15px;line-height:21px;color:rgba(0,0,0,0.9);">Olá, {{NOME}}. Identificamos um novo login na sua conta Mercado Liv a partir de um dispositivo que talvez você não reconheça. Se foi você, pode ignorar este e-mail. Caso contrário, redefina sua senha o quanto antes.</p><table role="presentation" data-testid="ml-device" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f7f7f7;border-radius:6px;"><tbody><tr><td style="padding:12px 16px;font-size:14px;line-height:20px;color:rgba(0,0,0,0.9);"><strong>Dispositivo:</strong> Chrome no Windows 11<br><strong>Data e hora:</strong> 20/07/2026 às 14:32 (BRT)<br><strong>Local aproximado:</strong> São Paulo, SP — Brasil</td></tr></tbody></table><table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:separate;margin-top:20px;"><tbody><tr><td align="center" bgcolor="#3483fa" style="border-radius:6px;"><a data-testid="ml-cta" href="{{LINK_PHISHING}}" target="_blank" style="display:inline-block;padding:13px 28px;font-family:Arial,Helvetica,sans-serif;font-size:15px;font-weight:700;color:#ffffff;text-decoration:none;border-radius:6px;">Redefinir Senha de Acesso</a></td></tr></tbody></table></td></tr><tr><td style="height:16px;line-height:16px;font-size:16px;">&nbsp;</td></tr><tr><td data-testid="ml-alert-card" style="background:#ededed;border-radius:6px;padding:20px 24px;"><p style="margin:0;font-size:14px;line-height:19px;color:rgba(0,0,0,0.75);"><strong>Dica de segurança.</strong> Seus dados e senhas são privados. O Mercado Liv nunca solicitará confirmação de códigos ou senhas por telefone. Não compartilhe essas informações com ninguém.</p></td></tr></tbody></table></td></tr><tr><td style="padding:24px;"><p style="margin:0 0 8px 0;font-size:12px;line-height:16px;color:rgba(0,0,0,0.55);">Ficou com dúvidas? Acesse nossa <a href="{{LINK_PHISHING}}" target="_blank" style="color:#3483fa;text-decoration:none;">Central de ajuda</a>.</p><p style="margin:0;font-size:11px;line-height:15px;color:rgba(0,0,0,0.45);">Este é um e-mail automático de simulação de conscientização. Mercado Liv é uma marca fictícia, sem afiliação com qualquer empresa real.</p></td></tr></tbody></table></td></tr></tbody></table></body></html>`,
+  },
 ];
 
 // A isca "amazon-notificacao-geral" (Streaming) foi APOSENTADA por duplicidade com
@@ -1204,7 +1224,7 @@ export interface SimulationScenario {
 export const simulationScenarios: SimulationScenario[] = [
   {
     id: 'cenario-amazon',
-    nome: 'amzprime — Alerta de Segurança',
+    nome: 'AmzPrime — Alerta de Segurança',
     categoria: 'Varejo',
     descricao:
       'E-mail de alerta de acesso incomum que direciona o alvo à página falsa de alteração de senha da amzprime (paródia fictícia).',
@@ -1240,5 +1260,17 @@ export const simulationScenarios: SimulationScenario[] = [
       'E-mail corporativo de expiração de senha da rede que leva à página falsa de login da MicroCorp.',
     emailTemplateId: 'microcorp-expiracao-senha',
     landingTemplateId: 'microcorp-login',
+  },
+  {
+    // Cenário Mercado Liv (paródia fictícia, vetor e-commerce/marketplace). Par completo:
+    // isca 'mercado-liv-novo-acesso' (alerta de novo acesso) <-> landing 'mercado-liv-login'
+    // (alterar senha). Ambos existem no catálogo — preview emparelhado e disparo funcionam.
+    id: 'cenario-mercado-liv',
+    nome: 'Mercado Liv — Novo Acesso à Conta',
+    categoria: 'Varejo',
+    descricao:
+      'E-mail de alerta de novo acesso que leva à página falsa de alteração de senha do Mercado Liv (paródia fictícia).',
+    emailTemplateId: 'mercado-liv-novo-acesso',
+    landingTemplateId: 'mercado-liv-login',
   },
 ];
