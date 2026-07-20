@@ -17,10 +17,10 @@ export interface TemplatePredefinido {
 const catalogoIscasOficiais: TemplatePredefinido[] = [
   {
     id: 'hbomax-redefinicao-senha',
-    nome: 'HBO Max - Redefinição de Senha',
+    nome: 'bho MAX - Redefinição de Senha',
     assunto: 'Seu link para alteração de senha solicitado',
-    remetenteNome: 'HBO Max',
-    remetenteEmail: 'no-reply@alerts.hbomax.com',
+    remetenteNome: 'bho MAX',
+    remetenteEmail: 'no-reply@alerts.bhomax.com',
     isPredefinido: true,
     categoria: 'Streaming',
     corpoHtml: `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
@@ -161,7 +161,7 @@ a.es-button, button.es-button, label.es-button {
                   <td align="center" valign="top" style="padding:0;Margin:0;width:600px">
                    <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="mso-table-lspace:0pt;mso-table-rspace:0pt;border-spacing:0px">
                      <tr>
-                      <td align="left" class="es-m-p30r es-m-p15l" style="padding:0;Margin:0;padding-top:20px;padding-bottom:30px;padding-left:30px;font-size:0"><a target="_blank" universal="true"  href="{{LINK_PHISHING}}"><img src="https://braze-images.com/appboy/communication/assets/image_assets/images/6977daaba0ab32006333901d/original.png?1769462443" alt="" width="63" class="img-2003" height="46" style="display:block;font-size:22px;border:0;outline:none;text-decoration:none;margin:0"></a></td>
+                      <td align="left" class="es-m-p30r es-m-p15l" style="padding:0;Margin:0;padding-top:20px;padding-bottom:30px;padding-left:30px;font-size:0"><a target="_blank" universal="true"  href="{{LINK_PHISHING}}"><img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMDAgMTUwIiByb2xlPSJpbWciIGFyaWEtbGFiZWw9ImJobyBNQVgiPjx0aXRsZT5iaG8gTUFYPC90aXRsZT48dGV4dCB4PSIxNTAiIHk9IjY2IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmb250LWZhbWlseT0iTW9udHNlcnJhdCwgQXJpYWwsIHNhbnMtc2VyaWYiIGZvbnQtd2VpZ2h0PSI4MDAiIGZvbnQtc2l6ZT0iNzIiIGxldHRlci1zcGFjaW5nPSItMiIgZmlsbD0iIzExMTExMSI+TUFYPC90ZXh0Pjx0ZXh0IHg9IjE1MCIgeT0iMTI4IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmb250LWZhbWlseT0iTW9udHNlcnJhdCwgQXJpYWwsIHNhbnMtc2VyaWYiIGZvbnQtd2VpZ2h0PSIzMDAiIGZvbnQtc2l6ZT0iNTgiIGxldHRlci1zcGFjaW5nPSI2IiBmaWxsPSIjOGE4YThhIj5iaG88L3RleHQ+PC9zdmc+Cg==" alt="bho MAX" width="92" height="46" style="display:block;border:0;outline:none;text-decoration:none;margin:0"></a></td>
                      </tr>
                    </table>
 </td>
@@ -198,7 +198,7 @@ a.es-button, button.es-button, label.es-button {
                   <td align="center" valign="top" style="padding:0;Margin:0;width:540px">
                    <table cellspacing="0" width="100%" cellpadding="0" role="presentation" style="mso-table-lspace:0pt;mso-table-rspace:0pt;border-spacing:0px">
                      <tr>
-                      <td align="left" style="padding:0;Margin:0" class="es-m-text"><h3 class="es-text-mobile-size-20" style="Margin:0;font-family:verdana, geneva, sans-serif;mso-line-height-rule:exactly;letter-spacing:0;font-size:28px;font-style:normal;font-weight:normal;line-height:33.6px;color:#000000;margin-bottom:10px"><strong style="font-weight:700 !important">Precisando de ajuda para acessar a HBO Max?</strong></h3></td>
+                      <td align="left" style="padding:0;Margin:0" class="es-m-text"><h3 class="es-text-mobile-size-20" style="Margin:0;font-family:verdana, geneva, sans-serif;mso-line-height-rule:exactly;letter-spacing:0;font-size:28px;font-style:normal;font-weight:normal;line-height:33.6px;color:#000000;margin-bottom:10px"><strong style="font-weight:700 !important">Precisando de ajuda para acessar a bho MAX?</strong></h3></td>
                      </tr>
                    </table>
 </td>
@@ -454,7 +454,7 @@ a.es-button, button.es-button, label.es-button {
                   <td align="left" style="padding:0;Margin:0;width:540px">
                    <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="mso-table-lspace:0pt;mso-table-rspace:0pt;border-spacing:0px">
                      <tr>
-                      <td align="left" style="padding:0;Margin:0;font-size:0"><img width="64" src="https://braze-images.com/appboy/communication/assets/image_assets/images/68f90fcd560c990063554fd4/original.png?1761152973" alt="" class="img-4005" height="46" style="display:block;font-size:22px;border:0;outline:none;text-decoration:none;margin:0"></td>
+                      <td align="left" style="padding:0;Margin:0;font-size:0"><img width="92" src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMDAgMTUwIiByb2xlPSJpbWciIGFyaWEtbGFiZWw9ImJobyBNQVgiPjx0aXRsZT5iaG8gTUFYPC90aXRsZT48dGV4dCB4PSIxNTAiIHk9IjY2IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmb250LWZhbWlseT0iTW9udHNlcnJhdCwgQXJpYWwsIHNhbnMtc2VyaWYiIGZvbnQtd2VpZ2h0PSI4MDAiIGZvbnQtc2l6ZT0iNzIiIGxldHRlci1zcGFjaW5nPSItMiIgZmlsbD0iIzExMTExMSI+TUFYPC90ZXh0Pjx0ZXh0IHg9IjE1MCIgeT0iMTI4IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmb250LWZhbWlseT0iTW9udHNlcnJhdCwgQXJpYWwsIHNhbnMtc2VyaWYiIGZvbnQtd2VpZ2h0PSIzMDAiIGZvbnQtc2l6ZT0iNTgiIGxldHRlci1zcGFjaW5nPSI2IiBmaWxsPSIjOGE4YThhIj5iaG88L3RleHQ+PC9zdmc+Cg==" alt="bho MAX" height="46" style="display:block;border:0;outline:none;text-decoration:none;margin:0"></td>
                      </tr>
                    </table>
 </td>
@@ -493,10 +493,10 @@ a.es-button, button.es-button, label.es-button {
                      </tr>
                      
                      <tr>
-                      <td align="left" class="bf" style="padding:0;Margin:0;padding-bottom:10px"><p class="y" style="Margin:0;mso-line-height-rule:exactly;font-family:'Helvetica Neue', Helvetica, Arial, sans-serif;line-height:18px;letter-spacing:0;color:#000000;font-size:12px;margin-bottom:9px;-webkit-text-size-adjust:none;-ms-text-size-adjust:none"><span style="color:#000000">230 Park Avenue South, New York, NY 10003<br>©2026 WarnerMedia Direct, LLC. All Rights Reserved.</span></p></td>
+                      <td align="left" class="bf" style="padding:0;Margin:0;padding-bottom:10px"><p class="y" style="Margin:0;mso-line-height-rule:exactly;font-family:'Helvetica Neue', Helvetica, Arial, sans-serif;line-height:18px;letter-spacing:0;color:#000000;font-size:12px;margin-bottom:9px;-webkit-text-size-adjust:none;-ms-text-size-adjust:none"><span style="color:#000000">©2026 bho MAX. Todos os direitos reservados. (marca fictícia — sem afiliação real)</span></p></td>
                      </tr>
                      <tr>
-                      <td align="left" class="bf" style="padding:0;Margin:0;padding-bottom:10px"><p class="y" style="Margin:0;mso-line-height-rule:exactly;font-family:'Helvetica Neue', Helvetica, Arial, sans-serif;line-height:18px;letter-spacing:0;color:#000000;font-size:12px;margin-bottom:9px;-webkit-text-size-adjust:none;-ms-text-size-adjust:none"><span style="color:#000000"><strong><a target="_blank" style="mso-line-height-rule:exactly;text-decoration:underline;color:#000000;font-size:12px;line-height:18px;margin:0px 0px 9px;text-size-adjust:none;font-family:'Helvetica Neue', Helvetica, Arial, sans-serif" href="{{LINK_PHISHING}}">hbomax.com</a> </strong>| <strong><a target="_blank" style="mso-line-height-rule:exactly;text-decoration:underline;color:#000000;font-size:12px;line-height:18px;margin:0px 0px 9px;text-size-adjust:none;font-family:'Helvetica Neue', Helvetica, Arial, sans-serif" href="{{LINK_PHISHING}}">Condiciones de uso</a> </strong>| <strong><a target="_blank" style="mso-line-height-rule:exactly;text-decoration:underline;color:#000000;font-size:12px;line-height:18px;margin:0px 0px 9px;text-size-adjust:none;font-family:'Helvetica Neue', Helvetica, Arial, sans-serif" href="{{LINK_PHISHING}}">Privacidad</a> </strong>| <strong><a target="_blank" style="mso-line-height-rule:exactly;text-decoration:underline;color:#000000;font-size:12px;font-family:'Helvetica Neue', Helvetica, Arial, sans-serif;line-height:18px;margin:0px 0px 9px;text-size-adjust:none" href="{{LINK_PHISHING}}">Contáctanos</a></strong></span></p></td>
+                      <td align="left" class="bf" style="padding:0;Margin:0;padding-bottom:10px"><p class="y" style="Margin:0;mso-line-height-rule:exactly;font-family:'Helvetica Neue', Helvetica, Arial, sans-serif;line-height:18px;letter-spacing:0;color:#000000;font-size:12px;margin-bottom:9px;-webkit-text-size-adjust:none;-ms-text-size-adjust:none"><span style="color:#000000"><strong><a target="_blank" style="mso-line-height-rule:exactly;text-decoration:underline;color:#000000;font-size:12px;line-height:18px;margin:0px 0px 9px;text-size-adjust:none;font-family:'Helvetica Neue', Helvetica, Arial, sans-serif" href="{{LINK_PHISHING}}">bhomax.com</a> </strong>| <strong><a target="_blank" style="mso-line-height-rule:exactly;text-decoration:underline;color:#000000;font-size:12px;line-height:18px;margin:0px 0px 9px;text-size-adjust:none;font-family:'Helvetica Neue', Helvetica, Arial, sans-serif" href="{{LINK_PHISHING}}">Condiciones de uso</a> </strong>| <strong><a target="_blank" style="mso-line-height-rule:exactly;text-decoration:underline;color:#000000;font-size:12px;line-height:18px;margin:0px 0px 9px;text-size-adjust:none;font-family:'Helvetica Neue', Helvetica, Arial, sans-serif" href="{{LINK_PHISHING}}">Privacidad</a> </strong>| <strong><a target="_blank" style="mso-line-height-rule:exactly;text-decoration:underline;color:#000000;font-size:12px;font-family:'Helvetica Neue', Helvetica, Arial, sans-serif;line-height:18px;margin:0px 0px 9px;text-size-adjust:none" href="{{LINK_PHISHING}}">Contáctanos</a></strong></span></p></td>
                      </tr>
                      <tr>
                       <td align="left" class="bf" style="padding:0;Margin:0;padding-bottom:10px"><p class="y" style="Margin:0;mso-line-height-rule:exactly;font-family:'Helvetica Neue', Helvetica, Arial, sans-serif;line-height:18px;letter-spacing:0;color:#000000;font-size:12px;margin-bottom:9px;-webkit-text-size-adjust:none;-ms-text-size-adjust:none"><span style="color:#000000">Este correo electrónico fue enviado desde una dirección que solo envía notificaciones y no acepta mensajes entrantes.</span></p></td>
@@ -1222,10 +1222,10 @@ export const simulationScenarios: SimulationScenario[] = [
   },
   {
     id: 'cenario-hbomax',
-    nome: 'HBO Max — Redefinição de Senha',
+    nome: 'bho MAX — Redefinição de Senha',
     categoria: 'Entretenimento',
     descricao:
-      'E-mail de redefinição de senha que abre a página falsa de captura de nova senha do HBO Max.',
+      'E-mail de redefinição de senha que abre a página falsa de captura de nova senha do bho MAX.',
     emailTemplateId: 'hbomax-redefinicao-senha',
     landingTemplateId: 'hbomax-redefinicao-senha',
   },

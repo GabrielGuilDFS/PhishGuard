@@ -2,7 +2,7 @@ import { type TemplateModel } from './templateTypes';
 
 // Moldes estáticos de LANDING PAGES (páginas de captura) do PhishGuard.
 //
-// Consolidação da interface "HBO Max - Redefinição de Senha": os subcomponentes
+// Consolidação da interface "bho MAX - Redefinição de Senha": os subcomponentes
 // React originais do v0 (SiteHeader, SiteFooter, ChangePasswordForm, MUI theme e
 // globals.css) foram unificados em UMA única string de HTML com CSS embutido.
 //
@@ -21,7 +21,7 @@ const hboMaxRedefinicaoSenhaHtml = `<!DOCTYPE html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Mude sua senha | HBO Max</title>
+<title>Mude sua senha | bho MAX</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Figtree:wght@400;600;700;800&display=swap');
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -37,8 +37,8 @@ const hboMaxRedefinicaoSenhaHtml = `<!DOCTYPE html>
   a { text-decoration: none; color: inherit; }
   /* ---------- Header (SiteHeader) ---------- */
   .hbo-header { display: flex; align-items: center; justify-content: space-between; padding: 20px 24px; }
-  .hbo-logo { line-height: 0.85; }
-  .hbo-logo span { display: block; font-size: 20px; font-weight: 800; letter-spacing: -0.02em; }
+  /* Novo logo "bho MAX" (asset SVG em public/, variante p/ fundo escuro). */
+  .hbo-logo { display: block; height: 44px; width: auto; }
   .hbo-nav { display: none; gap: 32px; }
   .hbo-nav a { font-size: 15px; font-weight: 700; color: rgba(255,255,255,0.9); }
   .hbo-nav a:hover { color: #ffffff; }
@@ -92,12 +92,12 @@ const hboMaxRedefinicaoSenhaHtml = `<!DOCTYPE html>
 </head>
 <body>
   <header class="hbo-header">
-    <div class="hbo-logo"><span>HBO</span><span>max</span></div>
+    <img class="hbo-logo" src="/bho-max-logo-ondark.svg" alt="bho MAX">
     <nav class="hbo-nav">
       <a href="#">Início</a>
       <a href="#">Séries</a>
       <a href="#">Filmes</a>
-      <a href="#" class="muted">HBO</a>
+      <a href="#" class="muted">bho MAX</a>
       <a href="#">Esportes</a>
       <a href="#">Crianças &amp; Família</a>
     </nav>
@@ -161,7 +161,7 @@ const hboMaxRedefinicaoSenhaHtml = `<!DOCTYPE html>
       <a href="#">Informações</a>
       <a href="#">Ajuda</a>
     </nav>
-    <p class="hbo-copy">© 2026 WarnerMedia Direct, LLC. Todos os direitos reservados.</p>
+    <p class="hbo-copy">© 2026 bho MAX. Todos os direitos reservados. (marca fictícia — sem afiliação real)</p>
   </footer>
 
   <button class="hbo-chat" type="button" aria-label="Abrir chat de ajuda">
@@ -181,7 +181,7 @@ const hboMaxRedefinicaoSenhaHtml = `<!DOCTYPE html>
 // referenciada por caminho absoluto `/netflix-bg.png` — resolvido contra a origem do
 // app tanto no preview (iframe srcDoc) quanto na landing servida (/landing/:id).
 //
-// Telemetria: mesmo padrão do HBO Max. O <form> intercepta o submit via `onsubmit`
+// Telemetria: mesmo padrão do bho MAX. O <form> intercepta o submit via `onsubmit`
 // inline, dispara o gatilho de rastreamento (POST /api/tracking/submit/...) enviando
 // apenas flags de validação — NUNCA a senha em texto (LGPD) — e então redireciona
 // para a rota educacional interna (/educational-feedback?template=basico_phishing).
@@ -648,7 +648,7 @@ const microCorpLoginHtml = `<!DOCTYPE html>
 export const landingTemplates: TemplateModel[] = [
   {
     id: 'hbomax-redefinicao-senha',
-    nome: 'HBO Max - Redefinição de Senha',
+    nome: 'bho MAX - Redefinição de Senha',
     categoria: 'Entretenimento',
     html: hboMaxRedefinicaoSenhaHtml,
   },

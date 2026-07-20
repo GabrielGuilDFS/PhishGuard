@@ -42,7 +42,7 @@ describe('Templates (Biblioteca de Modelos)', () => {
     // Cenários do catálogo aparecem na tabela.
     expect(screen.getByText(CENARIO_AMAZON)).toBeInTheDocument();
     expect(screen.getByText('NetsFlix — Atualização de Cobrança')).toBeInTheDocument();
-    expect(screen.getByText('HBO Max — Redefinição de Senha')).toBeInTheDocument();
+    expect(screen.getByText('bho MAX — Redefinição de Senha')).toBeInTheDocument();
 
     // Nada de editor de HTML bruto (removido na refatoração).
     expect(screen.queryByLabelText(/Código Fonte/i)).not.toBeInTheDocument();
