@@ -3,7 +3,7 @@ import {
     Typography, Box, Button, TextField, Table, TableBody,
     TableCell, TableContainer, TableHead, TableRow, Paper, IconButton,
     Dialog, DialogTitle, DialogContent, DialogActions, Autocomplete,
-    CircularProgress, Stack, Divider, Chip, Tooltip
+    CircularProgress, Stack, Divider, Chip, Tooltip, Alert
 } from '@mui/material';
 import PageContainer from '../components/PageContainer';
 import EditIcon from '@mui/icons-material/Edit';
@@ -606,6 +606,12 @@ export default function Campaigns() {
                 onChange={e => setSearchTerm(e.target.value)}
                 sx={{ mb: 3 }}
             />
+
+            {/* Aviso: a exclusão de campanhas é destrutiva e retira os logs históricos que
+                alimentam os gráficos/KPIs do dashboard (cliques únicos, funil, etc.). */}
+            <Alert severity="warning" sx={{ mb: 3 }}>
+                Atenção: A exclusão permanente de campanhas antigas impactará diretamente os dados e o histórico exibidos nos gráficos da dashboard.
+            </Alert>
 
             <TableContainer component={Paper}>
                 <Table>

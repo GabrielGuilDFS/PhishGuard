@@ -24,13 +24,17 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: "Development"
       ConnectionStrings__DefaultConnection: "Host=db;Port=5433;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}"
-      # Segredo do JWT injetado via .env (não versionado). __ mapeia para AppSettings:Token.
       AppSettings__Token: "${AppSettings__Token}"
+      # 1 TÚNEL: frontend e backend compartilham o MESMO domínio público. O Vite
+      # (frontend) faz reverse-proxy de /api para o backend na rede interna. Por isso
+      # ambas as URLs públicas apontam para o mesmo domínio do ngrok.
+      AppSettings__PublicApiBaseUrl: "https://${NGROK_DOMAIN}"
+      AppSettings__PublicAppBaseUrl: "https://${NGROK_DOMAIN}"
+      # Same-origin: a landing chama /api relativo (sem CORS). __0 é o domínio público;
+      # __1 mantém o dev local (admin em localhost:5173 -> localhost:5000).
+      AppSettings__AllowedCorsOrigins__0: "https://${NGROK_DOMAIN}"
+      AppSettings__AllowedCorsOrigins__1: "http://localhost:5173"
     volumes:
-      # Chaves do Data Protection (criptografia da senha SMTP em repouso). Precisam
-      # SOBREVIVER a rebuilds/restarts do container — senão as senhas já cifradas no
-      # banco ficariam indecifráveis. O caminho casa com o PersistKeysToFileSystem do
-      # Program.cs (ContentRootPath = /app).
       - dataprotection-keys:/app/DataProtection-Keys
     depends_on:
       - db
@@ -47,11 +51,26 @@ services:
       - "5173:5173"
     environment:
       CHOKIDAR_USEPOLLING: "true"
+      # Usado pelo vite.config.ts para liberar o Host público no dev server (allowedHosts).
+      NGROK_DOMAIN: "${NGROK_DOMAIN}"
     volumes:
       - ./PhishGuard.Frontend:/app
       - /app/node_modules
     depends_on:
       - backend
+    networks:
+      - phishguard-network
+
+  # ÚNICO túnel público: aponta para o frontend, que reverte /api para o backend.
+  ngrok-frontend:
+    image: ngrok/ngrok:latest
+    container_name: phishguard-ngrok-frontend
+    restart: unless-stopped
+    environment:
+      NGROK_AUTHTOKEN: "${NGROK_AUTHTOKEN}"
+    command: ["http", "frontend:5173", "--domain=${NGROK_DOMAIN}"]
+    depends_on:
+      - frontend
     networks:
       - phishguard-network
 

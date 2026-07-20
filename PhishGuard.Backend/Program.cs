@@ -126,7 +126,18 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowReactApp", policy =>
     {
-        policy.WithOrigins("http://localhost:5173") 
+        // Origens liberadas vêm da configuração (AppSettings:AllowedCorsOrigins) para
+        // permitir o domínio PÚBLICO do túnel (ngrok) sem recompilar — a landing servida
+        // pelo domínio público precisa que o POST de submissão para o backend passe no
+        // preflight de CORS. Fallback: apenas o dev local (http://localhost:5173).
+        var origins = builder.Configuration
+            .GetSection("AppSettings:AllowedCorsOrigins")
+            .Get<string[]>();
+
+        if (origins == null || origins.Length == 0)
+            origins = new[] { "http://localhost:5173" };
+
+        policy.WithOrigins(origins)
               .AllowAnyHeader()
               .AllowAnyMethod();
     });

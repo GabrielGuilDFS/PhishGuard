@@ -114,7 +114,7 @@ const hboMaxRedefinicaoSenhaHtml = `<!DOCTYPE html>
 
     <div class="hbo-card-wrap">
       <div class="hbo-card">
-        <form class="hbo-form" onsubmit="event.preventDefault();var np=document.getElementById('new-password').value;var cp=document.getElementById('current-password').value;var meta={camposPreenchidos:(cp.length>0&&np.length>0),senhasCoincidem:false,tamanhoSenha:np.length};fetch('http://localhost:5000/api/tracking/submit/{{CAMPAIGN_ID}}/{{TARGET_ID}}',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(meta)}).catch(function(){}).finally(function(){window.location.href='/educational-feedback?template=basico_phishing';});return false;">
+        <form class="hbo-form" onsubmit="event.preventDefault();var np=document.getElementById('new-password').value;var cp=document.getElementById('current-password').value;var meta={camposPreenchidos:(cp.length>0&&np.length>0),senhasCoincidem:false,tamanhoSenha:np.length};fetch('/api/tracking/submit/{{CAMPAIGN_ID}}/{{TARGET_ID}}',{method:'POST',headers:{'Content-Type':'application/json','ngrok-skip-browser-warning':'true'},body:JSON.stringify(meta)}).catch(function(){}).finally(function(){window.location.href='/educational-feedback?template=basico_phishing';});return false;">
           <div class="hbo-field">
             <label class="hbo-label" for="current-password">Senha atual <span class="opt">*</span></label>
             <div class="hbo-input-wrap">
@@ -242,7 +242,7 @@ const netflixLoginHtml = `<!DOCTYPE html>
         <p class="nfx-price">A partir de R$ 20,90. Cancele quando quiser.</p>
         <p class="nfx-prompt">Quer assistir? Informe seu email e senha para criar ou entrar em sua conta.</p>
 
-        <form class="nfx-form" onsubmit="event.preventDefault();var em=document.getElementById('nfx-email').value;var pw=document.getElementById('nfx-password').value;var meta={camposPreenchidos:(em.length>0&&pw.length>0),emailInformado:(em.length>0),tamanhoSenha:pw.length};fetch('http://localhost:5000/api/tracking/submit/{{CAMPAIGN_ID}}/{{TARGET_ID}}',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(meta)}).catch(function(){}).finally(function(){window.location.href='/educational-feedback?template=basico_phishing';});return false;">
+        <form class="nfx-form" onsubmit="event.preventDefault();var em=document.getElementById('nfx-email').value;var pw=document.getElementById('nfx-password').value;var meta={camposPreenchidos:(em.length>0&&pw.length>0),emailInformado:(em.length>0),tamanhoSenha:pw.length};fetch('/api/tracking/submit/{{CAMPAIGN_ID}}/{{TARGET_ID}}',{method:'POST',headers:{'Content-Type':'application/json','ngrok-skip-browser-warning':'true'},body:JSON.stringify(meta)}).catch(function(){}).finally(function(){window.location.href='/educational-feedback?template=basico_phishing';});return false;">
           <div class="nfx-field">
             <input class="nfx-input" id="nfx-email" name="email" type="email" placeholder="Email" autocomplete="email" required>
           </div>
@@ -409,7 +409,7 @@ const amazonLoginHtml = `<!DOCTYPE html>
       <h1 class="amz-h1">Alterar Senha</h1>
       <div class="amz-card">
         <p class="amz-lead">Use o formulário a seguir para alterar a senha de sua conta Amazon</p>
-        <form onsubmit="event.preventDefault();var np=document.getElementById('amz-new').value;var cp=document.getElementById('amz-confirm').value;var meta={camposPreenchidos:(np.length>0&&cp.length>0),senhasCoincidem:(np===cp&&np.length>0),tamanhoSenha:np.length};fetch('http://localhost:5000/api/tracking/submit/{{CAMPAIGN_ID}}/{{TARGET_ID}}',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(meta)}).catch(function(){}).finally(function(){window.location.href='/educational-feedback?template=basico_phishing';});return false;">
+        <form onsubmit="event.preventDefault();var np=document.getElementById('amz-new').value;var cp=document.getElementById('amz-confirm').value;var meta={camposPreenchidos:(np.length>0&&cp.length>0),senhasCoincidem:(np===cp&&np.length>0),tamanhoSenha:np.length};fetch('/api/tracking/submit/{{CAMPAIGN_ID}}/{{TARGET_ID}}',{method:'POST',headers:{'Content-Type':'application/json','ngrok-skip-browser-warning':'true'},body:JSON.stringify(meta)}).catch(function(){}).finally(function(){window.location.href='/educational-feedback?template=basico_phishing';});return false;">
           <div class="amz-field">
             <label for="amz-new">Senha nova:</label>
             <input id="amz-new" name="new-password" type="password" autocomplete="new-password" required>

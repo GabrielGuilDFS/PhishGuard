@@ -15,8 +15,14 @@ export default function LandingPage() {
     useEffect(() => {
         if (!id) return;
 
-        // Busca o HTML da página falsa cadastrada no banco de dados
-        fetch(`http://localhost:5000/api/PhishingPages/${id}`)
+        // Busca o HTML da página falsa cadastrada no banco de dados.
+        // Caminho RELATIVO (/api): mesmo domínio da página → o Vite faz reverse-proxy
+        // para o backend. Sem CORS e sem depender de uma URL de API separada.
+        fetch(`/api/PhishingPages/${id}`, {
+            // Pula a página de aviso do ngrok (free/estático) para o fetch receber JSON,
+            // não o HTML interstitial. Inócuo fora do túnel.
+            headers: { 'ngrok-skip-browser-warning': 'true' },
+        })
             .then(res => {
                 if (!res.ok) throw new Error('Página não encontrada');
                 return res.json();

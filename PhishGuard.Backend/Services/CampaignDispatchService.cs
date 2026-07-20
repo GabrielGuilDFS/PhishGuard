@@ -4,6 +4,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using MailKit.Security;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using MimeKit;
 using Polly;
@@ -38,16 +39,24 @@ namespace PhishGuard.Backend.Services
         private readonly Func<int, TimeSpan> _backoffProvider;
         private readonly TimeSpan _throttleEntreEnvios;
 
-        private const string BaseTrackingUrl = "http://localhost:5000/api/tracking";
+        // URL PÚBLICA base do endpoint de rastreamento, gravada nos links dos e-mails.
+        // Resolvida da configuração (AppSettings:PublicApiBaseUrl); default localhost p/ dev.
+        // Precisa ser um endereço acessível PELO ALVO — senão o clique nunca chega ao backend.
+        private readonly string _baseTrackingUrl;
 
         public CampaignDispatchService(
             AppDbContext context,
             ILogger<CampaignDispatchService> logger,
             ISmtpCredentialProtector senhaProtector,
-            ISmtpClientFactory smtpClientFactory)
+            ISmtpClientFactory smtpClientFactory,
+            IConfiguration configuration)
             : this(context, logger, senhaProtector, smtpClientFactory,
                    BackoffExponencialComJitter, TimeSpan.FromSeconds(1))
         {
+            var apiBase = configuration["AppSettings:PublicApiBaseUrl"]?.TrimEnd('/');
+            if (string.IsNullOrWhiteSpace(apiBase))
+                apiBase = "http://localhost:5000";
+            _baseTrackingUrl = $"{apiBase}/api/tracking";
         }
 
         // Ctor INTERNO (visível aos testes via InternalsVisibleTo). Não é usado pela DI —
@@ -66,6 +75,9 @@ namespace PhishGuard.Backend.Services
             _smtpClientFactory = smtpClientFactory;
             _backoffProvider = backoffProvider;
             _throttleEntreEnvios = throttleEntreEnvios;
+            // Default para o caminho de testes (ctor interno). O ctor público de produção
+            // sobrescreve com a URL pública resolvida da configuração.
+            _baseTrackingUrl = "http://localhost:5000/api/tracking";
         }
 
         // Backoff exponencial 2s→4s→8s + jitter de até 1s (descorrelaciona reconexões).
@@ -158,8 +170,8 @@ namespace PhishGuard.Backend.Services
                     message.To.Add(new MailboxAddress(target.Nome, target.Email));
                     message.Subject = campaign.Template.Assunto;
 
-                    var linkClique = $"{BaseTrackingUrl}/click/{campaign.Id}/{target.Id}";
-                    var linkPixel = $"{BaseTrackingUrl}/open/{campaign.Id}/{target.Id}";
+                    var linkClique = $"{_baseTrackingUrl}/click/{campaign.Id}/{target.Id}";
+                    var linkPixel = $"{_baseTrackingUrl}/open/{campaign.Id}/{target.Id}";
 
                     var corpoPersonalizado = corpoBase
                         .Replace("{{NOME}}", target.Nome)

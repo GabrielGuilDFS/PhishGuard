@@ -12,13 +12,26 @@
  *   node parse-email.js <entrada.eml> [saida.html]
  *   node parse-email.js < entrada.eml            (lê da stdin, escreve na stdout)
  *
- * Sem dependências externas: usa apenas Node nativo (Buffer para UTF-8 correto).
+ * Sem dependências externas: usa apenas Node nativo (Buffer para decodificação
+ * correta de charset). O arquivo .eml é sempre lido como UTF-8: o conteúdo com
+ * acentuação vem codificado em quoted-printable/base64 (ASCII de 7 bits), então
+ * a leitura utf-8 é segura; quem governa a decodificação dos acentos é o CHARSET
+ * declarado em cada parte MIME (ex.: Content-Type: text/html; charset=iso-8859-1).
  */
 
 const fs = require('fs');
 const path = require('path');
 const http = require('http');
 const { exec } = require('child_process');
+
+/**
+ * Token de redirecionamento que o backend do PhishGuard substitui no momento do
+ * disparo (ver CampaignDispatchService: troca {{LINK_PHISHING}} / {{LINK}} pela
+ * URL de rastreamento da campanha). É DELIBERADAMENTE este, e não {{URL_ARMADILHA}}:
+ * o backend não substitui aquele placeholder, então o link sairia literal no e-mail
+ * e o clique não redirecionaria para a landing page falsa.
+ */
+const TOKEN_LINK_SIMULACAO = '{{LINK_PHISHING}}';
 
 /**
  * 1) Localiza o boundary do multipart declarado no cabeçalho Content-Type.
@@ -41,13 +54,42 @@ function isolarParteHtml(raw, boundary) {
 }
 
 /**
- * 3) Decodifica Quoted-Printable de forma segura para acentuação (UTF-8):
+ * Extrai o charset declarado no Content-Type de uma parte MIME (ex.: iso-8859-1).
+ * Faz o "folding" de headers dobrados em várias linhas antes de casar. Sem
+ * declaração explícita, assume utf-8 (o mais comum em e-mails modernos).
+ */
+function extrairCharset(parte) {
+  const cabecalho = parte.replace(/\r?\n[ \t]/g, ' ');
+  const m = cabecalho.match(/Content-Type:[^\n]*charset="?([^"\r\n;]+)"?/i);
+  return m ? m[1].trim().toLowerCase() : 'utf-8';
+}
+
+/**
+ * Mapeia o charset declarado no e-mail para um encoding suportado nativamente
+ * pelo Buffer do Node. 'utf8' e 'latin1' (ISO-8859-1) são nativos; windows-1252
+ * cai em latin1 (aproximação segura para a faixa de acentuação latina). Qualquer
+ * charset desconhecido default para utf8.
+ */
+function encodingDoCharset(charset) {
+  const c = (charset || '').toLowerCase();
+  if (['utf-8', 'utf8', 'us-ascii', 'ascii'].includes(c)) return 'utf8';
+  if (['iso-8859-1', 'iso8859-1', 'latin1', 'l1', 'windows-1252', 'cp1252'].includes(c)) {
+    return 'latin1';
+  }
+  return 'utf8';
+}
+
+/**
+ * 3) Decodifica Quoted-Printable respeitando o CHARSET da parte MIME:
  *    - remove as quebras de linha "soft" (um '=' no fim da linha);
  *    - converte cada sequência '=XX' no byte correspondente, montando os bytes
- *      em um Buffer e decodificando como UTF-8 no final. Isso garante que pares
- *      multibyte (ex.: '=C3=A7' -> 'ç', '=C3=A3' -> 'ã') fiquem corretos.
+ *      em um Buffer e decodificando com o encoding correto no final.
+ *    Isso corrige a acentuação: p.ex. em ISO-8859-1, '=E7'->'ç' e '=E3'->'ã'
+ *    (bytes únicos); em UTF-8, os pares multibyte '=C3=A7'->'ç' também ficam ok.
+ *    Decodificar bytes Latin-1 como se fossem UTF-8 é justamente o que produzia
+ *    o caractere de substituição '�'.
  */
-function decodificarQuotedPrintable(texto) {
+function decodificarQuotedPrintable(texto, enc = 'utf8') {
   // Normaliza CRLF para LF para simplificar o tratamento das quebras.
   // Um soft break é um '=' no fim da linha; a continuação vem logo abaixo, então
   // consumimos também uma eventual linha em branco imediatamente seguinte
@@ -65,13 +107,13 @@ function decodificarQuotedPrintable(texto) {
       bytes.push(parseInt(par, 16));
       i += 2;
     } else {
-      // Empurra os bytes UTF-8 do caractere literal (normalmente ASCII).
-      const buf = Buffer.from(c, 'utf8');
+      // Caracteres literais em QP são ASCII (7 bits); empurra o byte diretamente.
+      const buf = Buffer.from(c, 'latin1');
       for (const b of buf) bytes.push(b);
     }
   }
 
-  return Buffer.from(bytes).toString('utf8');
+  return Buffer.from(bytes).toString(enc);
 }
 
 /**
@@ -89,27 +131,62 @@ function recortarHtml(texto) {
 }
 
 /**
- * Mapeamento de links: troca o href original de TODAS as tags <a> pela tag
- * dinâmica {{URL_ARMADILHA}}. O backend substitui esse placeholder pela URL da
- * landing page falsa no momento do disparo. Atua apenas em âncoras (não mexe em
- * <link>/<img>), preservando os demais atributos e aspas simples ou duplas.
+ * Garante que o <head> contenha uma <meta charset="UTF-8">. O arquivo de saída é
+ * sempre escrito em UTF-8, então essa tag alinha a interpretação do navegador, do
+ * visualizador do painel e dos provedores de e-mail com os bytes gravados. É
+ * idempotente: se já existir qualquer <meta ... charset ...>, não duplica.
+ */
+function garantirMetaCharset(html) {
+  if (/<meta[^>]+charset/i.test(html)) return html;
+  if (/<head[^>]*>/i.test(html)) {
+    return html.replace(/<head([^>]*)>/i, '<head$1>\n<meta charset="UTF-8" />');
+  }
+  // HTML sem <head>: injeta logo após a abertura do <html> (ou no topo).
+  if (/<html[^>]*>/i.test(html)) {
+    return html.replace(/(<html[^>]*>)/i, '$1\n<head><meta charset="UTF-8" /></head>');
+  }
+  return '<meta charset="UTF-8" />\n' + html;
+}
+
+/**
+ * Mapeamento de links: troca o href original de TODAS as tags <a> pelo token de
+ * simulação do sistema (TOKEN_LINK_SIMULACAO = {{LINK_PHISHING}}). O backend
+ * substitui esse placeholder pela URL da landing page falsa no momento do disparo.
+ * Atua apenas em âncoras (não mexe em <link>/<img>), preservando os demais
+ * atributos e aspas simples ou duplas.
  */
 function mapearLinks(html) {
   return html.replace(/<a\b[^>]*>/gi, (tag) =>
-    tag.replace(/href\s*=\s*("[^"]*"|'[^']*')/i, 'href="{{URL_ARMADILHA}}"')
+    tag.replace(/href\s*=\s*("[^"]*"|'[^']*')/i, `href="${TOKEN_LINK_SIMULACAO}"`)
   );
 }
 
 /**
- * Decodifica "encoded-words" RFC 2047 usados no header Subject, ex.:
- *   =?UTF-8?B?QWx0ZXJhw6fDo28=?=  (Base64)  ->  "Alteração"
- *   =?UTF-8?Q?Ol=C3=A1?=         (Q/QP)    ->  "Olá"
+ * Remove rastreadores originais do provedor que o mapeamento de <a> não cobre:
+ *  - beacons de "open tracking" (imagens cujo src aponta para .../wf/open?... ou
+ *    .../open?...), usados para registrar a abertura no sistema de origem;
+ *  - pixels 1x1 (spacers/trackers), que não têm valor visual no molde.
+ * Preserva imagens de conteúdo real (logos, banners), que têm dimensões > 1px.
+ */
+function removerRastreadores(html) {
+  return html
+    .replace(/\s*<img\b[^>]*\bsrc="[^"]*\/(?:wf\/)?open\?[^"]*"[^>]*\/?>/gi, '')
+    .replace(/\s*<img\b[^>]*\bwidth="?1"?[^>]*\bheight="?1"?[^>]*\/?>/gi, '')
+    .replace(/\s*<img\b[^>]*\bheight="?1"?[^>]*\bwidth="?1"?[^>]*\/?>/gi, '');
+}
+
+/**
+ * Decodifica "encoded-words" RFC 2047 usados no header Subject, honrando o
+ * charset de cada trecho, ex.:
+ *   =?UTF-8?B?QWx0ZXJhw6fDo28=?=  (Base64/UTF-8)      ->  "Alteração"
+ *   =?ISO-8859-1?Q?Ol=E1?=       (Q/QP em Latin-1)   ->  "Olá"
  */
 function decodificarEncodedWord(assunto) {
   return assunto
-    .replace(/=\?([^?]+)\?([BbQq])\?([^?]*)\?=/g, (_m, _charset, enc, dados) => {
+    .replace(/=\?([^?]+)\?([BbQq])\?([^?]*)\?=/g, (_m, charset, enc, dados) => {
+      const encoding = encodingDoCharset(charset);
       if (enc.toUpperCase() === 'B') {
-        return Buffer.from(dados, 'base64').toString('utf8');
+        return Buffer.from(dados, 'base64').toString(encoding);
       }
       // Q-encoding: '_' representa espaço; '=XX' é um byte.
       const s = dados.replace(/_/g, ' ');
@@ -120,10 +197,10 @@ function decodificarEncodedWord(assunto) {
           bytes.push(parseInt(par, 16));
           i += 2;
         } else {
-          for (const b of Buffer.from(s[i], 'utf8')) bytes.push(b);
+          for (const b of Buffer.from(s[i], 'latin1')) bytes.push(b);
         }
       }
-      return Buffer.from(bytes).toString('utf8');
+      return Buffer.from(bytes).toString(encoding);
     })
     .replace(/\s+/g, ' ')
     .trim();
@@ -156,17 +233,19 @@ function slugify(texto, fallback = 'template') {
 }
 
 /**
- * Orquestra o pipeline completo: recebe o e-mail bruto e devolve o HTML limpo.
+ * Orquestra o pipeline completo: recebe o e-mail bruto e devolve o HTML limpo,
+ * com a acentuação correta (charset da parte MIME) e a <meta charset> garantida.
  */
 function extrairHtmlLimpo(raw) {
   const boundary = extrairBoundary(raw);
   const parteHtml = isolarParteHtml(raw, boundary);
+  const enc = encodingDoCharset(extrairCharset(parteHtml));
 
   const conteudo = /Content-Transfer-Encoding:\s*quoted-printable/i.test(parteHtml)
-    ? decodificarQuotedPrintable(parteHtml)
+    ? decodificarQuotedPrintable(parteHtml, enc)
     : parteHtml;
 
-  const html = recortarHtml(conteudo).trim();
+  const html = garantirMetaCharset(recortarHtml(conteudo).trim());
   if (!html) {
     throw new Error('Não foi possível localizar um bloco <html>...</html> no e-mail.');
   }
@@ -178,9 +257,11 @@ function extrairHtmlLimpo(raw) {
 // ------------------------------------------------------------------
 
 function lerEntrada(caminho) {
-  if (caminho) return fs.readFileSync(caminho, 'utf8');
+  // .eml é ASCII-safe (QP/base64) -> ler como utf-8 é seguro; o charset real de
+  // cada parte é tratado adiante na decodificação.
+  if (caminho) return fs.readFileSync(caminho, { encoding: 'utf-8' });
   // Sem argumento: lê da stdin (permite "node parse-email.js < email.eml").
-  return fs.readFileSync(0, 'utf8');
+  return fs.readFileSync(0, { encoding: 'utf-8' });
 }
 
 /**
@@ -249,9 +330,10 @@ function main() {
 
   let html;
   try {
-    // Extrai o HTML fiel e o prepara para o ecossistema: mapeia os links para
-    // o placeholder {{URL_ARMADILHA}} que o backend substitui no disparo.
-    html = mapearLinks(extrairHtmlLimpo(raw));
+    // Extrai o HTML fiel e o prepara para o ecossistema: mapeia os links para o
+    // token {{LINK_PHISHING}} que o backend substitui no disparo e remove os
+    // rastreadores originais do provedor.
+    html = removerRastreadores(mapearLinks(extrairHtmlLimpo(raw)));
   } catch (err) {
     console.error(`Falha ao extrair o HTML: ${err.message}`);
     process.exit(1);
@@ -268,7 +350,7 @@ function main() {
     saida || (entrada ? entrada.replace(/\.[^.]+$/, '') + '.clean.html' : null);
 
   if (destino) {
-    fs.writeFileSync(destino, html, 'utf8');
+    fs.writeFileSync(destino, html, { encoding: 'utf-8' });
     console.error(`HTML limpo salvo em: ${path.resolve(destino)} (${html.length} chars)`);
   } else {
     process.stdout.write(html);
@@ -290,7 +372,7 @@ function main() {
     );
     fs.mkdirSync(templatesDir, { recursive: true });
     const templatePath = path.join(templatesDir, `${slug}.html`);
-    fs.writeFileSync(templatePath, html, 'utf8');
+    fs.writeFileSync(templatePath, html, { encoding: 'utf-8' });
     console.error(`Template centralizado salvo em: ${templatePath}`);
   } catch (err) {
     console.error(`Aviso: não foi possível salvar o template centralizado: ${err.message}`);
@@ -305,11 +387,16 @@ if (require.main === module) {
 module.exports = {
   extrairBoundary,
   isolarParteHtml,
+  extrairCharset,
+  encodingDoCharset,
   decodificarQuotedPrintable,
   recortarHtml,
+  garantirMetaCharset,
   extrairHtmlLimpo,
   mapearLinks,
+  removerRastreadores,
   decodificarEncodedWord,
   extrairAssunto,
   slugify,
+  TOKEN_LINK_SIMULACAO,
 };

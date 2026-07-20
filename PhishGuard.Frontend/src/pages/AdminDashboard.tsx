@@ -10,19 +10,20 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  Skeleton
+  Skeleton,
+  ToggleButton,
+  ToggleButtonGroup
 } from '@mui/material';
 import {
-  PeopleAlt as PeopleIcon,
   Campaign as CampaignIcon,
-  MailOutline as MailIcon,
-  Security as SecurityIcon,
   WarningAmber as WarningIcon,
-  Insights as InsightsIcon
+  Insights as InsightsIcon,
+  TouchApp as TouchAppIcon,
+  QueryStats as QueryStatsIcon
 } from '@mui/icons-material';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RTooltip,
-  ResponsiveContainer, Cell
+  ResponsiveContainer, Cell, LineChart, Line, Legend
 } from 'recharts';
 import { alpha } from '@mui/material/styles';
 import PageContainer from '../components/PageContainer';
@@ -48,11 +49,25 @@ function corDoRisco(risk: string): string {
   return pct >= 50 ? DANGER : pct >= 25 ? WARNING : SUCCESS;
 }
 
+// Paleta de cores harmoniosa para até 8 departamentos nas linhas do gráfico temporal.
+const DEPT_COLORS = ['#6366f1', '#f59e0b', '#10b981', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899', '#84cc16'];
+
+interface DeptRiskTimeline {
+  departamentos: string[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  timeline: Record<string, any>[];
+}
+
 interface Metrics {
-  totalColaboradores: number;
-  campanhasAtivas: number;
-  emailsDisparados: number;
-  riscoGlobal: number;
+  // KPIs consolidados exibidos no topo.
+  totalCampanhas: number;
+  cliquesUnicosAcumulados: number;
+  volumeBrutoInteracoes: number;
+}
+// Ponto do gráfico de barras por campanha (rótulo "Nome (Mês)" + cliques únicos).
+interface CampaignClicks {
+  label: string;
+  clicks: number;
 }
 interface DepartmentRow {
   id: string;
@@ -91,15 +106,14 @@ export default function AdminDashboard() {
   const chartGridStroke = `rgba(${textRgb}, ${gridAlpha})`;
   const chartAxisStroke = `rgba(${textRgb}, ${axisAlpha})`;
   const chartTick = { fontSize: 12, fill: mutedTextFor(mode) };
-  // Tooltip = Surface 1 (`primary`), a surface de ÊNFASE da paleta: destaca a bolha
-  // sobre o fundo neutro da página. O texto acompanha o `text` do modo — preto sobre
-  // #6682f5 (5.6:1) e branco sobre #0a2799 (12:1), ambos acima do mínimo AA.
+  // Tooltip = Fundo cinza e texto preto para alta legibilidade (conforme solicitação)
   const chartTooltipStyle = {
-    backgroundColor: C.primary,
+    backgroundColor: '#f3f4f6', // cinza claro
     border: `1px solid ${alpha(C.secondary, SOFT_BORDER_ALPHA)}`,
     borderRadius: 8,
-    color: C.text,
   } as const;
+  const chartTooltipLabelStyle = { color: '#000000', fontWeight: 600 } as const;
+  const chartTooltipItemStyle = { color: '#000000' } as const;
   // Fills translúcidos do accent do modo (cursor de gráfico, bolha de ícone dos KPIs,
   // hover das linhas da tabela) — canais derivados do hex, sem valor repetido à mão.
   const accentRgb = rgbChannelsOf(C.accent);
@@ -108,13 +122,15 @@ export default function AdminDashboard() {
   const rowHoverBg = `rgba(${accentRgb}, 0.08)`;
 
   const [metrics, setMetrics] = useState<Metrics>({
-    totalColaboradores: 0,
-    campanhasAtivas: 0,
-    emailsDisparados: 0,
-    riscoGlobal: 0
+    totalCampanhas: 0,
+    cliquesUnicosAcumulados: 0,
+    volumeBrutoInteracoes: 0
   });
   const [departments, setDepartments] = useState<DepartmentRow[]>([]);
   const [funnel, setFunnel] = useState<Funnel | null>(null);
+  const [campaignClicks, setCampaignClicks] = useState<CampaignClicks[]>([]);
+  const [deptTimeline, setDeptTimeline] = useState<DeptRiskTimeline | null>(null);
+  const [riskMetric, setRiskMetric] = useState<'cliques' | 'submissoes'>('cliques');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -126,15 +142,19 @@ export default function AdminDashboard() {
       };
 
       try {
-        const [metricsRes, deptRes, funnelRes] = await Promise.all([
+        const [metricsRes, deptRes, funnelRes, campaignRes, timelineRes] = await Promise.all([
           fetch(`${API_BASE}/Dashboard/metrics`, { headers }),
           fetch(`${API_BASE}/Dashboard/departments`, { headers }),
-          fetch(`${API_BASE}/Dashboard/funnel`, { headers })
+          fetch(`${API_BASE}/Dashboard/funnel`, { headers }),
+          fetch(`${API_BASE}/Dashboard/campaign-clicks`, { headers }),
+          fetch(`${API_BASE}/Dashboard/dept-risk-timeline`, { headers })
         ]);
 
         if (metricsRes.ok) setMetrics(await metricsRes.json());
         if (deptRes.ok) setDepartments(await deptRes.json());
         if (funnelRes.ok) setFunnel(await funnelRes.json());
+        if (campaignRes.ok) setCampaignClicks(await campaignRes.json());
+        if (timelineRes.ok) setDeptTimeline(await timelineRes.json());
       } catch (err) {
         console.error("Erro ao buscar dados do dashboard", err);
       } finally {
@@ -145,11 +165,12 @@ export default function AdminDashboard() {
     fetchDashboardData();
   }, []);
 
+  // 3 KPIs consolidados: campanhas disparadas, vulnerabilidades reais (cliques únicos)
+  // e o volume bruto de telemetria (para auditoria de rede).
   const overviewCards = [
-    { title: 'Total de Colaboradores', value: metrics.totalColaboradores.toLocaleString('pt-BR'), icon: PeopleIcon },
-    { title: 'Campanhas Ativas', value: metrics.campanhasAtivas.toString(), icon: CampaignIcon },
-    { title: 'E-mails Disparados', value: metrics.emailsDisparados.toLocaleString('pt-BR'), icon: MailIcon },
-    { title: 'Risco Global', value: `${metrics.riscoGlobal}%`, icon: SecurityIcon },
+    { title: 'Total de Campanhas', value: metrics.totalCampanhas.toLocaleString('pt-BR'), icon: CampaignIcon },
+    { title: 'Cliques Únicos Acumulados', value: metrics.cliquesUnicosAcumulados.toLocaleString('pt-BR'), icon: TouchAppIcon },
+    { title: 'Volume Bruto de Interações', value: metrics.volumeBrutoInteracoes.toLocaleString('pt-BR'), icon: QueryStatsIcon },
   ];
 
   // Sem NENHUM disparo ainda → não há métrica de comportamento para plotar.
@@ -162,19 +183,7 @@ export default function AdminDashboard() {
       { nome: 'Entregues (SMTP)', valor: funnel.entregues, cor: SUCCESS },
     ]
     : [];
-  // Ambos são falhas críticas (vermelho); a intensidade distingue a severidade.
-  const dadosRisco = funnel
-    ? [
-      { nome: 'Cliques no Link', valor: funnel.cliques, cor: DANGER_SOFT },
-      { nome: 'Submeteram Dados', valor: funnel.submissoes, cor: DANGER },
-    ]
-    : [];
-  const dadosDepto = departments
-    .map((d) => ({
-      nome: d.name,
-      taxa: d.emails > 0 ? Math.round((100 * d.clicks) / d.emails) : 0,
-    }))
-    .sort((a, b) => b.taxa - a.taxa);
+
 
   return (
     <PageContainer sx={{ py: { xs: 1, md: 2 } }}>
@@ -282,7 +291,7 @@ export default function AdminDashboard() {
                 <CartesianGrid strokeDasharray="3 3" stroke={chartGridStroke} vertical={false} />
                 <XAxis dataKey="nome" tick={chartTick} axisLine={{ stroke: chartAxisStroke }} tickLine={false} />
                 <YAxis allowDecimals={false} tick={chartTick} axisLine={{ stroke: chartAxisStroke }} tickLine={false} />
-                <RTooltip cursor={chartCursorFill} contentStyle={chartTooltipStyle} />
+                <RTooltip cursor={chartCursorFill} contentStyle={chartTooltipStyle} labelStyle={chartTooltipLabelStyle} itemStyle={chartTooltipItemStyle} />
                 <Bar dataKey="valor" name="E-mails" radius={[6, 6, 0, 0]} maxBarSize={90}>
                   {dadosFunil.map((d, i) => <Cell key={i} fill={d.cor} />)}
                 </Bar>
@@ -290,81 +299,119 @@ export default function AdminDashboard() {
             </ResponsiveContainer>
           </ChartCard>
 
-          {/* 2. Gráfico de Comportamento de Risco (cliques vs submissões) */}
+          {/* 2. Cliques únicos por campanha (barras verticais; X = "Nome | Mês") */}
           <ChartCard
-            title="Comportamento de Risco"
-            subtitle="Alvos que clicaram na isca vs. os que chegaram a inserir credenciais."
+            title="Cliques Únicos por Campanha"
+            subtitle="Vulnerabilidades reais por campanha (1 clique por alvo), com o mês de disparo."
           >
-            <ResponsiveContainer width="100%" height={260}>
-              <BarChart data={dadosRisco} margin={{ top: 8, right: 16, left: -12, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke={chartGridStroke} vertical={false} />
-                <XAxis dataKey="nome" tick={chartTick} axisLine={{ stroke: chartAxisStroke }} tickLine={false} />
-                <YAxis allowDecimals={false} tick={chartTick} axisLine={{ stroke: chartAxisStroke }} tickLine={false} />
-                <RTooltip cursor={chartCursorFill} contentStyle={chartTooltipStyle} />
-                <Bar dataKey="valor" name="Alvos" radius={[6, 6, 0, 0]} maxBarSize={90}>
-                  {dadosRisco.map((d, i) => <Cell key={i} fill={d.cor} />)}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </ChartCard>
-
-          {/* 3. Risco por Departamento (taxa de cliques / envios) */}
-          <ChartCard
-            title="Risco por Departamento"
-            subtitle="Taxa de vulnerabilidade (cliques ÷ e-mails recebidos) por setor."
-            full
-          >
-            {dadosDepto.length === 0 ? (
-              <EmptyInline texto="Sem departamentos com dados de simulação ainda." />
+            {campaignClicks.length === 0 ? (
+              <EmptyInline texto="Nenhuma campanha disparada com dados de clique ainda." />
             ) : (
-              <>
-              <ResponsiveContainer width="100%" height={Math.max(220, dadosDepto.length * 48)}>
-                <BarChart
-                  layout="vertical"
-                  data={dadosDepto}
-                  /* left:0 — o vão à esquerda era, na verdade, o `width={140}` do YAxis
-                     (calha larga demais para rótulos curtos como RH/TI). Zeramos a margem
-                     e enxugamos a calha; os rótulos passam a ser ancorados à ESQUERDA
-                     (x=0), alinhados com o início do título do card. */
-                  margin={{ top: 8, right: 32, left: -40, bottom: 0 }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" stroke={chartGridStroke} horizontal={false} />
-                  <XAxis type="number" domain={[0, 100]} unit="%" tick={chartTick} axisLine={{ stroke: chartAxisStroke }} tickLine={false} />
-                  <YAxis
-                    type="category"
-                    dataKey="nome"
-                    width={88}
-                    tickLine={false}
+              <ResponsiveContainer width="100%" height={260}>
+                <BarChart data={campaignClicks} margin={{ top: 8, right: 16, left: -12, bottom: 44 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke={chartGridStroke} vertical={false} />
+                  <XAxis
+                    dataKey="label"
+                    tick={chartTick}
                     axisLine={{ stroke: chartAxisStroke }}
-                    tick={(props) => {
-                      const { y, payload } = props;
-                      return (
-                        <text x={10} y={y} dy={4} textAnchor="start" fontSize={12} fill={C.text}>
-                          {payload.value}
-                        </text>
-                      );
-                    }}
+                    tickLine={false}
+                    interval={0}
+                    angle={-20}
+                    textAnchor="end"
+                    height={64}
                   />
-                  <RTooltip cursor={chartCursorFill} contentStyle={chartTooltipStyle} formatter={(value) => [`${value}%`, 'Taxa de risco']} />
-                  {/* Semáforo semântico: ≥50% falha crítica, ≥25% alerta, abaixo = setor resistindo bem. */}
-                  <Bar dataKey="taxa" name="Taxa de risco" radius={[0, 6, 6, 0]} maxBarSize={28}>
-                    {dadosDepto.map((d, i) => (
-                      <Cell key={i} fill={d.taxa >= 50 ? DANGER : d.taxa >= 25 ? WARNING : SUCCESS} />
-                    ))}
-                  </Bar>
+                  <YAxis allowDecimals={false} tick={chartTick} axisLine={{ stroke: chartAxisStroke }} tickLine={false} />
+                  <RTooltip cursor={chartCursorFill} contentStyle={chartTooltipStyle} labelStyle={chartTooltipLabelStyle} itemStyle={chartTooltipItemStyle} formatter={(value) => [value, 'Cliques únicos']} />
+                  <Bar dataKey="clicks" name="Cliques únicos" fill={DANGER_SOFT} radius={[6, 6, 0, 0]} maxBarSize={64} />
                 </BarChart>
               </ResponsiveContainer>
-              {/* Legenda do semáforo FORA do SVG do Recharts: o <Legend> desta versão omite
-                  a prop `payload` no tsc -b. Aqui usa tokens do tema (text.secondary) →
-                  texto legível nos dois modos (nunca preto no dark) + swatches de status. */}
-              <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center', flexWrap: 'wrap', mt: 1.5 }}>
-                {[{ l: 'Alto (≥ 50%)', c: DANGER }, { l: 'Médio (25–49%)', c: WARNING }, { l: 'Baixo (< 25%)', c: SUCCESS }].map((it) => (
-                  <Box key={it.l} sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-                    <Box sx={{ width: 10, height: 10, borderRadius: '2px', bgcolor: it.c, flexShrink: 0 }} />
-                    <Typography variant="caption" sx={{ color: 'text.secondary' }}>{it.l}</Typography>
-                  </Box>
-                ))}
+            )}
+          </ChartCard>
+
+          {/* 3. Evolução Temporal de Risco por Departamento (LineChart + Toggle) */}
+          <ChartCard
+            title="Evolução de Risco por Departamento"
+            subtitle="Acompanhe a taxa de cliques ou submissões de cada setor ao longo dos meses."
+            full
+          >
+            {!deptTimeline || deptTimeline.timeline.length === 0 ? (
+              <EmptyInline texto="Sem dados temporais de risco por departamento ainda." />
+            ) : (
+              <>
+              {/* Toggle: Taxa de Cliques vs Taxa de Submissões */}
+              <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
+                <ToggleButtonGroup
+                  value={riskMetric}
+                  exclusive
+                  onChange={(_, v) => { if (v) setRiskMetric(v); }}
+                  size="small"
+                  sx={{
+                    '& .MuiToggleButton-root': {
+                      textTransform: 'none',
+                      fontWeight: 600,
+                      fontSize: 13,
+                      px: 2.5,
+                      py: 0.75,
+                      color: 'text.secondary',
+                      borderColor: `rgba(${accentRgb}, 0.25)`,
+                      '&.Mui-selected': {
+                        bgcolor: `rgba(${accentRgb}, 0.14)`,
+                        color: C.accent,
+                        borderColor: `rgba(${accentRgb}, 0.4)`,
+                      },
+                    },
+                  }}
+                >
+                  <ToggleButton value="cliques">Taxa de Cliques</ToggleButton>
+                  <ToggleButton value="submissoes">Taxa de Submissões</ToggleButton>
+                </ToggleButtonGroup>
               </Box>
+
+              <ResponsiveContainer width="100%" height={300}>
+                <LineChart data={deptTimeline.timeline} margin={{ top: 8, right: 24, left: -8, bottom: 8 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke={chartGridStroke} />
+                  <XAxis
+                    dataKey="mes"
+                    tick={chartTick}
+                    axisLine={{ stroke: chartAxisStroke }}
+                    tickLine={false}
+                  />
+                  <YAxis
+                    domain={[0, 100]}
+                    unit="%"
+                    allowDecimals={false}
+                    tick={chartTick}
+                    axisLine={{ stroke: chartAxisStroke }}
+                    tickLine={false}
+                  />
+                  <RTooltip
+                    cursor={chartCursorFill}
+                    contentStyle={chartTooltipStyle}
+                    labelStyle={chartTooltipLabelStyle}
+                    itemStyle={chartTooltipItemStyle}
+                    formatter={(value) => [`${value}%`]}
+                  />
+                  <Legend
+                    verticalAlign="bottom"
+                    iconType="circle"
+                    wrapperStyle={{ fontSize: 12, color: mutedTextFor(mode), paddingTop: 8 }}
+                  />
+                  {deptTimeline.departamentos.map((dept, i) => (
+                    <Line
+                      key={`${dept}_${riskMetric}`}
+                      type="monotone"
+                      dataKey={`${dept}_${riskMetric}`}
+                      name={dept}
+                      stroke={DEPT_COLORS[i % DEPT_COLORS.length]}
+                      strokeWidth={2.5}
+                      dot={{ r: 4, strokeWidth: 2 }}
+                      activeDot={{ r: 6, strokeWidth: 2 }}
+                      animationDuration={400}
+                      connectNulls
+                    />
+                  ))}
+                </LineChart>
+              </ResponsiveContainer>
               </>
             )}
           </ChartCard>

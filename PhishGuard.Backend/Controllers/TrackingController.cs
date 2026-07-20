@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using PhishGuard.Backend.Data;
 using PhishGuard.Backend.DTOs;
 using PhishGuard.Backend.Models;
@@ -16,10 +17,15 @@ namespace PhishGuard.Backend.Controllers
     public class TrackingController : ControllerBase
     {
         private readonly AppDbContext _context;
+        private readonly string _appBaseUrl;
 
-        public TrackingController(AppDbContext context)
+        public TrackingController(AppDbContext context, IConfiguration configuration)
         {
             _context = context;
+            // URL PÚBLICA do frontend (landing/feedback), destino dos redirects de rastreamento.
+            // Precisa ser acessível PELO ALVO; default localhost apenas para dev local.
+            var appBase = configuration["AppSettings:PublicAppBaseUrl"]?.TrimEnd('/');
+            _appBaseUrl = string.IsNullOrWhiteSpace(appBase) ? "http://localhost:5173" : appBase;
         }
 
         private async Task<Campaign> RegistrarAcao(Guid campaignId, Guid targetId, string acao)
@@ -87,11 +93,11 @@ namespace PhishGuard.Backend.Controllers
             if (campaign != null)
             {
                 // Redireciona para a página falsa do React
-                var url = $"http://localhost:5173/landing/{campaign.LandingPageId}?c={campaignId}&t={targetId}";
+                var url = $"{_appBaseUrl}/landing/{campaign.LandingPageId}?c={campaignId}&t={targetId}";
                 return Redirect(url);
             }
 
-            return Redirect("http://localhost:5173/");
+            return Redirect($"{_appBaseUrl}/");
         }
 
         [HttpPost("submit/{campaignId}/{targetId}")]
