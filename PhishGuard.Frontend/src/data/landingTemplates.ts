@@ -260,9 +260,9 @@ const netflixLoginHtml = `<!DOCTYPE html>
 </body>
 </html>`;
 
-// Interface simulada "Amazon - Alterar Senha" (login/captura). Consolidação do
-// clone Next.js originalmente em ".pagina" (AmazonHeader + ChangePasswordForm +
-// AmazonFooter).
+// Interface simulada "amzprime - Alterar Senha" (login/captura) — paródia FICTÍCIA da
+// Amazon p/ compliance de IP (sem logo/marca/dados cadastrais reais). Consolidação do
+// clone Next.js originalmente em ".pagina" (Header + ChangePasswordForm + Footer).
 //
 // ⚠️ AUTO-CONTIDO (correção 2026-07-17): antes esta era a ÚNICA landing que dependia
 // do Tailwind Play CDN (<script src="cdn.tailwindcss.com">) para estilizar. No
@@ -278,8 +278,9 @@ const netflixLoginHtml = `<!DOCTYPE html>
 //    precisamos mais do CDN). O reset `a{text-decoration:none;color:inherit}` mata de vez
 //    o "tudo azul sublinhado".
 //
-// Sem imagens externas: o logo "amazon" é textual e todos os ícones são SVG inline
-// (sem caminhos de arquivo que possam quebrar).
+// Sem imagens externas: o logo "amzprime" (wordmark parodiado, fonte de design em
+// .logoFalsa/) é textual e todos os ícones são SVG inline (sem caminhos de arquivo
+// que possam quebrar). Paródia p/ compliance de IP: sem marca/dados cadastrais reais.
 //
 // Telemetria: mesmo padrão do HBO/Netflix — <form onsubmit> inline dispara o
 // gatilho de rastreamento (só flags de validação, NUNCA a senha — LGPD) e então
@@ -289,15 +290,24 @@ const amazonLoginHtml = `<!DOCTYPE html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Alterar Senha - Amazon</title>
+<title>Alterar Senha - amzprime</title>
 <style>
+  @import url('https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;700;800&display=swap');
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { min-height: 100vh; display: flex; flex-direction: column; background: #ffffff; color: #0f1111; font-family: "Amazon Ember", Arial, Helvetica, sans-serif; -webkit-font-smoothing: antialiased; }
+  body { min-height: 100vh; display: flex; flex-direction: column; background: #ffffff; color: #0f1111; font-family: 'Nunito Sans', Arial, Helvetica, sans-serif; -webkit-font-smoothing: antialiased; }
   /* Reset dos links — SEM isto o navegador pinta tudo de azul sublinhado no preview. */
   a { color: inherit; text-decoration: none; }
   svg { display: block; }
   button { font-family: inherit; cursor: pointer; }
   input { font-family: inherit; }
+
+  /* ---------- Wordmark parodiado "amzprime" (fonte de design em .logoFalsa/) ----------
+     Nunito Sans (livre) no lugar do Amazon Ember. Em fundo ESCURO (header/rodapé desta
+     landing) "amz" vai em branco por legibilidade — no e-mail (fundo branco) "amz" usa
+     #232F3E. "prime" fica sempre no azul-marca #00A8E1 (gatilho cognitivo). */
+  .amz-wordmark { font-family: 'Nunito Sans', Arial, sans-serif; font-weight: 800; letter-spacing: -1px; line-height: 1; }
+  .amz-wordmark .w-amz { color: #ffffff; }
+  .amz-wordmark .w-prime { color: #00A8E1; }
 
   /* ---------- Header ---------- */
   .amz-header { background: #131921; color: #fff; }
@@ -365,12 +375,12 @@ const amazonLoginHtml = `<!DOCTYPE html>
 <body>
   <header class="amz-header">
     <div class="amz-top">
-      <a href="#" class="amz-box amz-logo" aria-label="Amazon">
-        <b>amazon</b><span class="tld">.com.br</span>
+      <a href="#" class="amz-box amz-logo" aria-label="amzprime">
+        <span class="amz-wordmark" style="font-size:24px;"><span class="w-amz">amz</span><span class="w-prime">prime</span></span>
       </a>
       <div class="amz-search">
         <span class="cat">Todos <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true"><path d="M7 10l5 5 5-5z"></path></svg></span>
-        <input placeholder="Pesquisar Amazon.com.br" aria-label="Pesquisar">
+        <input placeholder="Pesquisar amzprime" aria-label="Pesquisar">
         <button class="go" aria-label="Pesquisar"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#111" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg></button>
       </div>
       <button class="amz-box amz-act amz-hide-sm">
@@ -391,13 +401,13 @@ const amazonLoginHtml = `<!DOCTYPE html>
     </div>
     <nav class="amz-nav">
       <span class="ham"><svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"></path></svg> Todos</span>
-      <a href="#">Venda na Amazon</a>
+      <a href="#">Venda na amzprime</a>
       <a href="#">Prime</a>
       <a href="#">Ofertas do Dia</a>
       <a href="#">Comprar novamente</a>
       <a href="#">Ideias de Presente</a>
       <a href="#">Atendimento ao Cliente</a>
-      <a href="#">Sua Amazon.com.br</a>
+      <a href="#">Sua amzprime</a>
       <a href="#">eBooks Kindle</a>
       <a href="#">Mais Vendidos</a>
       <a href="#">Livros</a>
@@ -408,7 +418,7 @@ const amazonLoginHtml = `<!DOCTYPE html>
     <div class="amz-col">
       <h1 class="amz-h1">Alterar Senha</h1>
       <div class="amz-card">
-        <p class="amz-lead">Use o formulário a seguir para alterar a senha de sua conta Amazon</p>
+        <p class="amz-lead">Use o formulário a seguir para alterar a senha de sua conta amzprime</p>
         <form onsubmit="event.preventDefault();var np=document.getElementById('amz-new').value;var cp=document.getElementById('amz-confirm').value;var meta={camposPreenchidos:(np.length>0&&cp.length>0),senhasCoincidem:(np===cp&&np.length>0),tamanhoSenha:np.length};fetch('/api/tracking/submit/{{CAMPAIGN_ID}}/{{TARGET_ID}}',{method:'POST',headers:{'Content-Type':'application/json','ngrok-skip-browser-warning':'true'},body:JSON.stringify(meta)}).catch(function(){}).finally(function(){window.location.href='/educational-feedback?template=basico_phishing';});return false;">
           <div class="amz-field">
             <label for="amz-new">Senha nova:</label>
@@ -435,7 +445,7 @@ const amazonLoginHtml = `<!DOCTYPE html>
         <div>
           <h3>Conheça-nos</h3>
           <ul>
-            <li><a href="#">Sobre a Amazon</a></li>
+            <li><a href="#">Sobre a amzprime</a></li>
             <li><a href="#">Informações corporativas</a></li>
             <li><a href="#">Carreiras</a></li>
             <li><a href="#">Comunicados à imprensa</a></li>
@@ -445,8 +455,8 @@ const amazonLoginHtml = `<!DOCTYPE html>
         <div>
           <h3>Ganhe dinheiro conosco</h3>
           <ul>
-            <li><a href="#">Venda na Amazon</a></li>
-            <li><a href="#">Forneça para a Amazon</a></li>
+            <li><a href="#">Venda na amzprime</a></li>
+            <li><a href="#">Forneça para a amzprime</a></li>
             <li><a href="#">Publique seus livros</a></li>
             <li><a href="#">Seja um associado</a></li>
             <li><a href="#">Anuncie seus produtos</a></li>
@@ -457,7 +467,7 @@ const amazonLoginHtml = `<!DOCTYPE html>
           <ul>
             <li><a href="#">Meios de Pagamento</a></li>
             <li><a href="#">Compre com Pontos</a></li>
-            <li><a href="#">Cartão de crédito Amazon</a></li>
+            <li><a href="#">Cartão de crédito amzprime</a></li>
           </ul>
         </div>
         <div>
@@ -471,7 +481,7 @@ const amazonLoginHtml = `<!DOCTYPE html>
         </div>
       </div>
       <div class="amz-brand">
-        <span class="name">amazon<sup>.com.br</sup></span>
+        <span class="amz-wordmark" style="font-size:21px;"><span class="w-amz">amz</span><span class="w-prime">prime</span></span>
         <button class="amz-region">
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M2 12h20"></path><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
           Brasil
@@ -485,8 +495,8 @@ const amazonLoginHtml = `<!DOCTYPE html>
         <a href="#">Cookies</a>
         <a href="#">Anúncios Baseados em Interesses</a>
       </div>
-      <p>© 2021-2026 Amazon.com, Inc. ou suas afiliadas</p>
-      <p>Amazon Serviços de Varejo do Brasil Ltda. | CNPJ 15.436.940/0001-03</p>
+      <p>© 2021-2026 amzprime. Todos os direitos reservados.</p>
+      <p>amzprime Serviços Digitais Ltda. | CNPJ 32.869.296/0652-65</p>
     </div>
   </footer>
 </body>
@@ -644,7 +654,7 @@ export const landingTemplates: TemplateModel[] = [
   },
   {
     id: 'amazon-login',
-    nome: 'Amazon - Alterar Senha',
+    nome: 'amzprime - Alterar Senha',
     categoria: 'Varejo',
     html: amazonLoginHtml,
   },

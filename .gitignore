@@ -6,6 +6,7 @@ obj/
 *.pdb
 *.cache
 
+.logoFalsa
 .paginaFalsa
 node_modules/
 dist/
