@@ -492,6 +492,142 @@ const amazonLoginHtml = `<!DOCTYPE html>
 </body>
 </html>`;
 
+// ---------------------------------------------------------------------------
+// LANDING FICTÍCIA "MicroCorp" — reprodução fiel da página falsa de origem em
+// `.paginaFalsa/` (app v0 "Recuperar sua conta"), consolidada em UMA string HTML com
+// CSS embutido (as demais landings seguem o mesmo padrão; classes Tailwind não
+// compilam no HTML injetado por dangerouslySetInnerHTML nem no preview em iframe).
+// Par da isca de e-mail 'microcorp-expiracao-senha' -> cenário 'cenario-microcorp'.
+// SEM propriedade intelectual real: identidade é o escudo azul + wordmark "MicroCorp"
+// (a fonte v0 trazia "MircroCorp", typo corrigido para casar com o resto do sistema).
+// Telemetria: mesmo padrão de HBO/Netflix/Amazon — <form onsubmit> inline (funciona
+// sob dangerouslySetInnerHTML, ao contrário de <script>) dispara
+// POST /api/tracking/submit/{{CAMPAIGN_ID}}/{{TARGET_ID}} enviando APENAS metadados de
+// validação (flags + tamanho) — NUNCA e-mail/senha reais (LGPD) — e redireciona para
+// /educational-feedback?template=basico_phishing.
+// ---------------------------------------------------------------------------
+const microCorpLoginHtml = `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Recuperar sua conta | MicroCorp</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    position: relative;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    background: #f5f5f5;
+    color: #1b1b1b;
+    font-family: 'Segoe UI', system-ui, -apple-system, Roboto, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .mc-card {
+    width: 100%;
+    max-width: 440px;
+    background: #ffffff;
+    padding: 36px 44px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+  }
+  .mc-brand { display: flex; align-items: center; gap: 8px; }
+  .mc-brand svg { display: block; }
+  .mc-brand span { font-size: 15px; font-weight: 600; color: #5e5e5e; }
+  .mc-title { margin-top: 24px; font-size: 24px; font-weight: 600; line-height: 1.2; color: #1b1b1b; }
+  .mc-desc { margin-top: 16px; font-size: 15px; line-height: 1.4; color: #1b1b1b; }
+  .mc-field { margin-top: 20px; }
+  .mc-input {
+    width: 100%;
+    padding: 0 0 6px 0;
+    font-size: 15px;
+    color: #1b1b1b;
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid #666666;
+    outline: none;
+  }
+  .mc-input::placeholder { color: #767676; }
+  .mc-input:focus { border-bottom: 2px solid #0067b8; }
+  .mc-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 36px; }
+  .mc-btn {
+    min-width: 108px;
+    height: 32px;
+    padding: 0 16px;
+    font-size: 15px;
+    border: none;
+    cursor: pointer;
+    transition: background 0.15s ease;
+  }
+  .mc-btn-secondary { background: #e6e6e6; color: #1b1b1b; }
+  .mc-btn-secondary:hover { background: #dadada; }
+  .mc-btn-primary { background: #0067b8; color: #ffffff; }
+  .mc-btn-primary:hover { background: #005da6; }
+  .mc-foot {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+    padding: 12px 16px;
+    font-size: 13px;
+    color: #1b1b1b;
+  }
+  .mc-foot-links { display: flex; gap: 20px; }
+  .mc-foot a { color: inherit; text-decoration: none; }
+  .mc-foot a:hover { text-decoration: underline; }
+  .mc-foot a.mc-link { color: #0067b8; }
+</style>
+</head>
+<body>
+  <div class="mc-card">
+    <div class="mc-brand">
+      <svg width="21" height="24" viewBox="0 0 21 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <path d="M10.5 0 L21 4 V11 C21 17 16.5 22 10.5 24 C4.5 22 0 17 0 11 V4 Z" fill="#0067b8"/>
+        <path d="M6 12 L9.2 15.2 L15 8.5" fill="none" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <span>MicroCorp</span>
+    </div>
+
+    <h1 class="mc-title">Recuperar sua conta</h1>
+
+    <p class="mc-desc">Podemos ajudá-lo a redefinir sua senha e informações de segurança. Primeiro, insira sua senha e e-mail da conta institucional e siga as instruções a seguir.</p>
+
+    <!-- Telemetria segura: intercepta o submit, envia SOMENTE metadados (flags/tamanho),
+         nunca e-mail/senha reais, e encaminha para o treinamento de conscientização. -->
+    <form class="mc-form"
+      onsubmit="event.preventDefault();var qs=new URLSearchParams(window.location.search);var c='{{CAMPAIGN_ID}}'||qs.get('c')||'';var t='{{TARGET_ID}}'||qs.get('t')||'';var e=(document.getElementById('mc-email')||{}).value||'';var p=(document.getElementById('mc-password')||{}).value||'';var meta={camposPreenchidos:(e.length>0&&p.length>0),senhasCoincidem:true,tamanhoSenha:p.length};fetch('/api/tracking/submit/'+c+'/'+t,{method:'POST',headers:{'Content-Type':'application/json','ngrok-skip-browser-warning':'true'},body:JSON.stringify(meta)}).catch(function(){}).finally(function(){window.location.href='/educational-feedback?template=basico_phishing';});return false;">
+
+      <div class="mc-field">
+        <input class="mc-input" id="mc-email" name="email" type="text" autocomplete="username" placeholder="Email" aria-label="Email" required>
+      </div>
+
+      <div class="mc-field">
+        <input class="mc-input" id="mc-password" name="password" type="password" autocomplete="current-password" placeholder="Senha" aria-label="Senha" required>
+      </div>
+
+      <div class="mc-actions">
+        <button type="button" class="mc-btn mc-btn-secondary" onclick="window.location.href='/educational-feedback?template=basico_phishing';">Cancelar</button>
+        <button type="submit" class="mc-btn mc-btn-primary">Avançar</button>
+      </div>
+    </form>
+  </div>
+
+  <footer class="mc-foot">
+    <div class="mc-foot-links">
+      <a href="#">Termos de uso</a>
+      <a href="#">Privacidade e cookies</a>
+    </div>
+    <p>Use a navegação privada se esse não for seu dispositivo. <a href="#" class="mc-link">Saiba mais</a></p>
+  </footer>
+</body>
+</html>`;
+
 // Moldes estáticos de landing pages disponíveis no seletor "Escolha a Interface".
 export const landingTemplates: TemplateModel[] = [
   {
@@ -511,5 +647,11 @@ export const landingTemplates: TemplateModel[] = [
     nome: 'Amazon - Alterar Senha',
     categoria: 'Varejo',
     html: amazonLoginHtml,
+  },
+  {
+    id: 'microcorp-login',
+    nome: 'MicroCorp - Entrar na conta',
+    categoria: 'Corporativo',
+    html: microCorpLoginHtml,
   },
 ];

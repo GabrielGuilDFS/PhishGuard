@@ -1161,6 +1161,27 @@ Amazon.com, Amazon.com.br, a logo de Amazon.com são marcas comerciais registrad
     categoria: 'Varejo',
     corpoHtml: `<!DOCTYPE html><html lang="pt"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="X-UA-Compatible" content="IE=edge"><title>Alerta de segurança</title></head><body style="margin:0;padding:0;background-color:#eaeded;-webkit-text-size-adjust:100%;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;background-color:#eaeded;"><tbody><tr><td align="center" style="padding:16px;"><table role="presentation" width="600" cellpadding="0" cellspacing="0" style="border-collapse:collapse;width:600px;max-width:600px;background-color:#ffffff;border-radius:8px;overflow:hidden;font-family:'Amazon Ember',Arial,Helvetica,sans-serif;"><tbody><tr><td style="padding:20px 40px;border-bottom:1px solid #e7e7e7;"><a href="{{LINK_PHISHING}}" target="_blank" style="text-decoration:none;"><img src="https://m.media-amazon.com/images/G/01/outbound/OutboundTemplates/Amazon_logo_BR_Light._BG255,255,255_.png" alt="Amazon.com.br" height="46" style="display:block;border:0;height:46px;width:auto;"></a></td></tr><tr><td style="padding:32px 40px 4px 40px;"><h1 style="margin:0;font-size:24px;line-height:30px;font-weight:700;color:#0f1111;">Alerta de segurança</h1></td></tr><tr><td style="padding:12px 40px 0 40px;"><p style="margin:0 0 16px 0;font-size:15px;line-height:22px;color:#0f1111;">Olá,</p><p style="margin:0 0 16px 0;font-size:15px;line-height:22px;color:#0f1111;">Detectamos uma tentativa de acesso incomum à sua conta Amazon a partir de um dispositivo não reconhecido. Para manter sua conta protegida, recomendamos alterar sua senha imediatamente.</p></td></tr><tr><td style="padding:8px 40px 0 40px;"><table role="presentation" cellpadding="0" cellspacing="0" style="border-collapse:separate;"><tbody><tr><td style="border-radius:8px;background-color:#ffd814;box-shadow:0 1px 2px rgba(15,17,17,0.15);"><a href="{{LINK_PHISHING}}" target="_blank" style="display:inline-block;padding:12px 28px;font-size:14px;font-weight:700;color:#0f1111;text-decoration:none;border-radius:8px;">Alterar sua senha</a></td></tr></tbody></table></td></tr><tr><td style="padding:24px 40px 32px 40px;"><p style="margin:0 0 8px 0;font-size:13px;line-height:20px;color:#565959;">Se você não reconhece essa atividade, revise as configurações de segurança em Sua Conta. Este é um lembrete automático de segurança.</p><p style="margin:0;font-size:13px;line-height:20px;color:#565959;">Obrigado,<br>Equipe de Segurança da Amazon</p></td></tr><tr><td style="padding:20px 40px;background-color:#f0f2f2;border-top:1px solid #e7e7e7;"><p style="margin:0;font-size:11px;line-height:16px;color:#565959;">&copy;2026 Amazon.com, Inc. ou suas afiliadas. Amazon Serviços de Varejo do Brasil Ltda. | CNPJ 15.436.940/0001-03 &middot; Av. Juscelino Kubitschek, 2041, Torre E, 18&deg; andar - São Paulo/SP, CEP: 04543-011.</p></td></tr></tbody></table></td></tr></tbody></table></body></html>`,
   },
+  {
+    // Isca corporativa FICTÍCIA "MicroCorp" (paródia de expiração de senha da rede) —
+    // paródia de alta fidelidade SEM propriedade intelectual real (compliance de IP):
+    // nenhuma menção "Microsoft" nem o logotipo oficial dos 4 quadrados. A marca é o
+    // escudo azul com check (SVG nativo, 24x24). HTML seguro para e-mail: 100% <table> +
+    // estilos inline, NUNCA Tailwind (clientes de e-mail não rodam a esteira do Vite).
+    // O link de clique usa {{LINK_PHISHING}} e o nome {{NOME}} — ambos resolvidos
+    // server-side no disparo (CampaignDispatchService), que também ANEXA o pixel de
+    // abertura; por isso este corpo NÃO embute UUIDs de tracking nem a tag <img> de open.
+    // CAVEAT: <svg> inline NÃO rasteriza no Outlook desktop (Word engine); nesses clientes
+    // a célula do escudo fica vazia ao lado do texto "MicroCorp", sem quebrar o layout —
+    // trade-off assumido por exigência da identidade visual da marca fictícia.
+    id: 'microcorp-expiracao-senha',
+    nome: 'MicroCorp - Expiração de Senha',
+    assunto: 'Ação necessária: sua senha da rede expira em 24 horas',
+    remetenteNome: 'MicroCorp',
+    remetenteEmail: 'no-reply@microcorp.com',
+    isPredefinido: true,
+    categoria: 'Corporativo',
+    corpoHtml: `<!DOCTYPE html><html lang="pt"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="X-UA-Compatible" content="IE=edge"><title>Sua senha da rede expira em breve</title></head><body style="margin:0;padding:0;background-color:#f4f4f4;-webkit-text-size-adjust:100%;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;background-color:#f4f4f4;"><tbody><tr><td align="center" style="padding:20px;"><table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" align="center" style="border-collapse:collapse;width:600px;max-width:600px;background-color:#ffffff;border:1px solid #dddddd;font-family:'Segoe UI',Arial,Helvetica,sans-serif;"><tbody><tr><td style="padding:20px 20px 0 20px;"><table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;"><tbody><tr><td valign="middle" style="padding-right:8px;line-height:0;font-size:0;"><svg width="24" height="24" viewBox="0 0 21 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:block;"><path d="M10.5 0 L21 4 V11 C21 17 16.5 22 10.5 24 C4.5 22 0 17 0 11 V4 Z" fill="#0067b8"/><path d="M6 11 L9 14 L15 8" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></td><td valign="middle" style="font-family:'Segoe UI',Arial,Helvetica,sans-serif;font-size:15px;font-weight:600;color:#5e5e5e;">MicroCorp</td></tr></tbody></table></td></tr><tr><td style="padding:20px;font-family:'Segoe UI',Arial,Helvetica,sans-serif;font-size:14px;line-height:22px;color:#333333;"><p style="margin:0 0 16px 0;">Prezado(a) <strong>{{NOME}}</strong>,</p><p style="margin:0 0 16px 0;">Sua senha de acesso à rede expirará em <strong>24 horas</strong>.</p><p style="margin:0;">Para evitar o bloqueio da sua conta, atualize suas credenciais imediatamente no portal de segurança.</p></td></tr><tr><td align="center" style="padding:10px 20px 30px 20px;"><table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:separate;"><tbody><tr><td align="center" bgcolor="#0078d4" style="border-radius:4px;"><a href="{{LINK_PHISHING}}" target="_blank" style="display:inline-block;padding:12px 24px;font-family:'Segoe UI',Arial,Helvetica,sans-serif;font-size:14px;font-weight:bold;color:#ffffff;text-decoration:none;border-radius:4px;">Manter minha senha atual</a></td></tr></tbody></table></td></tr><tr><td style="padding:0 20px 20px 20px;font-family:'Segoe UI',Arial,Helvetica,sans-serif;font-size:12px;line-height:18px;color:#666666;">Equipe de TI - MicroCorp<br>Este é um e-mail automático.</td></tr></tbody></table></td></tr></tbody></table></body></html>`,
+  },
 ];
 
 // A isca "amazon-notificacao-geral" (Streaming) foi APOSENTADA por duplicidade com
@@ -1219,5 +1240,17 @@ export const simulationScenarios: SimulationScenario[] = [
       'E-mail de redefinição de senha que abre a página falsa de captura de nova senha do HBO Max.',
     emailTemplateId: 'hbomax-redefinicao-senha',
     landingTemplateId: 'hbomax-redefinicao-senha',
+  },
+  {
+    // Cenário MicroCorp (paródia fictícia, expiração de senha). Par completo:
+    // isca de e-mail 'microcorp-expiracao-senha' <-> página falsa 'microcorp-login'
+    // (ambas existem no catálogo). Preview emparelhado e disparo end-to-end funcionam.
+    id: 'cenario-microcorp',
+    nome: 'MicroCorp — Expiração de Senha',
+    categoria: 'Corporativo',
+    descricao:
+      'E-mail corporativo de expiração de senha da rede que leva à página falsa de login da MicroCorp.',
+    emailTemplateId: 'microcorp-expiracao-senha',
+    landingTemplateId: 'microcorp-login',
   },
 ];
