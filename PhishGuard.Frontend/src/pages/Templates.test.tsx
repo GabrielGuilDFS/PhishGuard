@@ -9,7 +9,8 @@ import Templates from './Templates';
 // falsa. Registrar/Descartar cenário foram REMOVIDOS desta tela: o par de linhas
 // (Templates + PhishingPages) nasce sob demanda ao salvar a campanha que o usa
 // (garantirCenario em Campaigns.tsx). Aqui a tela não escreve nada no backend.
-const CENARIO_AMAZON = 'Amazon — Alerta de Segurança';
+// Cenário renomeado para a paródia fictícia "amzprime" (compliance de IP).
+const CENARIO_AMAZON = 'amzprime — Alerta de Segurança';
 
 // A tela é 100% estática (não faz fetch): o mock existe só para flagrar qualquer
 // escrita indevida que uma regressão venha a introduzir.
@@ -40,7 +41,7 @@ describe('Templates (Biblioteca de Modelos)', () => {
 
     // Cenários do catálogo aparecem na tabela.
     expect(screen.getByText(CENARIO_AMAZON)).toBeInTheDocument();
-    expect(screen.getByText('Netflix — Atualização de Cobrança')).toBeInTheDocument();
+    expect(screen.getByText('NetsFlix — Atualização de Cobrança')).toBeInTheDocument();
     expect(screen.getByText('HBO Max — Redefinição de Senha')).toBeInTheDocument();
 
     // Nada de editor de HTML bruto (removido na refatoração).
