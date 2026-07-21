@@ -1224,7 +1224,7 @@ export interface SimulationScenario {
 export const simulationScenarios: SimulationScenario[] = [
   {
     id: 'cenario-amazon',
-    nome: 'AmzPrime — Alerta de Segurança',
+    nome: 'amzprime — Alerta de Segurança',
     categoria: 'Varejo',
     descricao:
       'E-mail de alerta de acesso incomum que direciona o alvo à página falsa de alteração de senha da amzprime (paródia fictícia).',
