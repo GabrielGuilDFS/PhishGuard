@@ -16,13 +16,23 @@ import LandingPage from './pages/LandingPage';
 import HomeLandingPage from './pages/HomeLandingPage';
 import CheckoutPage from './pages/CheckoutPage';
 import { educationalTemplates } from './data/educationalTemplates';
+import { feedbackTrainings } from './data/feedbackTrainings';
+import FeedbackTraining from './components/FeedbackTraining';
 
-// Rota padrão de feedback educacional: renderiza o molde educacional indicado por
-// ?template= (ex.: 'basico_phishing'), reutilizando o catálogo central estático em
-// data/educationalTemplates.ts — sem duplicar lógica de renderização.
+// Rota de feedback educacional resolvida por ?template=:
+//   1) se houver um treinamento INTERATIVO (Just-in-Time Training) para o id,
+//      renderiza o componente reutilizável <FeedbackTraining> (amzprime, etc.);
+//   2) senão, cai no catálogo estático legado (data/educationalTemplates.ts),
+//      mantendo compatibilidade com as iscas ainda não migradas.
 const EducationalFeedback = () => {
   const [searchParams] = useSearchParams();
   const templateId = searchParams.get('template') || 'basico_phishing';
+
+  const training = feedbackTrainings[templateId];
+  if (training) {
+    return <FeedbackTraining config={training} />;
+  }
+
   const molde = educationalTemplates.find((t) => t.id === templateId);
   const html = molde
     ? molde.html

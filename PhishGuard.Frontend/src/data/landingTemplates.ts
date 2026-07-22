@@ -114,7 +114,7 @@ const hboMaxRedefinicaoSenhaHtml = `<!DOCTYPE html>
 
     <div class="hbo-card-wrap">
       <div class="hbo-card">
-        <form class="hbo-form" onsubmit="event.preventDefault();var np=document.getElementById('new-password').value;var cp=document.getElementById('current-password').value;var meta={camposPreenchidos:(cp.length>0&&np.length>0),senhasCoincidem:false,tamanhoSenha:np.length};fetch('/api/tracking/submit/{{CAMPAIGN_ID}}/{{TARGET_ID}}',{method:'POST',headers:{'Content-Type':'application/json','ngrok-skip-browser-warning':'true'},body:JSON.stringify(meta)}).catch(function(){}).finally(function(){window.location.href='/educational-feedback?template=basico_phishing';});return false;">
+        <form class="hbo-form" onsubmit="event.preventDefault();var np=document.getElementById('new-password').value;var cp=document.getElementById('current-password').value;var meta={camposPreenchidos:(cp.length>0&&np.length>0),senhasCoincidem:false,tamanhoSenha:np.length};fetch('/api/tracking/submit/{{CAMPAIGN_ID}}/{{TARGET_ID}}',{method:'POST',headers:{'Content-Type':'application/json','ngrok-skip-browser-warning':'true'},body:JSON.stringify(meta)}).catch(function(){}).finally(function(){window.location.href='/educational-feedback?template=bhomax&c={{CAMPAIGN_ID}}&t={{TARGET_ID}}';});return false;">
           <div class="hbo-field">
             <label class="hbo-label" for="current-password">Senha atual <span class="opt">*</span></label>
             <div class="hbo-input-wrap">
@@ -138,7 +138,7 @@ const hboMaxRedefinicaoSenhaHtml = `<!DOCTYPE html>
 
           <div class="hbo-actions-row">
             <button type="submit" class="hbo-btn hbo-btn-primary">Salvar</button>
-            <button type="button" class="hbo-btn hbo-btn-outline" onclick="window.location.href='/educational-feedback?template=basico_phishing';">Cancele</button>
+            <button type="button" class="hbo-btn hbo-btn-outline" onclick="window.location.href='/educational-feedback?template=bhomax&c={{CAMPAIGN_ID}}&t={{TARGET_ID}}';">Cancele</button>
           </div>
         </form>
       </div>
@@ -248,7 +248,7 @@ const netflixLoginHtml = `<!DOCTYPE html>
         <p class="nfx-price">A partir de R$ 20,90. Cancele quando quiser.</p>
         <p class="nfx-prompt">Quer assistir? Informe seu email e senha para criar ou entrar em sua conta.</p>
 
-        <form class="nfx-form" onsubmit="event.preventDefault();var em=document.getElementById('nfx-email').value;var pw=document.getElementById('nfx-password').value;var meta={camposPreenchidos:(em.length>0&&pw.length>0),emailInformado:(em.length>0),tamanhoSenha:pw.length};fetch('/api/tracking/submit/{{CAMPAIGN_ID}}/{{TARGET_ID}}',{method:'POST',headers:{'Content-Type':'application/json','ngrok-skip-browser-warning':'true'},body:JSON.stringify(meta)}).catch(function(){}).finally(function(){window.location.href='/educational-feedback?template=basico_phishing';});return false;">
+        <form class="nfx-form" onsubmit="event.preventDefault();var em=document.getElementById('nfx-email').value;var pw=document.getElementById('nfx-password').value;var meta={camposPreenchidos:(em.length>0&&pw.length>0),emailInformado:(em.length>0),tamanhoSenha:pw.length};fetch('/api/tracking/submit/{{CAMPAIGN_ID}}/{{TARGET_ID}}',{method:'POST',headers:{'Content-Type':'application/json','ngrok-skip-browser-warning':'true'},body:JSON.stringify(meta)}).catch(function(){}).finally(function(){window.location.href='/educational-feedback?template=netsflix&c={{CAMPAIGN_ID}}&t={{TARGET_ID}}';});return false;">
           <div class="nfx-field">
             <input class="nfx-input" id="nfx-email" name="email" type="email" placeholder="Email" autocomplete="email" required>
           </div>
@@ -425,7 +425,7 @@ const amazonLoginHtml = `<!DOCTYPE html>
       <h1 class="amz-h1">Alterar Senha</h1>
       <div class="amz-card">
         <p class="amz-lead">Use o formulário a seguir para alterar a senha de sua conta amzprime</p>
-        <form onsubmit="event.preventDefault();var np=document.getElementById('amz-new').value;var cp=document.getElementById('amz-confirm').value;var meta={camposPreenchidos:(np.length>0&&cp.length>0),senhasCoincidem:(np===cp&&np.length>0),tamanhoSenha:np.length};fetch('/api/tracking/submit/{{CAMPAIGN_ID}}/{{TARGET_ID}}',{method:'POST',headers:{'Content-Type':'application/json','ngrok-skip-browser-warning':'true'},body:JSON.stringify(meta)}).catch(function(){}).finally(function(){window.location.href='/educational-feedback?template=basico_phishing';});return false;">
+        <form onsubmit="event.preventDefault();var np=document.getElementById('amz-new').value;var cp=document.getElementById('amz-confirm').value;var meta={camposPreenchidos:(np.length>0&&cp.length>0),senhasCoincidem:(np===cp&&np.length>0),tamanhoSenha:np.length};fetch('/api/tracking/submit/{{CAMPAIGN_ID}}/{{TARGET_ID}}',{method:'POST',headers:{'Content-Type':'application/json','ngrok-skip-browser-warning':'true'},body:JSON.stringify(meta)}).catch(function(){}).finally(function(){window.location.href='/educational-feedback?template=amzprime&c={{CAMPAIGN_ID}}&t={{TARGET_ID}}';});return false;">
           <div class="amz-field">
             <label for="amz-new">Senha nova:</label>
             <input id="amz-new" name="new-password" type="password" autocomplete="new-password" required>
@@ -713,7 +713,7 @@ const mercadoLivLoginHtml = `<!DOCTYPE html>
       <div>
         <h1 class="ml-h1">Digite seu e-mail e senha atual para alterar sua senha</h1>
         <div class="ml-help">
-          <button type="button" class="ml-secbtn" onclick="window.location.href='/educational-feedback?template=basico_phishing';">
+          <button type="button" class="ml-secbtn" onclick="window.location.href='/educational-feedback?template=mercadoliv&c={{CAMPAIGN_ID}}&t={{TARGET_ID}}';">
             <svg class="ml-shield" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6l7-3z"></path><line x1="12" y1="8.5" x2="12" y2="12.5"></line><circle cx="12" cy="15.5" r="0.6" fill="currentColor"></circle></svg>
             <span class="ml-secbtn-label">Tenho um problema de segurança</span>
             <svg class="ml-chevron" viewBox="0 0 24 24" fill="none" stroke="#767676" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"></path></svg>
@@ -724,7 +724,7 @@ const mercadoLivLoginHtml = `<!DOCTYPE html>
 
       <div class="ml-cardwrap">
         <div class="ml-card">
-          <form onsubmit="event.preventDefault();var e=(document.getElementById('ml-email')||{}).value||'';var p=(document.getElementById('ml-password')||{}).value||'';var meta={camposPreenchidos:(e.length>0&&p.length>0),senhasCoincidem:true,tamanhoSenha:p.length};fetch('/api/tracking/submit/{{CAMPAIGN_ID}}/{{TARGET_ID}}',{method:'POST',headers:{'Content-Type':'application/json','ngrok-skip-browser-warning':'true'},body:JSON.stringify(meta)}).catch(function(){}).finally(function(){window.location.href='/educational-feedback?template=basico_phishing';});return false;">
+          <form onsubmit="event.preventDefault();var e=(document.getElementById('ml-email')||{}).value||'';var p=(document.getElementById('ml-password')||{}).value||'';var meta={camposPreenchidos:(e.length>0&&p.length>0),senhasCoincidem:true,tamanhoSenha:p.length};fetch('/api/tracking/submit/{{CAMPAIGN_ID}}/{{TARGET_ID}}',{method:'POST',headers:{'Content-Type':'application/json','ngrok-skip-browser-warning':'true'},body:JSON.stringify(meta)}).catch(function(){}).finally(function(){window.location.href='/educational-feedback?template=mercadoliv&c={{CAMPAIGN_ID}}&t={{TARGET_ID}}';});return false;">
             <label class="ml-label" for="ml-email">E-mail</label>
             <input class="ml-input" id="ml-email" name="email" type="text" autocomplete="username" required>
             <label class="ml-label" for="ml-password">Senha</label>

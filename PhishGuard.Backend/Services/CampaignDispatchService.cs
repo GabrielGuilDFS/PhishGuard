@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -173,10 +174,26 @@ namespace PhishGuard.Backend.Services
                     var linkClique = $"{_baseTrackingUrl}/click/{campaign.Id}/{target.Id}";
                     var linkPixel = $"{_baseTrackingUrl}/open/{campaign.Id}/{target.Id}";
 
+                    // Expiração DINÂMICA do link (isca bho MAX): data/hora de ENVIO + 2h,
+                    // formatada no padrão "MMM dd, yyyy às hh:mm tt" (ex.: "Jul 22, 2026 às
+                    // 04:30 PM"). Placeholder inócuo para iscas que não o utilizam.
+                    var expiraEm = DateTime.Now.AddHours(2);
+                    var dataExpiracao = expiraEm.ToString("MMM dd, yyyy", CultureInfo.GetCultureInfo("en-US"))
+                        + " às " + expiraEm.ToString("hh:mm tt", CultureInfo.GetCultureInfo("en-US"));
+
+                    // Data/hora do "acesso detectado" (isca Mercado Liv): momento do ENVIO,
+                    // padrão pt-BR "dd/MM/yyyy às HH:mm (BRT)". Placeholder inócuo p/ iscas
+                    // que não o utilizam.
+                    var agora = DateTime.Now;
+                    var dataAcesso = agora.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture)
+                        + " às " + agora.ToString("HH:mm", CultureInfo.InvariantCulture) + " (BRT)";
+
                     var corpoPersonalizado = corpoBase
                         .Replace("{{NOME}}", target.Nome)
                         .Replace("{{LINK_PHISHING}}", linkClique)
-                        .Replace("{{LINK}}", linkClique);
+                        .Replace("{{LINK}}", linkClique)
+                        .Replace("{{DATA_EXPIRACAO}}", dataExpiracao)
+                        .Replace("{{DATA_ACESSO}}", dataAcesso);
                     corpoPersonalizado += $"<img src='{linkPixel}' width='1' height='1' style='display:none;' />";
 
                     message.Body = new BodyBuilder { HtmlBody = corpoPersonalizado }.ToMessageBody();

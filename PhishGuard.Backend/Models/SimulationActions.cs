@@ -24,5 +24,12 @@ namespace PhishGuard.Backend.Models
         public const string Abertura = "Abertura";
         public const string Clique = "Clique";
         public const string Submissao = "Submissão de Dados";
+
+        /// <summary>
+        /// Registrado quando o alvo finaliza a Tela Educacional de Feedback
+        /// (Just-in-Time Training) clicando em "Concluir Treinamento". Serve de
+        /// trilha de AUDITORIA de que o módulo de conscientização foi consumido.
+        /// </summary>
+        public const string TreinamentoConcluido = "Conclusão de Treinamento";
     }
 }

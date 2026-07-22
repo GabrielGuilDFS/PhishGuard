@@ -118,6 +118,22 @@ namespace PhishGuard.Backend.Controllers
             return Ok(new { status = "Inseriu Dados", redirectUrl = $"/educational-feedback?campaign={campaignId}" });
         }
 
+        [HttpPost("complete/{campaignId}/{targetId}")]
+        public async Task<IActionResult> TrackComplete(Guid campaignId, Guid targetId)
+        {
+            // Registra a CONCLUSÃO do módulo educacional (Just-in-Time Training) do alvo,
+            // gerando trilha de auditoria de que o treinamento foi consumido. Idempotente
+            // (RegistrarAcao ignora duplicatas) e anônimo — nenhum dado sensível é coletado.
+            var campaign = await RegistrarAcao(campaignId, targetId, SimulationActions.TreinamentoConcluido);
+
+            if (campaign == null)
+            {
+                return NotFound(new { message = "Campanha não encontrada ou link expirado." });
+            }
+
+            return Ok(new { status = "Treinamento concluído" });
+        }
+
         [HttpGet("educational/{campaignId}")]
         public async Task<IActionResult> GetEducational(Guid campaignId)
         {
