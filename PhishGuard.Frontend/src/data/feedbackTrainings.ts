@@ -505,4 +505,103 @@ export const feedbackTrainings: Record<string, FeedbackTrainingConfig> = {
       redirecionarPara: '/',
     },
   },
+
+  microsft365: {
+    id: 'microsft365',
+    marca: 'Microsft 365',
+    header: {
+      badge: 'Atenção: Esta foi uma simulação de treinamento de segurança do PhishGuard.',
+      titulo: 'Você interagiu com um e-mail de phishing simulado.',
+      mensagem:
+        'Nenhuma credencial corporativa foi alterada. Analise os pontos abaixo para ' +
+        'identificar como este ataque explora rotinas de TI.',
+    },
+    mockups: [
+      {
+        id: 'email',
+        titulo: 'O e-mail que você recebeu',
+        chrome: {
+          tipo: 'email',
+          remetenteNome: 'Microsft 365',
+          remetenteEmail: 'no-reply@microsft365.com',
+          assunto: 'Ação Necessária: Expiração de Senha',
+        },
+        html: resolverEmailHtml('microcorp-expiracao-senha'),
+        larguraLogica: 600,
+        altura: 460,
+        hotspots: [
+          { numero: 1, xPct: 20, yPct: 9, dica: 'Nome da marca com erro de digitação' },
+          { numero: 2, xPct: 52, yPct: 34, dica: 'Urgência artificial: expira em 24 horas' },
+          { numero: 3, xPct: 30, yPct: 60, dica: 'Botão leva a uma página externa' },
+          { numero: 4, xPct: 25, yPct: 74, dica: 'Assinatura de TI impessoal' },
+        ],
+      },
+      {
+        id: 'landing',
+        titulo: 'A página falsa de login corporativo',
+        chrome: {
+          tipo: 'navegador',
+          url: 'microsft365-portal-seguranca.help/entrar',
+          seguro: false,
+        },
+        html: resolverLandingHtml('microcorp-login'),
+        larguraLogica: 1024,
+        altura: 460,
+        hotspots: [
+          { numero: 5, xPct: 50, yPct: 55, dica: 'Pede e-mail e senha atual, sem 2FA' },
+        ],
+      },
+    ],
+    cards: [
+      {
+        numero: 1,
+        icone: '🔤',
+        titulo: 'Erro Sutil no Nome da Empresa',
+        pontos: [
+          "Observe a omissão da letra 'o' em 'Microsft 365'.",
+          'Atacantes usam pequenos erros de digitação (typosquatting) para enganar a leitura rápida do usuário.',
+        ],
+      },
+      {
+        numero: 2,
+        icone: '⏰',
+        titulo: 'Falso Alerta de Expiração de Senha',
+        pontos: [
+          "Avisos de expiração em '24 horas' criam senso de urgência para que o colaborador clique no botão antes de checar os canais oficiais de TI da empresa.",
+          'Na dúvida, procure o suporte de TI pelos canais internos oficiais — nunca pelo botão do e-mail.',
+        ],
+      },
+      {
+        numero: 3,
+        icone: '🔗',
+        titulo: 'Link Externo para Captura de Credenciais',
+        pontos: [
+          "O botão 'Manter minha senha atual' direciona para uma página externa de login que simula o portal da empresa para roubar a senha da sua conta corporativa.",
+          'Passe o mouse sobre o botão e confira o destino real antes de clicar.',
+        ],
+      },
+      {
+        numero: 4,
+        icone: '📧',
+        titulo: 'Remetente Automático e Sem Assinatura Oficial',
+        pontos: [
+          "O remetente 'no-reply@microsft365.com' imita a marca, mas não é o domínio corporativo real da sua empresa.",
+          "O rodapé traz apenas 'Equipe de TI' e 'e-mail automático', sem nome, ramal ou número de chamado — comunicações legítimas de TI costumam se identificar.",
+        ],
+      },
+      {
+        numero: 5,
+        icone: '🔑',
+        titulo: 'Portal Falso de Captura de Senha',
+        pontos: [
+          'A página pede seu e-mail e a senha atual da conta institucional, sem verificação em duas etapas (2FA).',
+          'É exatamente a credencial válida que o atacante precisa para acessar a rede corporativa.',
+        ],
+      },
+    ],
+    conclusao: {
+      label: 'Concluir Treinamento',
+      redirecionarPara: '/',
+    },
+  },
 };

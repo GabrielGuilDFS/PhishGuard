@@ -1150,25 +1150,28 @@ Amazon.com, Amazon.com.br, a logo de Amazon.com são marcas comerciais registrad
     corpoHtml: `<!DOCTYPE html><html lang="pt"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="X-UA-Compatible" content="IE=edge"><title>Alerta de segurança</title><style>@import url('https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;700;800&display=swap');</style></head><body style="margin:0;padding:0;background-color:#eaeded;-webkit-text-size-adjust:100%;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;background-color:#eaeded;"><tbody><tr><td align="center" style="padding:16px;"><table role="presentation" width="600" cellpadding="0" cellspacing="0" style="border-collapse:collapse;width:600px;max-width:600px;background-color:#ffffff;border-radius:8px;overflow:hidden;font-family:'Nunito Sans',Arial,Helvetica,sans-serif;"><tbody><tr><td style="padding:20px 40px;border-bottom:1px solid #e7e7e7;"><a href="{{LINK_PHISHING}}" target="_blank" style="text-decoration:none;" aria-label="amzprime"><span style="display:inline-block;font-family:'Nunito Sans',Arial,Helvetica,sans-serif;font-size:30px;font-weight:800;letter-spacing:-1px;line-height:46px;"><span style="color:#232F3E;">amz</span><span style="color:#00A8E1;">prime</span></span></a></td></tr><tr><td style="padding:32px 40px 4px 40px;"><h1 style="margin:0;font-size:24px;line-height:30px;font-weight:700;color:#0f1111;">Alerta de segurança</h1></td></tr><tr><td style="padding:12px 40px 0 40px;"><p style="margin:0 0 16px 0;font-size:15px;line-height:22px;color:#0f1111;">Olá,</p><p style="margin:0 0 16px 0;font-size:15px;line-height:22px;color:#0f1111;">Detectamos uma tentativa de acesso incomum à sua conta amzprime a partir de um dispositivo não reconhecido. Para manter sua conta protegida, recomendamos alterar sua senha imediatamente.</p></td></tr><tr><td style="padding:8px 40px 0 40px;"><table role="presentation" cellpadding="0" cellspacing="0" style="border-collapse:separate;"><tbody><tr><td style="border-radius:8px;background-color:#ffd814;box-shadow:0 1px 2px rgba(15,17,17,0.15);"><a href="{{LINK_PHISHING}}" target="_blank" style="display:inline-block;padding:12px 28px;font-size:14px;font-weight:700;color:#0f1111;text-decoration:none;border-radius:8px;">Alterar sua senha</a></td></tr></tbody></table></td></tr><tr><td style="padding:24px 40px 32px 40px;"><p style="margin:0 0 8px 0;font-size:13px;line-height:20px;color:#565959;">Se você não reconhece essa atividade, revise as configurações de segurança em Sua Conta. Este é um lembrete automático de segurança.</p><p style="margin:0;font-size:13px;line-height:20px;color:#565959;">Obrigado,<br>Equipe de Segurança amzprime</p></td></tr><tr><td style="padding:20px 40px;background-color:#f0f2f2;border-top:1px solid #e7e7e7;"><p style="margin:0;font-size:11px;line-height:16px;color:#565959;">&copy;2026 amzprime. Todos os direitos reservados. &middot; CNPJ 89.310.598/4938-29.</p></td></tr></tbody></table></td></tr></tbody></table></body></html>`,
   },
   {
-    // Isca corporativa FICTÍCIA "MicroCorp" (paródia de expiração de senha da rede) —
-    // paródia de alta fidelidade SEM propriedade intelectual real (compliance de IP):
-    // nenhuma menção "Microsoft" nem o logotipo oficial dos 4 quadrados. A marca é o
-    // escudo azul com check (SVG nativo, 24x24). HTML seguro para e-mail: 100% <table> +
-    // estilos inline, NUNCA Tailwind (clientes de e-mail não rodam a esteira do Vite).
-    // O link de clique usa {{LINK_PHISHING}} e o nome {{NOME}} — ambos resolvidos
-    // server-side no disparo (CampaignDispatchService), que também ANEXA o pixel de
-    // abertura; por isso este corpo NÃO embute UUIDs de tracking nem a tag <img> de open.
-    // CAVEAT: <svg> inline NÃO rasteriza no Outlook desktop (Word engine); nesses clientes
-    // a célula do escudo fica vazia ao lado do texto "MicroCorp", sem quebrar o layout —
-    // trade-off assumido por exigência da identidade visual da marca fictícia.
+    // Isca corporativa FICTÍCIA "Microsft 365" (paródia B2B de expiração de senha da
+    // rede/Office) — typosquatting proposital ("Microsft", sem o segundo "o") como vetor
+    // didático central. Paródia de alta fidelidade SEM propriedade intelectual real
+    // (compliance de IP): sem a grafia correta "Microsoft 365". A marca é o wordmark
+    // "Microsft 365" ao lado de um logotipo-paródia = grid 2x2 de 4 quadrados coloridos
+    // (tons ADAPTADOS de vermelho/verde/azul/amarelo, não os hexes oficiais). O logo é uma
+    // <table> aninhada (NÃO <svg>), então rasteriza até no Outlook desktop (Word engine).
+    // HTML seguro para e-mail: 100% <table> + estilos inline, NUNCA Tailwind (clientes de
+    // e-mail não rodam a esteira do Vite). Placeholders {{NOME}}/{{LINK_PHISHING}} e a data
+    // dinâmica {{DATA_ACESSO}} (dd/MM/yyyy às HH:mm) são resolvidos server-side no disparo
+    // (CampaignDispatchService), que também ANEXA o pixel de abertura; por isso este corpo
+    // NÃO embute UUIDs de tracking nem a tag <img> de open. O id permanece
+    // 'microcorp-expiracao-senha' (slug interno ESTÁVEL; renomear quebraria campanhas
+    // legadas que já o referenciam) — apenas a identidade visual e o texto mudaram.
     id: 'microcorp-expiracao-senha',
-    nome: 'MicroCorp - Expiração de Senha',
-    assunto: 'Ação necessária: sua senha da rede expira em 24 horas',
-    remetenteNome: 'MicroCorp',
-    remetenteEmail: 'no-reply@microcorp.com',
+    nome: 'Microsft 365 - Expiração de Senha',
+    assunto: 'Ação Necessária: Expiração de Senha',
+    remetenteNome: 'Microsft 365',
+    remetenteEmail: 'no-reply@microsft365.com',
     isPredefinido: true,
     categoria: 'Corporativo',
-    corpoHtml: `<!DOCTYPE html><html lang="pt"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="X-UA-Compatible" content="IE=edge"><title>Sua senha da rede expira em breve</title></head><body style="margin:0;padding:0;background-color:#f4f4f4;-webkit-text-size-adjust:100%;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;background-color:#f4f4f4;"><tbody><tr><td align="center" style="padding:20px;"><table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" align="center" style="border-collapse:collapse;width:600px;max-width:600px;background-color:#ffffff;border:1px solid #dddddd;font-family:'Segoe UI',Arial,Helvetica,sans-serif;"><tbody><tr><td style="padding:20px 20px 0 20px;"><table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;"><tbody><tr><td valign="middle" style="padding-right:8px;line-height:0;font-size:0;"><svg width="24" height="24" viewBox="0 0 21 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:block;"><path d="M10.5 0 L21 4 V11 C21 17 16.5 22 10.5 24 C4.5 22 0 17 0 11 V4 Z" fill="#0067b8"/><path d="M6 11 L9 14 L15 8" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></td><td valign="middle" style="font-family:'Segoe UI',Arial,Helvetica,sans-serif;font-size:15px;font-weight:600;color:#5e5e5e;">MicroCorp</td></tr></tbody></table></td></tr><tr><td style="padding:20px;font-family:'Segoe UI',Arial,Helvetica,sans-serif;font-size:14px;line-height:22px;color:#333333;"><p style="margin:0 0 16px 0;">Prezado(a) <strong>{{NOME}}</strong>,</p><p style="margin:0 0 16px 0;">Sua senha de acesso à rede expirará em <strong>24 horas</strong>.</p><p style="margin:0;">Para evitar o bloqueio da sua conta, atualize suas credenciais imediatamente no portal de segurança.</p></td></tr><tr><td align="center" style="padding:10px 20px 30px 20px;"><table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:separate;"><tbody><tr><td align="center" bgcolor="#0078d4" style="border-radius:4px;"><a href="{{LINK_PHISHING}}" target="_blank" style="display:inline-block;padding:12px 24px;font-family:'Segoe UI',Arial,Helvetica,sans-serif;font-size:14px;font-weight:bold;color:#ffffff;text-decoration:none;border-radius:4px;">Manter minha senha atual</a></td></tr></tbody></table></td></tr><tr><td style="padding:0 20px 20px 20px;font-family:'Segoe UI',Arial,Helvetica,sans-serif;font-size:12px;line-height:18px;color:#666666;">Equipe de TI - MicroCorp<br>Este é um e-mail automático.</td></tr></tbody></table></td></tr></tbody></table></body></html>`,
+    corpoHtml: `<!DOCTYPE html><html lang="pt"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="X-UA-Compatible" content="IE=edge"><title>Sua senha de acesso à rede expira em breve</title></head><body style="margin:0;padding:0;background-color:#f4f4f4;-webkit-text-size-adjust:100%;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;background-color:#f4f4f4;"><tbody><tr><td align="center" style="padding:20px;"><table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" align="center" style="border-collapse:collapse;width:600px;max-width:600px;background-color:#ffffff;border:1px solid #dddddd;font-family:'Segoe UI',Arial,Helvetica,sans-serif;"><tbody><tr><td style="padding:20px 20px 0 20px;"><table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;"><tbody><tr><td valign="middle" style="padding-right:8px;line-height:0;font-size:0;"><table role="presentation" cellpadding="0" cellspacing="2" border="0" style="border-collapse:separate;"><tbody><tr><td width="11" height="11" style="width:11px;height:11px;background-color:#e8452a;line-height:0;font-size:0;">&nbsp;</td><td width="11" height="11" style="width:11px;height:11px;background-color:#6faf12;line-height:0;font-size:0;">&nbsp;</td></tr><tr><td width="11" height="11" style="width:11px;height:11px;background-color:#1b9de0;line-height:0;font-size:0;">&nbsp;</td><td width="11" height="11" style="width:11px;height:11px;background-color:#f5a800;line-height:0;font-size:0;">&nbsp;</td></tr></tbody></table></td><td valign="middle" style="font-family:'Segoe UI',Arial,Helvetica,sans-serif;font-size:15px;font-weight:600;color:#5e5e5e;">Microsft 365</td></tr></tbody></table></td></tr><tr><td style="padding:20px;font-family:'Segoe UI',Arial,Helvetica,sans-serif;font-size:14px;line-height:22px;color:#333333;"><p style="margin:0 0 16px 0;">Prezado(a) <strong>{{NOME}}</strong>,</p><p style="margin:0 0 16px 0;">Sua senha de acesso à rede e ao Office expira em <strong>24 horas</strong>.</p><p style="margin:0 0 16px 0;">Para evitar o bloqueio da sua conta corporativa, confirme suas credenciais no portal de segurança e mantenha sua senha atual ativa.</p><p style="margin:0;font-size:13px;color:#666666;">Solicitação registrada em {{DATA_ACESSO}}.</p></td></tr><tr><td align="center" style="padding:10px 20px 30px 20px;"><table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:separate;"><tbody><tr><td align="center" bgcolor="#0078d4" style="border-radius:4px;"><a href="{{LINK_PHISHING}}" target="_blank" style="display:inline-block;padding:12px 24px;font-family:'Segoe UI',Arial,Helvetica,sans-serif;font-size:14px;font-weight:bold;color:#ffffff;text-decoration:none;border-radius:4px;">Manter minha senha atual</a></td></tr></tbody></table></td></tr><tr><td style="padding:0 20px 20px 20px;font-family:'Segoe UI',Arial,Helvetica,sans-serif;font-size:12px;line-height:18px;color:#666666;">Equipe de TI - Microsft 365<br>Este é um e-mail automático.</td></tr></tbody></table></td></tr></tbody></table></body></html>`,
   },
   {
     // Isca FICTÍCIA "Mercado Liv" (paródia do Mercado Livre p/ compliance de IP; vetor
@@ -1265,16 +1268,20 @@ export const simulationScenarios: SimulationScenario[] = [
     feedbackTemplateId: 'bhomax',
   },
   {
-    // Cenário MicroCorp (paródia fictícia, expiração de senha). Par completo:
+    // Cenário Microsft 365 (paródia B2B fictícia, expiração de senha). Par completo:
     // isca de e-mail 'microcorp-expiracao-senha' <-> página falsa 'microcorp-login'
-    // (ambas existem no catálogo). Preview emparelhado e disparo end-to-end funcionam.
+    // (slugs internos mantidos por estabilidade; a marca exibida é "Microsft 365").
+    // Preview emparelhado e disparo end-to-end funcionam.
     id: 'cenario-microcorp',
-    nome: 'MicroCorp — Expiração de Senha',
+    nome: 'Microsft 365 — Expiração de Senha',
     categoria: 'Corporativo',
     descricao:
-      'E-mail corporativo de expiração de senha da rede que leva à página falsa de login da MicroCorp.',
+      'E-mail corporativo de expiração de senha da rede/Office que leva à página falsa de login do Microsft 365 (paródia fictícia).',
     emailTemplateId: 'microcorp-expiracao-senha',
     landingTemplateId: 'microcorp-login',
+    // Treinamento INTERATIVO (Just-in-Time) — a landing Microsft 365 redireciona para
+    // /educational-feedback?template=microsft365.
+    feedbackTemplateId: 'microsft365',
   },
   {
     // Cenário Mercado Liv (paródia fictícia, vetor e-commerce/marketplace). Par completo:

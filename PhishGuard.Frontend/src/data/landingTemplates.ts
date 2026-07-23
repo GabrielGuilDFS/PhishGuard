@@ -509,25 +509,26 @@ const amazonLoginHtml = `<!DOCTYPE html>
 </html>`;
 
 // ---------------------------------------------------------------------------
-// LANDING FICTÍCIA "MicroCorp" — reprodução fiel da página falsa de origem em
-// `.paginaFalsa/` (app v0 "Recuperar sua conta"), consolidada em UMA string HTML com
-// CSS embutido (as demais landings seguem o mesmo padrão; classes Tailwind não
-// compilam no HTML injetado por dangerouslySetInnerHTML nem no preview em iframe).
-// Par da isca de e-mail 'microcorp-expiracao-senha' -> cenário 'cenario-microcorp'.
-// SEM propriedade intelectual real: identidade é o escudo azul + wordmark "MicroCorp"
-// (a fonte v0 trazia "MircroCorp", typo corrigido para casar com o resto do sistema).
-// Telemetria: mesmo padrão de HBO/Netflix/Amazon — <form onsubmit> inline (funciona
-// sob dangerouslySetInnerHTML, ao contrário de <script>) dispara
+// LANDING FICTÍCIA "Microsft 365" — página falsa de login corporativo (par da isca de
+// e-mail 'microcorp-expiracao-senha' -> cenário 'cenario-microcorp'). Consolidada em UMA
+// string HTML com CSS embutido (as demais landings seguem o mesmo padrão; classes
+// Tailwind não compilam no HTML injetado por dangerouslySetInnerHTML nem no preview em
+// iframe). SEM propriedade intelectual real: identidade é o logotipo-paródia (grid 2x2 de
+// 4 quadrados coloridos em tons ADAPTADOS) + wordmark "Microsft 365" (typosquatting
+// proposital — sem o segundo "o"), espelhando o e-mail. O slug do id permanece
+// 'microcorp-login' por estabilidade (renomear quebraria campanhas legadas).
+// Telemetria: mesmo padrão de HBO/Netflix/Amazon/Mercado Liv — <form onsubmit> inline
+// (funciona sob dangerouslySetInnerHTML, ao contrário de <script>) dispara
 // POST /api/tracking/submit/{{CAMPAIGN_ID}}/{{TARGET_ID}} enviando APENAS metadados de
-// validação (flags + tamanho) — NUNCA e-mail/senha reais (LGPD) — e redireciona para
-// /educational-feedback?template=basico_phishing.
+// validação (flags + tamanho) — NUNCA e-mail/senha reais (LGPD) — e redireciona para o
+// treinamento interativo /educational-feedback?template=microsft365 (com c/t p/ auditoria).
 // ---------------------------------------------------------------------------
 const microCorpLoginHtml = `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Recuperar sua conta | MicroCorp</title>
+<title>Recuperar sua conta | Microsft 365</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
@@ -551,7 +552,8 @@ const microCorpLoginHtml = `<!DOCTYPE html>
     box-shadow: 0 2px 6px rgba(0,0,0,0.2);
   }
   .mc-brand { display: flex; align-items: center; gap: 8px; }
-  .mc-brand svg { display: block; }
+  .mc-logo { display: grid; grid-template-columns: 11px 11px; grid-template-rows: 11px 11px; gap: 2px; }
+  .mc-logo i { display: block; width: 11px; height: 11px; }
   .mc-brand span { font-size: 15px; font-weight: 600; color: #5e5e5e; }
   .mc-title { margin-top: 24px; font-size: 24px; font-weight: 600; line-height: 1.2; color: #1b1b1b; }
   .mc-desc { margin-top: 16px; font-size: 15px; line-height: 1.4; color: #1b1b1b; }
@@ -603,11 +605,13 @@ const microCorpLoginHtml = `<!DOCTYPE html>
 <body>
   <div class="mc-card">
     <div class="mc-brand">
-      <svg width="21" height="24" viewBox="0 0 21 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-        <path d="M10.5 0 L21 4 V11 C21 17 16.5 22 10.5 24 C4.5 22 0 17 0 11 V4 Z" fill="#0067b8"/>
-        <path d="M6 12 L9.2 15.2 L15 8.5" fill="none" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
-      </svg>
-      <span>MicroCorp</span>
+      <div class="mc-logo" aria-hidden="true">
+        <i style="background:#e8452a"></i>
+        <i style="background:#6faf12"></i>
+        <i style="background:#1b9de0"></i>
+        <i style="background:#f5a800"></i>
+      </div>
+      <span>Microsft 365</span>
     </div>
 
     <h1 class="mc-title">Recuperar sua conta</h1>
@@ -617,7 +621,7 @@ const microCorpLoginHtml = `<!DOCTYPE html>
     <!-- Telemetria segura: intercepta o submit, envia SOMENTE metadados (flags/tamanho),
          nunca e-mail/senha reais, e encaminha para o treinamento de conscientização. -->
     <form class="mc-form"
-      onsubmit="event.preventDefault();var qs=new URLSearchParams(window.location.search);var c='{{CAMPAIGN_ID}}'||qs.get('c')||'';var t='{{TARGET_ID}}'||qs.get('t')||'';var e=(document.getElementById('mc-email')||{}).value||'';var p=(document.getElementById('mc-password')||{}).value||'';var meta={camposPreenchidos:(e.length>0&&p.length>0),senhasCoincidem:true,tamanhoSenha:p.length};fetch('/api/tracking/submit/'+c+'/'+t,{method:'POST',headers:{'Content-Type':'application/json','ngrok-skip-browser-warning':'true'},body:JSON.stringify(meta)}).catch(function(){}).finally(function(){window.location.href='/educational-feedback?template=basico_phishing';});return false;">
+      onsubmit="event.preventDefault();var qs=new URLSearchParams(window.location.search);var c='{{CAMPAIGN_ID}}'||qs.get('c')||'';var t='{{TARGET_ID}}'||qs.get('t')||'';var e=(document.getElementById('mc-email')||{}).value||'';var p=(document.getElementById('mc-password')||{}).value||'';var meta={camposPreenchidos:(e.length>0&&p.length>0),senhasCoincidem:true,tamanhoSenha:p.length};fetch('/api/tracking/submit/'+c+'/'+t,{method:'POST',headers:{'Content-Type':'application/json','ngrok-skip-browser-warning':'true'},body:JSON.stringify(meta)}).catch(function(){}).finally(function(){window.location.href='/educational-feedback?template=microsft365&c='+encodeURIComponent(c)+'&t='+encodeURIComponent(t);});return false;">
 
       <div class="mc-field">
         <input class="mc-input" id="mc-email" name="email" type="text" autocomplete="username" placeholder="Email" aria-label="Email" required>
@@ -628,7 +632,7 @@ const microCorpLoginHtml = `<!DOCTYPE html>
       </div>
 
       <div class="mc-actions">
-        <button type="button" class="mc-btn mc-btn-secondary" onclick="window.location.href='/educational-feedback?template=basico_phishing';">Cancelar</button>
+        <button type="button" class="mc-btn mc-btn-secondary" onclick="window.location.href='/educational-feedback?template=microsft365&c={{CAMPAIGN_ID}}&t={{TARGET_ID}}';">Cancelar</button>
         <button type="submit" class="mc-btn mc-btn-primary">Avançar</button>
       </div>
     </form>
@@ -767,7 +771,7 @@ export const landingTemplates: TemplateModel[] = [
   },
   {
     id: 'microcorp-login',
-    nome: 'MicroCorp - Entrar na conta',
+    nome: 'Microsft 365 - Entrar na conta',
     categoria: 'Corporativo',
     html: microCorpLoginHtml,
   },
