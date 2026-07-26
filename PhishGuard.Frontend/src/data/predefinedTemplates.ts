@@ -1410,8 +1410,8 @@ export const simulationScenarios: SimulationScenario[] = [
       'E-mail de alerta de novo acesso à conta (estilo e-commerce) da Mercado Liv (paródia fictícia). Página falsa e tela educacional em desenvolvimento.',
     emailTemplateId: 'mercadoliv-novo-acesso',
     landingTemplateId: 'mercadoliv-login',
-    // Molde ESTÁTICO placeholder (educationalTemplates) — ainda não é um treinamento
-    // interativo. Exibe o card "Página em desenvolvimento".
-    feedbackTemplateId: 'mercadoliv-em-desenvolvimento',
+    // Treinamento INTERATIVO (Just-in-Time) — a landing Mercado Liv redireciona para
+    // /educational-feedback?template=mercadoliv (config em feedbackTrainings).
+    feedbackTemplateId: 'mercadoliv',
   },
 ];

@@ -504,6 +504,110 @@ export const feedbackTrainings: Record<string, FeedbackTrainingConfig> = {
       redirecionarPara: '/',
     },
   },
+
+  mercadoliv: {
+    id: 'mercadoliv',
+    marca: 'Mercado Liv',
+    header: {
+      badge: 'Atenção: Esta foi uma simulação de treinamento de segurança do PhishGuard.',
+      titulo: 'Você interagiu com um e-mail de phishing simulado.',
+      mensagem:
+        'Nenhum dado real foi comprometido — apenas a interação foi registrada. Golpes ' +
+        'que se passam por lojas e serviços de pagamento são comuns; use os pontos abaixo ' +
+        'para reconhecer esse tipo de ataque e proteger sua conta no futuro.',
+    },
+    mockups: [
+      {
+        id: 'email',
+        titulo: 'O e-mail que você recebeu',
+        chrome: {
+          tipo: 'email',
+          remetenteNome: 'Mercado Liv',
+          remetenteEmail: 'seguranca@mercadoliv.com',
+          assunto: 'Detectamos um novo acesso à sua conta',
+        },
+        html: resolverEmailHtml('mercadoliv-novo-acesso'),
+        larguraLogica: 640,
+        altura: 460,
+        hotspots: [
+          { numero: 1, xPct: 30, yPct: 6, dica: 'Domínio do remetente não é o oficial' },
+          { numero: 2, xPct: 45, yPct: 24, dica: 'Alerta falso de "novo acesso" gera pânico' },
+          { numero: 3, xPct: 30, yPct: 60, dica: 'Passe o mouse no botão antes de clicar' },
+        ],
+      },
+      {
+        id: 'landing',
+        titulo: 'A página falsa de login',
+        chrome: {
+          tipo: 'navegador',
+          url: 'mercadoliv-conta-verificar.help/login',
+          seguro: false,
+        },
+        html: resolverLandingHtml('mercadoliv-login'),
+        larguraLogica: 1024,
+        altura: 460,
+        hotspots: [
+          { numero: 4, xPct: 74, yPct: 42, dica: 'Pede e-mail e senha sem 2FA' },
+        ],
+      },
+    ],
+    cards: [
+      {
+        numero: 1,
+        icone: '📧',
+        titulo: 'Domínio do Remetente',
+        pontos: [
+          'O e-mail veio de "seguranca@mercadoliv.com" — um domínio que imita a marca, mas não é o oficial.',
+          'Confira sempre o endereço completo do remetente; pequenas variações de letras denunciam a fraude.',
+          'O nome de exibição ("Mercado Liv") é fácil de falsificar — o que importa é o domínio real.',
+        ],
+      },
+      {
+        numero: 2,
+        icone: '🚨',
+        titulo: 'Urgência e Alerta Falso',
+        pontos: [
+          'A mensagem de "novo acesso à sua conta" cria pânico para você agir por impulso.',
+          'Golpes de e-commerce exploram o medo de conta invadida para acelerar o clique.',
+          'Na dúvida, respire: comunicações legítimas não punem você por verificar com calma.',
+        ],
+      },
+      {
+        numero: 3,
+        icone: '🔗',
+        titulo: 'Links e Botões',
+        pontos: [
+          'Antes de clicar em "Redefinir Senha de Acesso", passe o mouse sobre o botão e confira a URL real (no rodapé do navegador).',
+          'Se o endereço não for o site oficial que você mesmo digitaria, não clique.',
+          'Prefira acessar a loja pelo app ou digitando o endereço oficial no navegador.',
+        ],
+      },
+      {
+        numero: 4,
+        icone: '🔑',
+        titulo: 'Página Falsa sem 2FA',
+        pontos: [
+          'A página de login pedia e-mail e senha diretamente, sem verificação em duas etapas (2FA).',
+          'É exatamente a credencial que o golpista quer para acessar sua conta e meios de pagamento.',
+          'Nunca digite sua senha em uma página aberta a partir de um link de e-mail.',
+        ],
+      },
+      {
+        numero: 5,
+        icone: '🛡️',
+        titulo: 'Boas Práticas (E-commerce e Pagamentos)',
+        pontos: [
+          'Ative a autenticação em dois fatores (2FA) nas suas contas de compras e pagamentos.',
+          'Na dúvida, abra o app/site oficial você mesmo e verifique as notificações lá — nunca pelo botão do e-mail.',
+          'Nunca compartilhe códigos de verificação ou senhas por e-mail, telefone ou chat.',
+        ],
+      },
+    ],
+    conclusao: {
+      label: 'Concluir Treinamento',
+      redirecionarPara: '/',
+    },
+  },
 };
 
 // ============================================================================

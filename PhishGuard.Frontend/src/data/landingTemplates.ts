@@ -750,9 +750,9 @@ const mercadoLivLoginHtml = `<!DOCTYPE html>
         <div class="ml-card">
           <!-- TELEMETRIA (LGPD): o submit envia SOMENTE metadados de validacao (flags/tamanho),
                NUNCA e-mail/senha reais. Dispara POST /api/tracking/submit/{campanha}/{alvo} e
-               entao redireciona para a Tela Educacional do cenario (mercadoliv-em-desenvolvimento).
+               entao redireciona para a Tela Educacional do cenario (template=mercadoliv).
                Handler inline (funciona sob dangerouslySetInnerHTML; script nao executa). -->
-          <form onsubmit="event.preventDefault();var qs=new URLSearchParams(window.location.search);var c='{{CAMPAIGN_ID}}'||qs.get('c')||'';var t='{{TARGET_ID}}'||qs.get('t')||'';var e=(document.getElementById('ml-email')||{}).value||'';var p=(document.getElementById('ml-password')||{}).value||'';var meta={camposPreenchidos:(e.length>0&&p.length>0),senhasCoincidem:true,tamanhoSenha:p.length};fetch('/api/tracking/submit/'+c+'/'+t,{method:'POST',headers:{'Content-Type':'application/json','ngrok-skip-browser-warning':'true'},body:JSON.stringify(meta)}).catch(function(){}).finally(function(){window.location.href='/educational-feedback?template=mercadoliv-em-desenvolvimento&c='+encodeURIComponent(c)+'&t='+encodeURIComponent(t);});return false;">
+          <form onsubmit="event.preventDefault();var qs=new URLSearchParams(window.location.search);var c='{{CAMPAIGN_ID}}'||qs.get('c')||'';var t='{{TARGET_ID}}'||qs.get('t')||'';var e=(document.getElementById('ml-email')||{}).value||'';var p=(document.getElementById('ml-password')||{}).value||'';var meta={camposPreenchidos:(e.length>0&&p.length>0),senhasCoincidem:true,tamanhoSenha:p.length};fetch('/api/tracking/submit/'+c+'/'+t,{method:'POST',headers:{'Content-Type':'application/json','ngrok-skip-browser-warning':'true'},body:JSON.stringify(meta)}).catch(function(){}).finally(function(){window.location.href='/educational-feedback?template=mercadoliv&c='+encodeURIComponent(c)+'&t='+encodeURIComponent(t);});return false;">
             <label class="ml-label" for="ml-email">E-mail</label>
             <input class="ml-input" id="ml-email" name="email" type="text" autocomplete="username" required>
             <label class="ml-label" for="ml-password">Senha</label>
