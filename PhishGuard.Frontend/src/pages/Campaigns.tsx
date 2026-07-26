@@ -14,7 +14,7 @@ import DoneAllIcon from '@mui/icons-material/DoneAll';
 import ClearAllIcon from '@mui/icons-material/ClearAll';
 import { simulationScenarios, templatesPredefinidos, type SimulationScenario } from '../data/predefinedTemplates';
 import { landingTemplates } from '../data/landingTemplates';
-import { educationalTemplates } from '../data/educationalTemplates';
+import { resolverPaginaEducativaDoCenario } from '../data/feedbackTrainings';
 import { CampaignStatus } from '../data/campaignStatus';
 import { useNotify } from '../context/NotificationContext';
 
@@ -43,8 +43,6 @@ interface LookupItem {
     corpoHtml?: string;    // Templates: carrega o id da isca de e-mail.
     conteudoHtml?: string; // PhishingPages/EducationalPages: id da landing / html educativo.
 }
-
-type EduMolde = (typeof educationalTemplates)[number];
 
 // Resumo da importação de CSV (Fase 4 — feedback ao usuário).
 interface ImportSummary {
@@ -209,7 +207,6 @@ export default function Campaigns() {
         dataInicio: '',
         dataFim: '',
         cenario: null as SimulationScenario | null,
-        educationalMolde: null as EduMolde | null,
         targetsSelecionados: [] as LookupItem[]
     });
 
@@ -348,15 +345,13 @@ export default function Campaigns() {
                         ? simulationScenarios.find((s) => s.emailTemplateId === emailRowDaCampanha.corpoHtml) ?? null
                         : null;
 
-                    // Reconstrói o molde educativo (catálogo estático) a partir do nome persistido.
-                    const moldeReconstruido = educationalTemplates.find(m => m.nome === data.educationalPageNome) ?? null;
-
+                    // A página educativa NÃO é mais escolhida manualmente: ela deriva 1:1 do
+                    // cenário (feedbackTemplateId) e é provisionada no salvar — nada a reconstruir aqui.
                     setFormData({
                         nomeCampanha: data.nomeCampanha || '',
                         dataInicio: toDateTimeLocal(data.dataInicio),
                         dataFim: toDateTimeLocal(data.dataFim),
                         cenario: cenarioReconstruido,
-                        educationalMolde: moldeReconstruido,
                         targetsSelecionados: alvosPreSelecionados
                     });
                 }
@@ -371,7 +366,6 @@ export default function Campaigns() {
                 dataInicio: toDateTimeLocal(new Date().toISOString()),
                 dataFim: '',
                 cenario: null,
-                educationalMolde: null,
                 targetsSelecionados: []
             });
         }
@@ -421,35 +415,40 @@ export default function Campaigns() {
         return { emailRowId: emailRow.id, landingRowId: landingRow.id };
     };
 
-    // Fase 1: provisiona a linha de EducationalPages sob demanda (find-or-create). O admin
-    // não precisa mais "registrar" o molde manualmente na Biblioteca de Modelos.
-    const garantirPaginaEducativa = async (molde: EduMolde): Promise<string> => {
-        const existente = educationalPages.find(p => p.conteudoHtml === molde.html);
+    // Provisiona a linha de EducationalPages sob demanda (find-or-create), derivando o
+    // conteúdo do CENÁRIO (vínculo 1:1 via feedbackTemplateId) — não há mais escolha manual.
+    // A FK educationalPageId é obrigatória no backend; esta linha a satisfaz de forma
+    // transparente. Idempotência pela chave estável `descritor.html` (uma linha por treinamento).
+    const garantirPaginaEducativa = async (cenario: SimulationScenario): Promise<string> => {
+        const descritor = resolverPaginaEducativaDoCenario(cenario);
+
+        const existente = educationalPages.find(p => p.conteudoHtml === descritor.html);
         if (existente) return existente.id;
 
         const res = await fetch(`${API_BASE}/EducationalPages`, {
             method: 'POST', headers,
-            body: JSON.stringify({ nome: molde.nome, conteudoHtml: molde.html }),
+            body: JSON.stringify({ nome: descritor.nome, conteudoHtml: descritor.html }),
         });
         if (!res.ok) throw new Error(await extrairMensagemDeErro(res));
         const nova = await res.json();
-        setEducationalPages(prev => [...prev, { id: nova.id, nome: nova.nome, conteudoHtml: molde.html }]);
+        setEducationalPages(prev => [...prev, { id: nova.id, nome: nova.nome, conteudoHtml: descritor.html }]);
         return nova.id;
     };
 
     const handleSave = async () => {
         if (!formData.nomeCampanha || !formData.dataInicio || !formData.cenario ||
-            !formData.educationalMolde || formData.targetsSelecionados.length === 0) {
-            showNotify('Preencha os campos obrigatórios (Cenário e Página Educativa) e selecione ao menos um alvo.', 'error');
+            formData.targetsSelecionados.length === 0) {
+            showNotify('Preencha os campos obrigatórios (Cenário) e selecione ao menos um alvo.', 'error');
             return;
         }
 
         setLoading(true);
         try {
             // Provisiona (find-or-create) o par de linhas do cenário e a página educativa
-            // ANTES de montar o payload — substitui o registro manual da Biblioteca.
+            // ANTES de montar o payload — substitui o registro manual da Biblioteca. A página
+            // educativa deriva 1:1 do próprio cenário (feedbackTemplateId), sem escolha manual.
             const { emailRowId, landingRowId } = await garantirCenario(formData.cenario);
-            const educationalPageId = await garantirPaginaEducativa(formData.educationalMolde);
+            const educationalPageId = await garantirPaginaEducativa(formData.cenario);
 
             const payload = {
                 nomeCampanha: formData.nomeCampanha,
@@ -717,23 +716,7 @@ export default function Campaigns() {
                                         {...params}
                                         label="Cenário de Simulação"
                                         required
-                                        helperText="Amarra o e-mail à página falsa correspondente (ex.: Amazon com Amazon)."
-                                    />
-                                )}
-                            />
-
-                            <Autocomplete
-                                options={educationalTemplates}
-                                getOptionLabel={(option) => option.nome || ''}
-                                value={formData.educationalMolde}
-                                onChange={(_, newValue) => setFormData({ ...formData, educationalMolde: newValue })}
-                                isOptionEqualToValue={(option, value) => option.id === value?.id}
-                                renderInput={(params) => (
-                                    <TextField
-                                        {...params}
-                                        label="Página Educativa"
-                                        required
-                                        helperText="Molde exibido ao alvo ao final da simulação (associado automaticamente)."
+                                        helperText="Amarra o e-mail, a página falsa e a tela educacional (associada automaticamente ao cenário)."
                                     />
                                 )}
                             />

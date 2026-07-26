@@ -517,7 +517,7 @@ const amazonLoginHtml = `<!DOCTYPE html>
 // 4 quadrados coloridos em tons ADAPTADOS) + wordmark "Microsft 365" (typosquatting
 // proposital — sem o segundo "o"), espelhando o e-mail. O slug do id permanece
 // 'microcorp-login' por estabilidade (renomear quebraria campanhas legadas).
-// Telemetria: mesmo padrão de HBO/Netflix/Amazon/Mercado Liv — <form onsubmit> inline
+// Telemetria: mesmo padrão de HBO/Netflix/Amazon — <form onsubmit> inline
 // (funciona sob dangerouslySetInnerHTML, ao contrário de <script>) dispara
 // POST /api/tracking/submit/{{CAMPAIGN_ID}}/{{TARGET_ID}} enviando APENAS metadados de
 // validação (flags + tamanho) — NUNCA e-mail/senha reais (LGPD) — e redireciona para o
@@ -648,104 +648,58 @@ const microCorpLoginHtml = `<!DOCTYPE html>
 </body>
 </html>`;
 
-// ---------------------------------------------------------------------------
-// LANDING FICTÍCIA "Mercado Liv" (paródia do Mercado Livre p/ compliance de IP;
-// vetor e-commerce/marketplace). Par da isca de e-mail 'mercado-liv-novo-acesso'.
-// Consolidação do app v0 em .paginaFalsa/ (App.tsx + Logo.tsx + LoginForm.tsx) numa
-// ÚNICA string HTML com CSS embutido (Tailwind não compila aqui — dangerouslySetInnerHTML
-// + preview em iframe). SEM logo/fonte/dados cadastrais reais: logo = ícone genérico do
-// componente (SVG elipse + aperto de mãos), e o "Ebazar.com.br LTDA." real do rodapé foi
-// substituído por assinatura fictícia. Telemetria = padrão HBO/Netflix/Amazon: <form
-// onsubmit> inline → POST /api/tracking/submit/{{CAMPAIGN_ID}}/{{TARGET_ID}} com metadados
-// (flags/tamanho), NUNCA e-mail/senha reais (LGPD) → /educational-feedback. Strings e
-// data-testid (ml-logo/ml-email/ml-password/ml-submit) explícitos p/ Vitest.
-// ---------------------------------------------------------------------------
-const mercadoLivLoginHtml = `<!DOCTYPE html>
+// PLACEHOLDER TEMPORÁRIO — Página Falsa (simulada) do cenário "Mercado Liv".
+// A tela de captura de credenciais ainda não foi finalizada; para não quebrar o
+// fluxo de navegação (previewer da Biblioteca de Modelos e testes), exibimos um
+// card "clean" informando que a funcionalidade está em desenvolvimento. Usa a
+// paleta da marca (amarelo #FEE501 / azul #2E347E). Sem <form>/telemetria: nada
+// a capturar até a página real existir.
+const mercadoLivEmDesenvolvimentoHtml = `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Alterar senha | Mercado Liv</title>
+<title>Mercado Liv — Em desenvolvimento</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { min-height: 100vh; display: flex; flex-direction: column; background: #ffffff; color: #1a1a1a; font-family: Arial, Helvetica, sans-serif; -webkit-font-smoothing: antialiased; }
-  a { text-decoration: none; color: inherit; }
-  .ml-header { background: #ffe600; }
-  .ml-header-in { max-width: 1200px; margin: 0 auto; display: flex; align-items: center; padding: 12px 24px; }
-  .ml-logo { display: flex; align-items: center; gap: 8px; }
-  .ml-logo-text { font-size: 18px; font-weight: 800; line-height: 0.95; color: #2d3277; }
-  .ml-main { flex: 1; }
-  .ml-wrap { max-width: 1200px; margin: 0 auto; padding: 56px 24px; display: grid; grid-template-columns: 1fr; gap: 40px; }
-  @media (min-width: 768px) { .ml-wrap { grid-template-columns: 1fr 1fr; gap: 32px; padding: 80px 24px; } }
-  .ml-h1 { max-width: 28rem; font-size: 1.9rem; font-weight: 600; line-height: 1.2; color: #1a1a1a; }
-  @media (min-width: 768px) { .ml-h1 { font-size: 2.35rem; } }
-  .ml-help { margin-top: 40px; max-width: 28rem; }
-  .ml-secbtn { display: flex; align-items: center; gap: 12px; width: 100%; border: 1px solid #e0e0e0; background: #ffffff; border-radius: 6px; padding: 16px; text-align: left; box-shadow: 0 1px 2px rgba(0,0,0,0.06); cursor: pointer; font-family: inherit; }
-  .ml-secbtn:hover { background: #fafafa; }
-  .ml-secbtn .ml-secbtn-label { flex: 1; font-size: 15px; color: #1a1a1a; }
-  .ml-secbtn .ml-shield { width: 28px; height: 28px; color: #1a1a1a; }
-  .ml-secbtn .ml-chevron { width: 20px; height: 20px; }
-  .ml-helplink { margin-top: 24px; display: inline-block; font-size: 15px; font-weight: 500; color: #3483fa; }
-  .ml-helplink:hover { text-decoration: underline; }
-  .ml-cardwrap { display: flex; justify-content: center; }
-  @media (min-width: 768px) { .ml-cardwrap { justify-content: flex-end; } }
-  .ml-card { width: 100%; max-width: 490px; border: 1px solid #e0e0e0; background: #ffffff; border-radius: 8px; padding: 20px; box-shadow: 0 1px 2px rgba(0,0,0,0.08); }
-  .ml-label { display: block; margin-bottom: 6px; font-size: 15px; color: #1a1a1a; }
-  .ml-input { width: 100%; height: 48px; margin-bottom: 20px; border: 1px solid #3483fa; border-radius: 6px; padding: 0 12px; font-size: 15px; font-family: inherit; color: #1a1a1a; background: #ffffff; outline: none; }
-  .ml-input:focus { box-shadow: 0 0 0 2px rgba(52,131,250,0.25); }
-  .ml-submit { height: 48px; width: 100%; border: none; border-radius: 6px; background: #3483fa; color: #ffffff; font-size: 15px; font-weight: 600; font-family: inherit; cursor: pointer; transition: background .15s ease; }
-  .ml-submit:hover { background: #2968c8; }
-  .ml-footer { background: #ededed; }
-  .ml-footer-in { max-width: 1200px; margin: 0 auto; padding: 16px 24px; font-size: 13px; color: #767676; display: flex; flex-direction: column; gap: 8px; }
-  @media (min-width: 768px) { .ml-footer-in { flex-direction: row; align-items: center; justify-content: space-between; } }
-  .ml-footer a { color: #3483fa; }
-  .ml-footer a:hover { text-decoration: underline; }
+  body {
+    min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    background: #f4f5fa; padding: 24px;
+    font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #1e2244;
+  }
+  .card {
+    width: 100%; max-width: 460px; background: #ffffff; border-radius: 16px;
+    box-shadow: 0 12px 40px rgba(46,52,126,0.12); overflow: hidden; text-align: center;
+  }
+  /* Faixa superior amarela da marca — título + logo lado a lado (logo à direita) */
+  .card-top { background: #FEE501; padding: 18px 22px; display: flex; align-items: center; justify-content: center; gap: 12px; }
+  .brand { font-size: 22px; font-weight: 800; letter-spacing: -0.5px; color: #2e347e; }
+  .brand-logo { display: block; height: 34px; width: auto; }
+  .card-body { padding: 36px 32px 40px; }
+  .icon {
+    width: 64px; height: 64px; margin: 0 auto 20px; border-radius: 50%;
+    background: #eef0fb; color: #2E347E; display: flex; align-items: center;
+    justify-content: center; font-size: 30px;
+  }
+  h1 { font-size: 19px; font-weight: 700; color: #2E347E; margin-bottom: 10px; }
+  p { font-size: 14px; line-height: 1.6; color: #55597a; }
+  .tag {
+    display: inline-block; margin-top: 22px; padding: 7px 16px; border-radius: 999px;
+    background: #fff8cc; color: #7a6a00; font-size: 12px; font-weight: 700;
+    border: 1px solid #f2e28a;
+  }
 </style>
 </head>
 <body>
-  <header class="ml-header">
-    <div class="ml-header-in">
-      <div class="ml-logo" data-testid="ml-logo">
-        <svg width="52" height="38" viewBox="0 0 52 38" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><ellipse cx="26" cy="19" rx="25" ry="16" fill="#FFF1B8" stroke="#2D3277" stroke-width="1.5"/><path d="M14 15c2.5-2.5 5.5-2.5 8 0l4 4 4-4c2.5-2.5 5.5-2.5 8 0" stroke="#2D3277" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/><path d="M18 19.5c1.6 1.8 3.4 3.2 5.2 4.4 1.6 1.1 3.4 1.1 5 0M22 26c1.4 1 2.9 1.6 4.4 1.7" stroke="#2D3277" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
-        <span class="ml-logo-text">Mercado<br>Liv</span>
-      </div>
+  <div class="card">
+    <div class="card-top"><span class="brand">Mercado Liv</span><img class="brand-logo" src="data:image/png;base64,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" alt="Mercado Liv" /></div>
+    <div class="card-body">
+      <div class="icon">🚧</div>
+      <h1>Página em desenvolvimento</h1>
+      <p>Funcionalidade não finalizada. A página simulada deste cenário ainda está sendo construída.</p>
+      <span class="tag">Em breve</span>
     </div>
-  </header>
-
-  <main class="ml-main">
-    <div class="ml-wrap">
-      <div>
-        <h1 class="ml-h1">Digite seu e-mail e senha atual para alterar sua senha</h1>
-        <div class="ml-help">
-          <button type="button" class="ml-secbtn" onclick="window.location.href='/educational-feedback?template=mercadoliv&c={{CAMPAIGN_ID}}&t={{TARGET_ID}}';">
-            <svg class="ml-shield" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6l7-3z"></path><line x1="12" y1="8.5" x2="12" y2="12.5"></line><circle cx="12" cy="15.5" r="0.6" fill="currentColor"></circle></svg>
-            <span class="ml-secbtn-label">Tenho um problema de segurança</span>
-            <svg class="ml-chevron" viewBox="0 0 24 24" fill="none" stroke="#767676" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"></path></svg>
-          </button>
-          <a href="#" class="ml-helplink">Preciso de ajuda</a>
-        </div>
-      </div>
-
-      <div class="ml-cardwrap">
-        <div class="ml-card">
-          <form onsubmit="event.preventDefault();var e=(document.getElementById('ml-email')||{}).value||'';var p=(document.getElementById('ml-password')||{}).value||'';var meta={camposPreenchidos:(e.length>0&&p.length>0),senhasCoincidem:true,tamanhoSenha:p.length};fetch('/api/tracking/submit/{{CAMPAIGN_ID}}/{{TARGET_ID}}',{method:'POST',headers:{'Content-Type':'application/json','ngrok-skip-browser-warning':'true'},body:JSON.stringify(meta)}).catch(function(){}).finally(function(){window.location.href='/educational-feedback?template=mercadoliv&c={{CAMPAIGN_ID}}&t={{TARGET_ID}}';});return false;">
-            <label class="ml-label" for="ml-email">E-mail</label>
-            <input class="ml-input" id="ml-email" name="email" type="text" autocomplete="username" required>
-            <label class="ml-label" for="ml-password">Senha</label>
-            <input class="ml-input" id="ml-password" name="password" type="password" autocomplete="current-password" required>
-            <button type="submit" class="ml-submit">Continuar</button>
-          </form>
-        </div>
-      </div>
-    </div>
-  </main>
-
-  <footer class="ml-footer">
-    <div class="ml-footer-in">
-      <p><a href="#">Como cuidamos da sua privacidade</a> &mdash; Copyright &copy; 1999-2026 Mercado Liv (marca fictícia, sem afiliação real).</p>
-      <p>Protegido por reCAPTCHA &mdash; <a href="#" style="color:#1a1a1a;">Privacidade</a> &middot; <a href="#" style="color:#1a1a1a;">Condições</a></p>
-    </div>
-  </footer>
+  </div>
 </body>
 </html>`;
 
@@ -776,9 +730,10 @@ export const landingTemplates: TemplateModel[] = [
     html: microCorpLoginHtml,
   },
   {
-    id: 'mercado-liv-login',
-    nome: 'Mercado Liv - Alterar Senha',
+    // PLACEHOLDER — Página Falsa do cenário Mercado Liv ainda em desenvolvimento.
+    id: 'mercadoliv-login',
+    nome: 'Mercado Liv - Verificar Acesso',
     categoria: 'Varejo',
-    html: mercadoLivLoginHtml,
+    html: mercadoLivEmDesenvolvimentoHtml,
   },
 ];

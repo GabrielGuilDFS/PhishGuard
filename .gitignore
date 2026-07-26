@@ -7,7 +7,7 @@ obj/
 *.cache
 
 .logoFalsa
-.paginaFalsa
+.paginaSimulada
 node_modules/
 dist/
 build/

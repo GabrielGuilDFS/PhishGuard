@@ -13,6 +13,7 @@ using Polly.Retry;
 using PhishGuard.Backend.Content;
 using PhishGuard.Backend.Data;
 using PhishGuard.Backend.Models;
+using PhishGuard.Backend.Utilities;
 
 namespace PhishGuard.Backend.Services
 {
@@ -52,12 +53,22 @@ namespace PhishGuard.Backend.Services
             ISmtpClientFactory smtpClientFactory,
             IConfiguration configuration)
             : this(context, logger, senhaProtector, smtpClientFactory,
-                   BackoffExponencialComJitter, TimeSpan.FromSeconds(1))
+                   BackoffExponencialComJitter, ResolverThrottle(configuration))
         {
             var apiBase = configuration["AppSettings:PublicApiBaseUrl"]?.TrimEnd('/');
             if (string.IsNullOrWhiteSpace(apiBase))
                 apiBase = "http://localhost:5000";
             _baseTrackingUrl = $"{apiBase}/api/tracking";
+        }
+
+        // Pausa entre envios (anti-spam) configurável em AppSettings:SmtpThrottleMs. Default
+        // ENXUTO de 300ms (antes 1000ms): para lotes pequenos, a soma dessas pausas era o que
+        // mantinha a campanha "Processando" por muito tempo antes de virar "Em Andamento".
+        // 300ms ≈ 3 envios/s — abaixo dos limites de provedores como o Gmail, e ~3x mais rápido.
+        private static TimeSpan ResolverThrottle(IConfiguration configuration)
+        {
+            var ms = configuration.GetValue<int?>("AppSettings:SmtpThrottleMs") ?? 300;
+            return TimeSpan.FromMilliseconds(Math.Max(0, ms));
         }
 
         // Ctor INTERNO (visível aos testes via InternalsVisibleTo). Não é usado pela DI —
@@ -167,24 +178,32 @@ namespace PhishGuard.Backend.Services
                 try
                 {
                     var message = new MimeMessage();
-                    message.From.Add(new MailboxAddress(campaign.Template.RemetenteNome, campaign.Template.RemetenteEmail));
+                    // MÁSCARA DE REMETENTE: o NOME de exibição é a marca parodiada do cenário
+                    // (ex.: "Microsft 365", "NetsFlix"), mas o ENDEREÇO real é SEMPRE a conta SMTP
+                    // autenticada do tenant (ex.: phishguard.tcc@gmail.com). Provedores como o
+                    // Gmail reescrevem/recusam um From que não seja a conta autenticada — usar o
+                    // RemetenteEmail fictício (no-reply@microsft365.com) quebraria a entrega. Assim
+                    // o cabeçalho fica: "Microsft 365" <phishguard.tcc@gmail.com>.
+                    message.From.Add(new MailboxAddress(campaign.Template.RemetenteNome, smtpConfig.Usuario));
                     message.To.Add(new MailboxAddress(target.Nome, target.Email));
                     message.Subject = campaign.Template.Assunto;
 
                     var linkClique = $"{_baseTrackingUrl}/click/{campaign.Id}/{target.Id}";
                     var linkPixel = $"{_baseTrackingUrl}/open/{campaign.Id}/{target.Id}";
 
+                    // TIMEZONE: todos os horários dos e-mails são carimbados no fuso de Brasília
+                    // (America/Sao_Paulo, UTC-3) a partir de UtcNow — ver HorarioBrasilia. Sem
+                    // isso, no contêiner (relógio UTC) os textos saíam 3h adiantados.
+
                     // Expiração DINÂMICA do link (isca bho MAX): data/hora de ENVIO + 2h,
-                    // formatada no padrão "MMM dd, yyyy às hh:mm tt" (ex.: "Jul 22, 2026 às
-                    // 04:30 PM"). Placeholder inócuo para iscas que não o utilizam.
-                    var expiraEm = DateTime.Now.AddHours(2);
+                    // formatada no padrão "MMM dd, yyyy às hh:mm tt" (ex.: "Jul 22, 2026 às 04:30 PM").
+                    var expiraEm = HorarioBrasilia.Converter(DateTime.UtcNow.AddHours(2));
                     var dataExpiracao = expiraEm.ToString("MMM dd, yyyy", CultureInfo.GetCultureInfo("en-US"))
                         + " às " + expiraEm.ToString("hh:mm tt", CultureInfo.GetCultureInfo("en-US"));
 
-                    // Data/hora do "acesso detectado" (isca Mercado Liv): momento do ENVIO,
-                    // padrão pt-BR "dd/MM/yyyy às HH:mm (BRT)". Placeholder inócuo p/ iscas
-                    // que não o utilizam.
-                    var agora = DateTime.Now;
+                    // Data/hora do "acesso detectado" (isca Microsft 365): momento
+                    // do ENVIO, padrão pt-BR "dd/MM/yyyy às HH:mm (BRT)".
+                    var agora = HorarioBrasilia.Agora();
                     var dataAcesso = agora.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture)
                         + " às " + agora.ToString("HH:mm", CultureInfo.InvariantCulture) + " (BRT)";
 
@@ -196,7 +215,22 @@ namespace PhishGuard.Backend.Services
                         .Replace("{{DATA_ACESSO}}", dataAcesso);
                     corpoPersonalizado += $"<img src='{linkPixel}' width='1' height='1' style='display:none;' />";
 
-                    message.Body = new BodyBuilder { HtmlBody = corpoPersonalizado }.ToMessageBody();
+                    // LOGOS INLINE (CID): o Gmail não renderiza SVG/data-URI, mas exibe
+                    // anexos inline por padrão. Para cada token de logo referenciado por
+                    // "cid:<token>" no corpo, anexa o PNG embutido como LinkedResource com o
+                    // Content-ID correspondente. Só anexa o que o corpo realmente referencia.
+                    var builder = new BodyBuilder { HtmlBody = corpoPersonalizado };
+                    foreach (var token in EmailLogoCatalog.Tokens)
+                    {
+                        if (corpoPersonalizado.Contains($"cid:{token}", StringComparison.OrdinalIgnoreCase)
+                            && EmailLogoCatalog.TryGetLogo(token, out var logoFile, out var logoBytes))
+                        {
+                            var linked = builder.LinkedResources.Add(logoFile, logoBytes, new ContentType("image", "png"));
+                            linked.ContentId = token;
+                        }
+                    }
+
+                    message.Body = builder.ToMessageBody();
 
                     // Envio sob retry. Antes de cada tentativa reforça a sessão SMTP (um envio
                     // que falhou pode ter derrubado o socket) e então envia.

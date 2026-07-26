@@ -90,13 +90,13 @@ const recursos: Recurso[] = [
     icon: <SendIcon sx={{ fontSize: 22 }} />,
     titulo: 'Disparos de E-mails Simulados',
     descricao:
-      'Um catálogo pronto de cenários que imitam marcas reais como Netflix e Amazon. Programe campanhas e meça quem realmente cai no anzol — sem risco para a operação.',
+      'Um catálogo pronto de cenários que imitam marcas populares (paródias como NetsFlix e amzprime). Programe campanhas e meça quem realmente cai no anzol — sem risco para a operação.',
   },
   {
     icon: <WebIcon sx={{ fontSize: 22 }} />,
     titulo: 'Páginas de Captura Realistas',
     descricao:
-      'Clones fiéis de telas de login, incluindo cenários como o da HBO Max. Capturamos a interação do colaborador de forma segura para dimensionar a exposição da empresa.',
+      'Clones fiéis de telas de login, incluindo cenários como o do bho MAX. Capturamos a interação do colaborador de forma segura para dimensionar a exposição da empresa.',
   },
   {
     icon: <SchoolIcon sx={{ fontSize: 22 }} />,

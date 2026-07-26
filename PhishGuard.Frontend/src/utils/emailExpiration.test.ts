@@ -37,7 +37,7 @@ describe('formatarExpiracaoLink', () => {
   });
 });
 
-// Padrão pt-BR do Mercado Liv: DD/MM/YYYY às HH:MM (BRT), SEM offset (o acesso é o
+// Padrão pt-BR do Microsft 365: DD/MM/YYYY às HH:MM (BRT), SEM offset (o acesso é o
 // próprio momento base).
 describe('formatarDataAcessoBRT', () => {
   it('formata o momento do acesso no padrão brasileiro com fuso BRT', () => {

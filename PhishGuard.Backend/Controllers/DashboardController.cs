@@ -203,21 +203,24 @@ namespace PhishGuard.Backend.Controllers
 
             // Logs do tenant + departamento do alvo. Agregação feita em memória (volume por
             // tenant é modesto neste contexto) para evitar tradução frágil de GroupBy+Distinct.
+            // Inclui CampaignId: cada e-mail enviado é um par único (CampaignId, TargetId).
             var logsComDepto = await (
                 from l in _context.SimulationsLogs.Where(l => l.TenantId == tenantId)
                 join t in _context.Targets on l.TargetId equals t.Id
-                select new { t.Departamento, l.TargetId, l.Acao })
+                select new { t.Departamento, l.CampaignId, l.TargetId, l.Acao })
                 .ToListAsync();
 
             var agregadoPorDepto = logsComDepto
                 .GroupBy(x => x.Departamento)
                 .ToDictionary(g => g.Key ?? string.Empty, g => new
                 {
+                    // E-mails RECEBIDOS pelo depto: total de disparos (uma linha de Envio por e-mail).
                     Emails = g.Count(x => x.Acao == SimulationActions.Envio),
+                    // E-mails COMPROMETIDOS: e-mails ÚNICOS clicados. Cada e-mail é o par
+                    // (CampaignId, TargetId) — o MESMO colaborador que caiu em 6 e-mails distintos
+                    // conta 6, não 1. Cliques repetidos NO MESMO e-mail não inflam (Distinct).
                     Cliques = g.Where(x => x.Acao == SimulationActions.Clique)
-                               .Select(x => x.TargetId).Distinct().Count(),
-                    Engajados = g.Where(x => x.Acao == SimulationActions.Clique || x.Acao == SimulationActions.Submissao)
-                                 .Select(x => x.TargetId).Distinct().Count()
+                               .Select(x => new { x.CampaignId, x.TargetId }).Distinct().Count()
                 });
 
             var departamentos = colaboradoresPorDepto
@@ -227,8 +230,10 @@ namespace PhishGuard.Backend.Controllers
                     agregadoPorDepto.TryGetValue(chave, out var ag);
                     var emails = ag?.Emails ?? 0;
                     var cliques = ag?.Cliques ?? 0;
-                    var engajados = ag?.Engajados ?? 0;
-                    var risco = emails == 0 ? 0 : (int)Math.Round(100.0 * engajados / emails);
+                    // Risco (%) = e-mails comprometidos / e-mails recebidos, com 1 casa decimal
+                    // (ex.: 5 clicados de 6 recebidos = 83,3%). Antes usava alvos DISTINTOS no
+                    // numerador, o que subestimava grosseiramente o risco de quem caía em vários.
+                    var risco = emails == 0 ? 0.0 : Math.Round(100.0 * cliques / emails, 1);
 
                     return new
                     {
@@ -237,7 +242,7 @@ namespace PhishGuard.Backend.Controllers
                         employees = d.Colaboradores,
                         emails,
                         clicks = cliques,
-                        risk = $"{risco}%"
+                        risk = risco.ToString("0.#", CultureInfo.InvariantCulture) + "%"
                     };
                 })
                 .OrderByDescending(d => d.employees)

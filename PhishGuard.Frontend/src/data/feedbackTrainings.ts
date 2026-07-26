@@ -1,5 +1,6 @@
-import { templatesPredefinidos } from './predefinedTemplates';
+import { templatesPredefinidos, type SimulationScenario } from './predefinedTemplates';
 import { landingTemplates } from './landingTemplates';
+import { educationalTemplates } from './educationalTemplates';
 import { formatarExpiracaoLink, formatarDataAcessoBRT } from '../utils/emailExpiration';
 
 // ============================================================================
@@ -8,9 +9,8 @@ import { formatarExpiracaoLink, formatarDataAcessoBRT } from '../utils/emailExpi
 //
 // Objeto de configuração LIMPO e SEPARADO da renderização: o componente
 // `components/FeedbackTraining.tsx` é 100% genérico e é dirigido por um destes
-// registros. Para adicionar o treinamento de uma nova isca (bho MAX, Mercado
-// Liv, NetsFlix), basta acrescentar uma entrada em `feedbackTrainings` — sem
-// tocar no componente.
+// registros. Para adicionar o treinamento de uma nova isca (bho MAX, NetsFlix),
+// basta acrescentar uma entrada em `feedbackTrainings` — sem tocar no componente.
 //
 // A rota /educational-feedback resolve a config pelo `?template=<id>`; se não
 // houver config, cai no catálogo estático legado (educationalTemplates.ts).
@@ -406,106 +406,6 @@ export const feedbackTrainings: Record<string, FeedbackTrainingConfig> = {
     },
   },
 
-  mercadoliv: {
-    id: 'mercadoliv',
-    marca: 'Mercado Liv',
-    header: {
-      badge: 'Atenção: Esta foi uma simulação de treinamento de segurança do PhishGuard.',
-      titulo: 'Você interagiu com um e-mail de phishing simulado.',
-      mensagem:
-        'Não se preocupe: nenhum dado real foi comprometido — apenas o clique foi ' +
-        'registrado. Use os pontos destacados abaixo para aprender a identificar esse ' +
-        'tipo de ataque no futuro.',
-    },
-    mockups: [
-      {
-        id: 'email',
-        titulo: 'O e-mail que você recebeu',
-        chrome: {
-          tipo: 'email',
-          remetenteNome: 'Mercado Liv',
-          remetenteEmail: 'no-reply@mercadoliv.com',
-          assunto: 'Detectamos um novo acesso à sua conta',
-        },
-        html: resolverEmailHtml('mercado-liv-novo-acesso'),
-        larguraLogica: 600,
-        altura: 460,
-        hotspots: [
-          { numero: 1, xPct: 26, yPct: 3, dica: 'Domínio do remetente falsificado' },
-          { numero: 2, xPct: 55, yPct: 44, dica: 'Alerta de acesso com data/hora fabricada' },
-          { numero: 3, xPct: 30, yPct: 68, dica: 'Botão de ação com destino suspeito' },
-        ],
-      },
-      {
-        id: 'landing',
-        titulo: 'A página falsa de login',
-        chrome: {
-          tipo: 'navegador',
-          url: 'mercadoliv-seguranca-conta.help/entrar',
-          seguro: false,
-        },
-        html: resolverLandingHtml('mercado-liv-login'),
-        larguraLogica: 1024,
-        altura: 460,
-        hotspots: [
-          { numero: 4, xPct: 74, yPct: 48, dica: 'Pede e-mail e senha atual direto' },
-          { numero: 5, xPct: 26, yPct: 56, dica: 'Selos e links de ajuda decorativos' },
-        ],
-      },
-    ],
-    cards: [
-      {
-        numero: 1,
-        icone: '📧',
-        titulo: 'Domínio do Remetente Falsificado',
-        pontos: [
-          "O e-mail vem de 'no-reply@mercadoliv.com' — imita a marca, mas não é o domínio oficial do serviço.",
-          'Confira sempre o domínio completo do remetente antes de agir.',
-        ],
-      },
-      {
-        numero: 2,
-        icone: '⏰',
-        titulo: 'Alerta de Acesso com Urgência',
-        pontos: [
-          "A mensagem afirma detectar um 'novo acesso' com data e hora específicas para gerar medo e pressa.",
-          'Detalhes fabricados (data/hora/dispositivo) dão falsa credibilidade e induzem a ação impulsiva.',
-        ],
-      },
-      {
-        numero: 3,
-        icone: '🔗',
-        titulo: 'Botão de Ação Suspeito',
-        pontos: [
-          "O botão 'Redefinir Senha de Acesso' leva a um endereço fora do serviço oficial.",
-          'Passe o mouse sobre o botão e confira a URL real antes de clicar.',
-        ],
-      },
-      {
-        numero: 4,
-        icone: '🔑',
-        titulo: 'Captura de E-mail e Senha Atual',
-        pontos: [
-          "A página pede seu e-mail e a 'senha atual' logo na primeira tela, sem verificação em duas etapas (2FA).",
-          'É exatamente a credencial válida que o atacante precisa para invadir sua conta.',
-        ],
-      },
-      {
-        numero: 5,
-        icone: '🛡️',
-        titulo: 'Falso Senso de Segurança',
-        pontos: [
-          "Selos como 'Protegido por reCAPTCHA' e botões de ajuda ('Tenho um problema de segurança', 'Preciso de ajuda') são decorativos e não funcionam.",
-          'Aparência de legitimidade não substitui a verificação do endereço real da página.',
-        ],
-      },
-    ],
-    conclusao: {
-      label: 'Concluir Treinamento',
-      redirecionarPara: '/',
-    },
-  },
-
   microsft365: {
     id: 'microsft365',
     marca: 'Microsft 365',
@@ -605,3 +505,59 @@ export const feedbackTrainings: Record<string, FeedbackTrainingConfig> = {
     },
   },
 };
+
+// ============================================================================
+// Resolução da Página Educativa a partir do Cenário (vínculo 1:1)
+// ============================================================================
+//
+// A Tela Educacional deixou de ser escolhida manualmente no formulário de campanha:
+// cada cenário já declara seu treinamento em `feedbackTemplateId`. Este resolvedor
+// centraliza esse vínculo 1:1 para que a criação/edição de campanha provisione a linha
+// de `EducationalPages` (FK obrigatória no backend) de forma transparente.
+
+/** Molde educacional padrão quando o cenário não declara `feedbackTemplateId`. */
+export const FEEDBACK_PADRAO = 'basico_phishing';
+
+/** Descritor da página educativa que uma campanha deve provisionar para um cenário. */
+export interface PaginaEducativaDescriptor {
+  /** Id do treinamento (feedbackTrainings OU educationalTemplates) resolvido pela rota /educational-feedback. */
+  feedbackId: string;
+  /** Nome exibido na linha de EducationalPages e na coluna "Página Educativa" da lista. */
+  nome: string;
+  /**
+   * HTML persistido em `EducationalPages.HtmlEducacional`. Também serve de CHAVE de
+   * idempotência do find-or-create (uma linha por treinamento) — por isso é ESTÁVEL e
+   * ÚNICO por `feedbackId`.
+   */
+  html: string;
+}
+
+/**
+ * Deriva, a partir do cenário selecionado, a página educativa a ser vinculada à campanha
+ * — substitui o antigo seletor manual "Página Educativa" do formulário.
+ *
+ * - Treinamento INTERATIVO (Just-in-Time): o conteúdo real é a rota React
+ *   `/educational-feedback?template=<id>` (a landing do cenário já redireciona para lá);
+ *   a linha de `EducationalPages` existe só para satisfazer a FK da campanha e nomear a
+ *   coluna, então o HTML é um marcador estável e legível (com link de cortesia).
+ * - Molde ESTÁTICO legado (`educationalTemplates`): usa nome + HTML do catálogo.
+ */
+export function resolverPaginaEducativaDoCenario(cenario: SimulationScenario): PaginaEducativaDescriptor {
+  const feedbackId = cenario.feedbackTemplateId ?? FEEDBACK_PADRAO;
+
+  const training = feedbackTrainings[feedbackId];
+  if (training) {
+    return {
+      feedbackId,
+      nome: `Treinamento Interativo — ${training.marca}`.slice(0, 100),
+      html:
+        `<div data-feedback-training="${feedbackId}" style="font-family:'Segoe UI',Arial,sans-serif;` +
+        `padding:2rem;text-align:center;color:#334155">` +
+        `<p>O treinamento interativo desta campanha é exibido automaticamente ao final da simulação.</p>` +
+        `<p><a href="/educational-feedback?template=${feedbackId}">Abrir treinamento (${training.marca})</a></p></div>`,
+    };
+  }
+
+  const molde = educationalTemplates.find((m) => m.id === feedbackId) ?? educationalTemplates[0];
+  return { feedbackId, nome: molde.nome.slice(0, 100), html: molde.html };
+}

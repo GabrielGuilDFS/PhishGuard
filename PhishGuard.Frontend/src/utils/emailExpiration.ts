@@ -44,7 +44,7 @@ export function formatarExpiracaoLink(
 }
 
 /**
- * Formata a data/hora de um "acesso detectado" no padrão do template Mercado Liv:
+ * Formata a data/hora de um "acesso detectado" no padrão do template Microsft 365:
  * `DD/MM/YYYY às HH:MM (BRT)` (ex.: `22/07/2026 às 14:32 (BRT)`).
  *
  * Ao contrário da expiração (futuro, +2h), o acesso reflete o MOMENTO do

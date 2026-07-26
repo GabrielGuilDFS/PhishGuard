@@ -11,8 +11,8 @@ import type {
 //
 // Componente 100% GENÉRICO e REUTILIZÁVEL: toda a informação específica da isca
 // (textos, hotspots, cards, mockups) vem do objeto `config` (ver
-// data/feedbackTrainings.ts). O MESMO componente atende amzprime, bho MAX,
-// Mercado Liv e NetsFlix — basta trocar a config.
+// data/feedbackTrainings.ts). O MESMO componente atende amzprime, bho MAX e
+// NetsFlix — basta trocar a config.
 //
 // Estilo: Tailwind CSS (utilitários), coerente com as landing pages. Sem MUI
 // nesta rota pública. As iscas são renderizadas em <iframe sandbox> (somente

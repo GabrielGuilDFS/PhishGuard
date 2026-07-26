@@ -27,7 +27,12 @@ namespace PhishGuard.Backend.BackgroundServices
         private readonly IServiceScopeFactory _scopeFactory;
         private readonly ILogger<CampaignSchedulerWorker> _logger;
 
-        private static readonly TimeSpan Intervalo = TimeSpan.FromMinutes(1);
+        // Ciclo curto (10s): uma campanha reivindicada ("Processando") — pela ativação manual
+        // ou pelo horário agendado — é enviada em no máximo ~10s, em vez de esperar até 1 min.
+        // Combinado ao throttle enxuto do CampaignDispatchService, encurta drasticamente a
+        // transição "Processando" → "Em Andamento" que o usuário via demorar. O disparo em si já
+        // roda FORA da thread HTTP (a API só faz o claim e retorna), então nada bloqueia a API.
+        private static readonly TimeSpan Intervalo = TimeSpan.FromSeconds(10);
 
         public CampaignSchedulerWorker(IServiceScopeFactory scopeFactory, ILogger<CampaignSchedulerWorker> logger)
         {

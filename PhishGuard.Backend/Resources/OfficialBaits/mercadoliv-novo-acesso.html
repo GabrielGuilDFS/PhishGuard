@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="color-scheme" content="light">
+  <title>Detectamos um novo acesso à sua conta</title>
+  <!-- Webfont do título (Nunito Sans). Preview a carrega; em clientes de e-mail que não
+       aceitam webfont, o fallback Arial/Helvetica aplica. -->
+  <style>@import url('https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@700;800&display=swap');</style>
+</head>
+<!-- ============================================================================
+     ISCA "Mercado Liv" (paródia FICTÍCIA de e-commerce, para conscientização).
+     Estrutura baseada no HTML real extraído do Gmail. GUIA DE EDIÇÃO VISUAL:
+       • Paleta:  AMARELO do header = #ffe600 | AZUL do CTA/links = #3483fa
+       • Placeholders resolvidos server-side no disparo (CampaignDispatchService):
+                  {{NOME}}          -> nome do alvo          (era {{target_name}})
+                  {{LINK_PHISHING}} -> URL de clique/track   (era {{click_url}})
+                  {{DATA_ACESSO}}   -> data/hora do ENVIO em America/Sao_Paulo,
+                                       formato "dd/MM/yyyy às HH:mm (BRT)" — o
+                                       sufixo "(BRT)" JÁ vem no token (não repetir).
+       • PIXEL DE ABERTURA: NÃO fica hardcoded aqui. O CampaignDispatchService
+         ANEXA automaticamente <img src=".../open/{campanha}/{alvo}"> ao final do
+         corpo no disparo (era {{open_tracking_pixel}}).
+       • Logo: anexada INLINE via CID (cid:logo-mercadoliv). O Gmail não renderiza
+         SVG/data-URI; o backend anexa o PNG embutido (EmailLogoCatalog ->
+         Resources/EmailAssets/mercado-liv-logo.png, origem em .logoFalsa/).
+     HTML 100% seguro para e-mail: tabelas + estilos inline.
+============================================================================ -->
+<body style="margin:0;padding:0;background-color:#f5f5f5;-webkit-text-size-adjust:100%;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;background-color:#f5f5f5;">
+    <tbody>
+      <tr>
+        <td align="center" style="padding:0;">
+          <table role="presentation" width="640" cellpadding="0" cellspacing="0" border="0" align="center" style="border-collapse:collapse;width:640px;max-width:640px;font-family:Arial,Helvetica,sans-serif;">
+            <tbody>
+              <!-- CABEÇALHO — faixa AMARELA (#ffe600): logo (50px, via CID) à ESQUERDA + título "Mercado Liv" (#2e347e) à direita. -->
+              <tr>
+                <td data-testid="ml-header" style="background-color:#ffe600;padding:16px 24px;">
+                  <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;">
+                    <tbody>
+                      <tr>
+                        <td valign="middle" style="padding-right:12px;"><img src="cid:logo-mercadoliv" width="50" alt="Mercado Liv" data-testid="ml-logo" style="display:block;max-width:50px;width:50px;height:auto;border:0;outline:none;text-decoration:none;" /></td>
+                        <td valign="middle" style="font-family:'Nunito Sans',Arial,Helvetica,sans-serif;font-size:14.4px;font-weight:800;letter-spacing:-0.5px;line-height:1.05;color:#2e347e;text-align:left;">mercado<br>liv</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </td>
+              </tr>
+              <!-- CORPO — card branco com o alerta de novo acesso. -->
+              <tr>
+                <td style="padding:16px;">
+                  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                    <tbody>
+                      <tr>
+                        <td style="background:#ffffff;border-radius:6px;box-shadow:0 1px 2px rgba(0,0,0,0.12);padding:24px;">
+                          <h1 data-testid="ml-title" style="margin:0 0 12px 0;font-family:Arial,Helvetica,sans-serif;font-size:20px;font-weight:700;line-height:26px;color:rgba(0,0,0,0.9);">Detectamos um novo acesso à sua conta</h1>
+                          <p data-testid="ml-body" style="margin:0 0 16px 0;font-size:15px;line-height:21px;color:rgba(0,0,0,0.9);">Olá, {{NOME}}. Identificamos um novo login na sua conta Mercado Liv a partir de um dispositivo que talvez você não reconheça. Se foi você, pode ignorar este e-mail. Caso contrário, redefina sua senha o quanto antes.</p>
+
+                          <!-- CARD DE DISPOSITIVO — a Data/hora é DINÂMICA ({{DATA_ACESSO}}, fuso BRT). -->
+                          <table role="presentation" data-testid="ml-device" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f7f7f7;border-radius:6px;">
+                            <tbody>
+                              <tr>
+                                <td style="padding:12px 16px;font-size:14px;line-height:20px;color:rgba(0,0,0,0.9);">
+                                  <strong>Dispositivo:</strong> Chrome no Windows 11<br>
+                                  <strong>Data e hora:</strong> {{DATA_ACESSO}}<br>
+                                  <strong>Local aproximado:</strong> São Paulo, SP — Brasil
+                                </td>
+                              </tr>
+                            </tbody>
+                          </table>
+
+                          <!-- BOTÃO DE AÇÃO (CTA) — AZUL (#3483fa), leva ao {{LINK_PHISHING}}. -->
+                          <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:separate;margin-top:20px;">
+                            <tbody>
+                              <tr>
+                                <td align="center" bgcolor="#3483fa" style="border-radius:6px;">
+                                  <a data-testid="ml-cta" href="{{LINK_PHISHING}}" target="_blank" style="display:inline-block;padding:13px 28px;font-family:Arial,Helvetica,sans-serif;font-size:15px;font-weight:700;color:#ffffff;text-decoration:none;border-radius:6px;">Redefinir Senha de Acesso</a>
+                                </td>
+                              </tr>
+                            </tbody>
+                          </table>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="height:16px;line-height:16px;font-size:16px;">&nbsp;</td>
+                      </tr>
+                      <!-- CARD DE DICA DE SEGURANÇA (cinza). -->
+                      <tr>
+                        <td data-testid="ml-alert-card" style="background:#ededed;border-radius:6px;padding:20px 24px;">
+                          <p style="margin:0;font-size:14px;line-height:19px;color:rgba(0,0,0,0.75);">
+                            <strong>Dica de segurança.</strong> Seus dados e senhas são privados. O Mercado Liv nunca solicitará confirmação de códigos ou senhas por telefone. Não compartilhe essas informações com ninguém.
+                          </p>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </td>
+              </tr>
+              <!-- RODAPÉ — Central de ajuda ({{LINK_PHISHING}}) + aviso de paródia/simulação. -->
+              <tr>
+                <td style="padding:24px;">
+                  <p style="margin:0 0 8px 0;font-size:12px;line-height:16px;color:rgba(0,0,0,0.55);">
+                    Ficou com dúvidas? Acesse nossa <a href="{{LINK_PHISHING}}" target="_blank" style="color:#3483fa;text-decoration:none;">Central de ajuda</a>.
+                  </p>
+                  <p style="margin:0;font-size:11px;line-height:15px;color:rgba(0,0,0,0.45);">
+                    Este é um e-mail automático de simulação de conscientização. Mercado Liv é uma marca fictícia, sem afiliação com qualquer empresa real.
+                  </p>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+  <!-- O pixel de rastreamento de abertura é anexado automaticamente pelo backend no disparo. -->
+</body>
+</html>
