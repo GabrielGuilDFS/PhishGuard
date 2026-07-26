@@ -61,7 +61,12 @@ public class OfficialBaitCatalogTests
         Assert.NotEqual(chave, html);
         Assert.Contains("<!DOCTYPE html>", html);
         Assert.Contains("Mercado Liv", html);
+        // Logo injetada via CID (o Gmail não renderiza data-URI no e-mail real).
         Assert.Contains("cid:logo-mercadoliv", html);
+        // Wordmark parodiado em CAIXA BAIXA e quebrado em duas linhas ("mercado"/"liv").
+        Assert.Contains("mercado<br>liv", html);
+        // Variáveis dinâmicas resolvidas no disparo (nome, link e data no fuso BRT).
+        Assert.Contains("{{NOME}}", html);
         Assert.Contains("{{LINK_PHISHING}}", html);
         Assert.Contains("{{DATA_ACESSO}}", html);
         Assert.True(OfficialBaitCatalog.IsKnownId(chave));
