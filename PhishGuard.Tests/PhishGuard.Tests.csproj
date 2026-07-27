@@ -9,11 +9,11 @@
 
   <!-- Gate de cobertura (coverlet.msbuild). So' age quando CollectCoverage=true
        (o job de CI passa -p:CollectCoverage=true; localmente 'dotnet test' segue rapido).
-       Piso de ratchet calibrado pelo baseline REAL: linha ~49.65% (branch ~43%, metodo ~55%),
-       ja excluindo as Migrations geradas do EF. NUNCA baixe o piso; suba-o conforme os
-       testes P0 (TrackingController, TenantIsolation, Worker) entram. -->
+       Piso de ratchet: apos a Onda 1 (TenantIsolation, TrackingController, Worker) a linha
+       subiu para ~53.35%, entao o piso foi elevado 45 -> 50 (Migrations ja excluidas do
+       calculo). NUNCA baixe o piso; suba-o conforme mais testes entram. -->
   <PropertyGroup>
-    <Threshold>45</Threshold>
+    <Threshold>50</Threshold>
     <ThresholdType>line</ThresholdType>
     <ThresholdStat>total</ThresholdStat>
     <Exclude>[*]PhishGuard.Backend.Migrations.*</Exclude>

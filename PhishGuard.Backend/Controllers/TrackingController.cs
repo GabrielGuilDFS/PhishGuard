@@ -40,6 +40,20 @@ namespace PhishGuard.Backend.Controllers
                 return null;
             }
 
+            // HARDENING (anti-poluição de métricas): o endpoint é anônimo, então o targetId
+            // da rota é ARBITRÁRIO. Sem esta checagem, um caller podia POSTar
+            // submit/{campanhaReal}/{guidQualquer} e injetar logs órfãos, falseando os
+            // relatórios do tenant. Exige que o alvo exista e pertença ao MESMO tenant da
+            // campanha (IgnoreQueryFilters porque não há sessão/tenant no tracking).
+            var alvoValido = await _context.Targets
+                .IgnoreQueryFilters()
+                .AnyAsync(t => t.Id == targetId && t.TenantId == campaign.TenantId);
+
+            if (!alvoValido)
+            {
+                return null;
+            }
+
             // Verifica se já existe um log idêntico para evitar duplicação (flood)
             var logExistente = await _context.SimulationsLogs
                 .IgnoreQueryFilters()

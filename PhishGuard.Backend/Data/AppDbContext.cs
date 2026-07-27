@@ -218,6 +218,13 @@ namespace PhishGuard.Backend.Data
 
             modelBuilder.Entity<SimulationLog>(entity =>
             {
+                // Global Query Filter (isolamento de tenant): SimulationLog tem TenantId, logo
+                // — pela regra do projeto — PRECISA do filtro, como toda entidade multi-tenant.
+                // Todos os leitores atuais já escopam manualmente (Dashboard: Where TenantId;
+                // Tracking e Dispatch: IgnoreQueryFilters), então o filtro é defesa-em-profundidade
+                // contra QUALQUER consulta futura que esqueça o escopo e vaze logs cross-tenant.
+                entity.HasQueryFilter(l => l.TenantId == this.TenantIdAtual);
+
                 // simulations_logs já usa snake_case via data annotations ([Table]/[Column]).
                 // Aqui declaramos as FKs FÍSICAS que faltavam — sem elas, os logs eram GUIDs
                 // soltos (risco de registro órfão). Cascade: se a campanha/alvo/tenant for
