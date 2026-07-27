@@ -119,9 +119,10 @@ describe('Templates (Biblioteca de Modelos)', () => {
     expect(screen.getByText(/Clique em um cenário para visualizar/i)).toBeInTheDocument();
 
     // Navegar/visualizar a tela nunca dispara escrita no backend (nem POST nem DELETE).
-    const escritas = fetchMock.mock.calls.filter(
-      (c) => (c[1] as { method?: string } | undefined)?.method && (c[1] as { method?: string }).method !== 'GET',
-    );
+    const escritas = fetchMock.mock.calls.filter((c) => {
+      const opts = (c as unknown as [string, RequestInit | undefined])[1];
+      return opts?.method && opts.method !== 'GET';
+    });
     expect(escritas).toHaveLength(0);
   });
 

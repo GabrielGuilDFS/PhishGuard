@@ -105,7 +105,7 @@ describe('Register — confirmação de senha', () => {
       ok: true,
       headers: { get: () => 'application/json' },
       json: async () => ({}),
-    } as Response);
+    } as unknown as Response);
     renderRegister();
 
     await preencherCamposBase(user);

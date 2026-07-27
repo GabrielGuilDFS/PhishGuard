@@ -144,7 +144,7 @@ describe('Mercado Liv — Página Simulada (Phishing)', () => {
 
       // Disparo da telemetria de comprometimento com os argumentos corretos.
       await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
-      const [url, opts] = fetchMock.mock.calls[0] as [string, RequestInit];
+      const [url, opts] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
       expect(url).toBe(`/api/tracking/submit/${CAMP}/${TGT}`);
       expect(opts.method).toBe('POST');
       const body = JSON.parse(opts.body as string);
