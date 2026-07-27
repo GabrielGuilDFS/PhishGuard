@@ -58,7 +58,7 @@ export default function Targets() {
         const data = await response.json();
         setTargets(data);
       }
-    } catch (error) {
+    } catch {
       showNotify("Erro ao conectar com o servidor", "error");
     } finally {
       setLoading(false);
@@ -93,7 +93,7 @@ export default function Targets() {
     Papa.parse(file, {
       header: true, 
       skipEmptyLines: true,
-      complete: async (results: any) => {
+      complete: async (results: Papa.ParseResult<Record<string, string>>) => {
         const dadosCSV = results.data;
         
         if (!dadosCSV || dadosCSV.length === 0 || !dadosCSV[0].nome || !dadosCSV[0].email) {
@@ -121,7 +121,7 @@ export default function Targets() {
               })
             });
             sucessos++;
-          } catch (err) {
+          } catch {
             console.error("Falha ao importar linha", item);
           }
         }
@@ -178,7 +178,7 @@ export default function Targets() {
       } else {
         showNotify("Falha ao salvar. Verifique os dados.", "error");
       }
-    } catch (error) {
+    } catch {
       showNotify("Erro ao salvar alvo", "error");
     }
   };
@@ -199,7 +199,7 @@ export default function Targets() {
         } else {
           showNotify("Falha ao remover o alvo.", "error");
         }
-      } catch (error) {
+      } catch {
         showNotify("Erro de rede ao remover alvo.", "error");
       }
     }
@@ -245,7 +245,7 @@ export default function Targets() {
         const errorText = await response.text();
         showNotify(`Falha no envio: ${errorText}`, "error");
       }
-    } catch (error) {
+    } catch {
       showNotify("Erro de rede ao tentar contatar o servidor.", "error");
     }
   };

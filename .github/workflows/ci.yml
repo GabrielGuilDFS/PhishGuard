@@ -2,59 +2,120 @@ name: PhishGuard CI Pipeline
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [ main, master, develop ]
   pull_request:
-    branches: [ main, master ]
+    branches: [ main, master, develop ]
+
+# Cancela execucoes antigas da mesma ref quando um novo commit chega.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  # --- ESTEIRA DO BACKEND (.NET) ---
-  build-backend:
-    name: Build & Test Backend
+  # ---------------------------------------------------------------------------
+  # BACKEND (.NET 8) — build Release + testes xUnit
+  # ---------------------------------------------------------------------------
+  backend:
+    name: Build & Test Backend (.NET 8)
     runs-on: ubuntu-latest
-
     steps:
-    - name: Checkout do Código
-      uses: actions/checkout@v4
+      - name: Checkout do codigo
+        uses: actions/checkout@v4
 
-    - name: Configurar .NET SDK
-      uses: actions/setup-dotnet@v4
-      with:
-        dotnet-version: '8.0' # Altere para a versão exata do seu .NET se for o caso
+      - name: Configurar .NET SDK 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
 
-    - name: Restaurar Dependências
-      run: dotnet restore PhishGuard.Backend/PhishGuard.Backend.csproj
+      - name: Restaurar dependencias
+        run: dotnet restore PhishGuard.Backend/PhishGuard.Backend.csproj
 
-    - name: Compilar o Backend (Modo Release)
-      run: dotnet build PhishGuard.Backend/PhishGuard.Backend.csproj --configuration Release --no-restore
+      - name: Compilar (Release)
+        run: dotnet build PhishGuard.Backend/PhishGuard.Backend.csproj --configuration Release --no-restore
 
-    - name: Executar Testes Unitários (.NET)
-      run: dotnet test PhishGuard.Tests/PhishGuard.Tests.csproj --configuration Release
+      - name: Executar testes + gate de cobertura (xUnit + coverlet)
+        run: dotnet test PhishGuard.Tests/PhishGuard.Tests.csproj --configuration Release -p:CollectCoverage=true
 
-  # --- ESTEIRA DO FRONTEND (REACT / TYPESCRIPT) ---
-  build-frontend:
-    name: Build & Lint Frontend
+  # ---------------------------------------------------------------------------
+  # FRONTEND (React / TS) — lint + typecheck + testes + build
+  # ---------------------------------------------------------------------------
+  frontend:
+    name: Build, Lint & Test Frontend (Vitest)
     runs-on: ubuntu-latest
-
+    defaults:
+      run:
+        working-directory: PhishGuard.Frontend
     steps:
-    - name: Checkout do Código
-      uses: actions/checkout@v4
+      - name: Checkout do codigo
+        uses: actions/checkout@v4
 
-    - name: Configurar Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '20' # Versão padrão recomendada para o ecossistema React atual
+      - name: Configurar Node.js (LTS)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: PhishGuard.Frontend/package-lock.json
 
-    - name: Instalar Dependências
-      run: |
-        cd PhishGuard.Frontend
-        npm ci
+      - name: Instalar dependencias
+        run: npm ci
 
-    - name: Checagem Estática do TypeScript (Mapeamento de Erros)
-      run: |
-        cd PhishGuard.Frontend
-        npx tsc --noEmit
+      # Gate BLOQUEANTE: a divida de lint pre-existente (25 erros) foi zerada no Passo 2.5.
+      - name: Lint (ESLint)
+        run: npm run lint
 
-    - name: Compilar o Frontend (Build de Produção)
-      run: |
-        cd PhishGuard.Frontend
-        npm run build
+      # tsc -b (build mode) e o UNICO que percorre as project references, incluindo
+      # o tsconfig.test.json — checa os *.test.tsx junto do codigo de producao.
+      - name: Checagem estatica de tipos (tsc -b)
+        run: npx tsc -b
+
+      - name: Executar testes + gate de cobertura (Vitest v8)
+        run: npm run test:ci
+
+      - name: Compilar (build de producao)
+        run: npm run build
+
+  # ---------------------------------------------------------------------------
+  # E2E — RESERVADO para o Passo 13 (Playwright + Mailpit). Ainda nao ha suite E2E,
+  # entao o job apenas sinaliza o placeholder e passa. Sera ativado quando o
+  # docker-compose.e2e.yml e os specs em e2e/ existirem.
+  # ---------------------------------------------------------------------------
+  e2e:
+    name: E2E (reservado — Passo 13)
+    runs-on: ubuntu-latest
+    needs: [ backend, frontend ]
+    steps:
+      - name: Placeholder
+        run: echo "Suite E2E (Playwright + Mailpit) sera adicionada no Passo 13 do roadmap de QA."
+
+  # ---------------------------------------------------------------------------
+  # SECURITY — audit de dependencias. CodeQL (C# + JS) entra no Passo 15.
+  # Non-blocking por ora (Passo 11 promove a gate bloqueante).
+  # ---------------------------------------------------------------------------
+  security:
+    name: Security (audit de dependencias)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout do codigo
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js (LTS)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Configurar .NET SDK 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      # TODO(Passo 11): tornar bloqueante (remover continue-on-error).
+      - name: npm audit (frontend)
+        working-directory: PhishGuard.Frontend
+        run: npm audit --audit-level=high
+        continue-on-error: true
+
+      - name: dotnet list --vulnerable (backend)
+        run: |
+          dotnet restore PhishGuard.Backend/PhishGuard.Backend.csproj
+          dotnet list PhishGuard.Backend/PhishGuard.Backend.csproj package --vulnerable --include-transitive
+        continue-on-error: true

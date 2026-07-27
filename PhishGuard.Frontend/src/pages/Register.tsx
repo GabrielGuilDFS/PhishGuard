@@ -166,8 +166,8 @@ export default function Register() {
         }, 2000);
       }
 
-    } catch (err: any) {
-      setErro(err.message);
+    } catch (err) {
+      setErro(err instanceof Error ? err.message : 'Erro inesperado.');
     } finally {
       setLoading(false);
     }

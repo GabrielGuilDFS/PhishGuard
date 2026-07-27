@@ -14,7 +14,7 @@ describe('createAppTheme — bordas estruturais diluídas (SOFT_BORDER_ALPHA)', 
     const secundariaCheia = brandPalette[mode].secondary;
     const bordaDiluida = alpha(secundariaCheia, SOFT_BORDER_ALPHA);
 
-    const cardBorder = (theme.components?.MuiCard?.styleOverrides as any)?.root?.border;
+    const cardBorder = (theme.components?.MuiCard?.styleOverrides as { root?: { border?: string } })?.root?.border;
     expect(cardBorder).toBe(`1px solid ${bordaDiluida}`);
     expect(cardBorder).not.toContain(secundariaCheia);
   });
@@ -23,7 +23,7 @@ describe('createAppTheme — bordas estruturais diluídas (SOFT_BORDER_ALPHA)', 
     const theme = createAppTheme(mode);
     const bordaDiluida = alpha(brandPalette[mode].secondary, SOFT_BORDER_ALPHA);
 
-    const cellBorder = (theme.components?.MuiTableCell?.styleOverrides as any)?.root?.borderBottom;
+    const cellBorder = (theme.components?.MuiTableCell?.styleOverrides as { root?: { borderBottom?: string } })?.root?.borderBottom;
     expect(cellBorder).toBe(`1px solid ${bordaDiluida}`);
   });
 
@@ -31,13 +31,13 @@ describe('createAppTheme — bordas estruturais diluídas (SOFT_BORDER_ALPHA)', 
     const theme = createAppTheme(mode);
     const bordaDiluida = alpha(brandPalette[mode].secondary, SOFT_BORDER_ALPHA);
 
-    const outlinedBorderColor = (theme.components?.MuiPaper?.styleOverrides as any)?.outlined?.borderColor;
+    const outlinedBorderColor = (theme.components?.MuiPaper?.styleOverrides as { outlined?: { borderColor?: string } })?.outlined?.borderColor;
     expect(outlinedBorderColor).toBe(bordaDiluida);
   });
 
   it('cabeçalho de tabela (fill sólido, não borda) permanece intocado — fora do escopo da suavização', () => {
     const theme = createAppTheme('light');
-    const headBg = (theme.components?.MuiTableCell?.styleOverrides as any)?.head?.backgroundColor;
+    const headBg = (theme.components?.MuiTableCell?.styleOverrides as { head?: { backgroundColor?: string } })?.head?.backgroundColor;
     // Este é um PREENCHIMENTO (contraste de texto já calculado sobre ele), não uma
     // borda — não deve ser diluído junto, ou o texto do cabeçalho perde legibilidade.
     expect(headBg).toBe(brandPalette.light.secondary);

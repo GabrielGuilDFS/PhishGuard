@@ -1,7 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { render, screen, act } from '@testing-library/react';
 // Teste de UI co-located (padrão de espelhamento do frontend).
-import Campaigns, { toDateTimeLocal } from './Campaigns';
+import Campaigns from './Campaigns';
+import { toDateTimeLocal } from '../utils/dateTime';
 import { NotificationProvider } from '../context/NotificationContext';
 
 // Deve casar com POLL_INTERVAL_MS em Campaigns.tsx.

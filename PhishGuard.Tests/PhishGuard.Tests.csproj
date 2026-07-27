@@ -7,8 +7,26 @@
     <IsPackable>false</IsPackable>
   </PropertyGroup>
 
+  <!-- Gate de cobertura (coverlet.msbuild). So' age quando CollectCoverage=true
+       (o job de CI passa -p:CollectCoverage=true; localmente 'dotnet test' segue rapido).
+       Piso de ratchet calibrado pelo baseline REAL: linha ~49.65% (branch ~43%, metodo ~55%),
+       ja excluindo as Migrations geradas do EF. NUNCA baixe o piso; suba-o conforme os
+       testes P0 (TrackingController, TenantIsolation, Worker) entram. -->
+  <PropertyGroup>
+    <Threshold>45</Threshold>
+    <ThresholdType>line</ThresholdType>
+    <ThresholdStat>total</ThresholdStat>
+    <Exclude>[*]PhishGuard.Backend.Migrations.*</Exclude>
+    <ExcludeByFile>**/Migrations/*.cs</ExcludeByFile>
+    <CoverletOutputFormat>cobertura</CoverletOutputFormat>
+  </PropertyGroup>
+
   <ItemGroup>
     <PackageReference Include="coverlet.collector" Version="6.0.4" />
+    <PackageReference Include="coverlet.msbuild" Version="6.0.4">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
     <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="8.0.0" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
     <PackageReference Include="xunit" Version="2.9.3" />

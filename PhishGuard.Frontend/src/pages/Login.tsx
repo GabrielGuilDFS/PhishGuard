@@ -56,10 +56,11 @@ export default function Login() {
 
       navigate('/admin/dashboard');
 
-    } catch (err: any) {
-      setErro(err.message);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Erro inesperado.';
+      setErro(msg);
 
-      showNotify(err.message, "error");
+      showNotify(msg, "error");
     }
   };
 

@@ -108,7 +108,7 @@ export default function Settings() {
             email: data.email || prev.email
           }));
         }
-      } catch (err) {
+      } catch {
         console.warn("Rota GET /api/Auth/profile não implementada. Usando claims do JWT.");
       }
     };
@@ -198,7 +198,7 @@ export default function Settings() {
         const errorText = await response.text();
         showNotify(`Erro ao atualizar perfil: ${errorText}`, "error");
       }
-    } catch (err) {
+    } catch {
       showNotify("Erro de conexão ao salvar perfil.", "error");
     }
   };
@@ -242,7 +242,7 @@ export default function Settings() {
       } else {
         showNotify("Falha ao salvar as configurações. Verifique os dados.", "error");
       }
-    } catch (error) {
+    } catch {
       showNotify("Erro de conexão com o servidor.", "error");
     }
   };
@@ -280,7 +280,7 @@ export default function Settings() {
         const errorText = await response.text();
         showNotify(`Falha no envio: ${errorText}`, "error");
       }
-    } catch (error) {
+    } catch {
       showNotify("Erro de rede ao tentar contatar o servidor.", "error");
     }
   };

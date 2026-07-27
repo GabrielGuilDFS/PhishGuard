@@ -1,16 +1,22 @@
 import { createContext, useState, useContext, type ReactNode } from 'react';
 import { Snackbar, Alert } from '@mui/material';
 
+type NotifySeverity = 'success' | 'error' | 'info' | 'warning';
+
 interface NotificationContextType {
-  showNotify: (message: string, type?: 'success' | 'error' | 'info' | 'warning') => void;
+  showNotify: (message: string, type?: NotifySeverity) => void;
 }
 
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
 
 export const NotificationProvider = ({ children }: { children: ReactNode }) => {
-  const [notify, setNotify] = useState({ open: false, message: '', type: 'success' as any });
+  const [notify, setNotify] = useState<{ open: boolean; message: string; type: NotifySeverity }>({
+    open: false,
+    message: '',
+    type: 'success',
+  });
 
-  const showNotify = (message: string, type: any = 'success') => {
+  const showNotify = (message: string, type: NotifySeverity = 'success') => {
     setNotify({ open: true, message, type });
   };
 

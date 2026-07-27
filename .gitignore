@@ -13,10 +13,16 @@ dist/
 build/
 .env
 .DS_Store
-
+docs/RELATORIO-QA.md
 
 .vscode/
 diff_status.txt
+
+# Relatorios de cobertura (coverlet / XPlat Code Coverage)
+**/coverage.json
+**/coverage.cobertura.xml
+**/coverage.opencover.xml
+**/TestResults/
 
 # Chaves do Data Protection (criptografia da senha SMTP) — NUNCA versionar.
 DataProtection-Keys/
