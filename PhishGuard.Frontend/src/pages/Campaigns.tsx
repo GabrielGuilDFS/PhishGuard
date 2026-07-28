@@ -226,8 +226,11 @@ export default function Campaigns() {
         return Array.from(set).sort((a, b) => a.localeCompare(b, 'pt-BR'));
     }, [targets]);
 
+    // Carga inicial: roda uma unica vez na montagem. `fetchCampaigns` e' recriada a cada
+    // render (fecha sobre `headers`), entao inclui-la nas deps refaria a busca em loop.
     useEffect(() => {
         fetchCampaigns();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     // Existe alguma campanha "em trânsito" (Agendada/Processando)? Controla o polling.

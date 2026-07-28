@@ -158,6 +158,9 @@ export default function Settings() {
     };
 
     fetchSmtpConfig();
+    // Carga inicial: roda uma unica vez na montagem. `showNotify` vem do contexto e nao
+    // deve reexecutar a busca de configuracao de SMTP quando a identidade dela mudar.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleChangeTab = (_event: React.SyntheticEvent, newValue: number) => {

@@ -27,3 +27,9 @@ diff_status.txt
 # Chaves do Data Protection (criptografia da senha SMTP) — NUNCA versionar.
 DataProtection-Keys/
 **/DataProtection-Keys/
+
+# Artefatos transitorios do Playwright (suite E2E em e2e/).
+test-results/
+playwright-report/
+**/.last-run.json
+/playwright/.cache/

@@ -250,6 +250,9 @@ export default function Targets() {
     }
   };
 
+  // Carga inicial: roda uma unica vez na montagem. `fetchTargets`/`fetchQuota` sao
+  // recriadas a cada render, entao inclui-las nas deps refaria a busca em loop.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { fetchTargets(); fetchQuota(); }, []);
 
   return (

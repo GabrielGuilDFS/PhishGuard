@@ -5,7 +5,13 @@
 import 'vitest';
 import type { AxeMatchers } from 'vitest-axe/matchers';
 
+// As interfaces abaixo sao PURAMENTE declaration merging: precisam ser `interface`
+// (type alias nao mescla), ficam vazias de proposito (todo o conteudo vem do
+// `extends`) e o parametro `T` tem de existir mesmo sem uso, porque o TS exige lista
+// de type parameters identica a da declaracao original do Vitest. Dai os disables.
+/* eslint-disable @typescript-eslint/no-empty-object-type, @typescript-eslint/no-unused-vars */
 declare module 'vitest' {
   interface Assertion<T = unknown> extends AxeMatchers {}
   interface AsymmetricMatchersContaining extends AxeMatchers {}
 }
+/* eslint-enable @typescript-eslint/no-empty-object-type, @typescript-eslint/no-unused-vars */
