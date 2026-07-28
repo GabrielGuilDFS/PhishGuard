@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using PhishGuard.Backend.Contracts;
 using PhishGuard.Backend.Controllers;
 using PhishGuard.Backend.Data;
 using PhishGuard.Backend.DTOs;
@@ -156,6 +157,32 @@ public class TrackingControllerTests
         // nem as flags, nem o tamanho da senha (a senha em si nunca chega ao servidor).
         var registroSerializado = JsonSerializer.Serialize(log);
         Assert.DoesNotContain("987654", registroSerializado);
+    }
+
+    // 3b) Contrato compartilhado (§1.3d): o redirectUrl do submit usa os parâmetros
+    //     CANÔNICOS c/t (os mesmos do front), NUNCA o antigo `campaign=`. É o formato
+    //     produzido pelo TrackingContract — o mesmo espelhado no módulo TS.
+    [Fact]
+    public async Task TrackSubmit_RedirectUrl_SegueContratoCanonicoCeT()
+    {
+        await using var ctx = NovoContexto();
+        var camp = await AdicionarCampanhaAsync(ctx);
+        var alvo = await AdicionarAlvoAsync(ctx, camp.TenantId);
+        var tgt = alvo.Id;
+        var controller = NovoControlador(ctx);
+
+        var result = await controller.TrackSubmit(camp.Id, tgt, new CaptureMetadataDto());
+
+        var ok = Assert.IsType<OkObjectResult>(result);
+        var body = Assert.IsType<TrackSubmitResponseDto>(ok.Value);
+
+        // Formato exato do contrato: /educational-feedback?c={camp}&t={tgt}.
+        var esperado = TrackingContract.EducationalFeedbackUrl(null, camp.Id.ToString(), tgt.ToString());
+        Assert.Equal(esperado, body.RedirectUrl);
+        Assert.Equal($"/educational-feedback?c={camp.Id}&t={tgt}", body.RedirectUrl);
+
+        // Regressão do §1.3d: o parâmetro divergente `campaign=` não pode reaparecer.
+        Assert.DoesNotContain("campaign=", body.RedirectUrl);
     }
 
     // 4) Campanha inexistente (ou link expirado) → NotFound, sem estourar exceção.

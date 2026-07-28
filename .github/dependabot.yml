@@ -1,0 +1,61 @@
+# Dependabot — atualizacoes automaticas de dependencias (Passo 11 do roadmap de QA).
+# Abre PRs semanais com bumps de seguranca/versao; o job `security` da CI (npm audit +
+# dotnet list --vulnerable) valida cada PR. Este e o motor que zera, ao longo do tempo,
+# a divida de vulnerabilidades transitivas que os audits hoje ainda reportam.
+version: 2
+updates:
+  # ---------------------------------------------------------------------------
+  # BACKEND (.NET / NuGet) — a partir da raiz, o Dependabot descobre a solution
+  # (PhishGuard.sln) e ambos os projetos (PhishGuard.Backend + PhishGuard.Tests).
+  # ---------------------------------------------------------------------------
+  - package-ecosystem: "nuget"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "America/Sao_Paulo"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "backend"
+    commit-message:
+      prefix: "chore(deps)"
+      include: "scope"
+    groups:
+      # Agrupa os pacotes de infra da Microsoft/EF num unico PR — evita enxurrada de
+      # PRs correlacionados e reduz o risco de bumps parciais inconsistentes.
+      microsoft-and-ef:
+        patterns:
+          - "Microsoft.*"
+          - "System.*"
+          - "Npgsql*"
+
+  # ---------------------------------------------------------------------------
+  # FRONTEND (npm) — usa o package-lock.json de PhishGuard.Frontend/.
+  # ---------------------------------------------------------------------------
+  - package-ecosystem: "npm"
+    directory: "/PhishGuard.Frontend"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "America/Sao_Paulo"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "frontend"
+    commit-message:
+      prefix: "chore(deps)"
+      include: "scope"
+    groups:
+      # Toolchain de build/teste num PR so (vite, vitest, eslint, tipos) — sao dev-deps
+      # que sobem juntas e concentram hoje a maior parte dos avisos do npm audit.
+      dev-toolchain:
+        dependency-type: "development"
+      # Runtime React agrupado para manter react/react-dom/react-router em sincronia.
+      react:
+        patterns:
+          - "react"
+          - "react-dom"
+          - "react-router*"

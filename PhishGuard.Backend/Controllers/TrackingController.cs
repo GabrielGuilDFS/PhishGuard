@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using PhishGuard.Backend.Contracts;
 using PhishGuard.Backend.Data;
 using PhishGuard.Backend.DTOs;
 using PhishGuard.Backend.Models;
@@ -129,7 +130,17 @@ namespace PhishGuard.Backend.Controllers
 
             // Devolve a rota educacional interna para a landing redirecionar o alvo:
             // após "inserir dados", ele é levado ao treinamento de conscientização.
-            return Ok(new { status = "Inseriu Dados", redirectUrl = $"/educational-feedback?campaign={campaignId}" });
+            // URL montada pelo TrackingContract (parâmetros canônicos c/t) — MESMO
+            // formato do front (§1.3d). O `template` fica a cargo da landing (o back
+            // não conhece qual treinamento; a rota educacional cai no default sem ele).
+            return Ok(new TrackSubmitResponseDto
+            {
+                Status = "Inseriu Dados",
+                RedirectUrl = TrackingContract.EducationalFeedbackUrl(
+                    template: null,
+                    campaignId: campaignId.ToString(),
+                    targetId: targetId.ToString()),
+            });
         }
 
         [HttpPost("complete/{campaignId}/{targetId}")]

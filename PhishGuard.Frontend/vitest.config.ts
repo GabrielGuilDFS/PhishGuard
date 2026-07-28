@@ -16,6 +16,10 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
     include: ['src/**/*.test.{ts,tsx}'],
+    // 5s (padrão) é apertado para os fluxos com userEvent (digitação simulada leva
+    // ~2,5s) sob contenção de CPU na suíte paralela — mais ainda depois que o axe-core
+    // (vitest-axe) passou a carregar no setup. 15s dá folga sem mascarar travas reais.
+    testTimeout: 15000,
     coverage: {
       provider: 'v8',
       reporter: ['text', 'lcov'],

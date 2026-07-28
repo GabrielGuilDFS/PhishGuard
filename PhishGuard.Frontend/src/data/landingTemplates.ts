@@ -359,7 +359,7 @@ const amazonLoginHtml = `<!DOCTYPE html>
   .amz-back:hover { background: #485769; }
   .amz-foot { background: #232f3e; color: #fff; padding: 36px 24px; }
   .amz-grid { max-width: 900px; margin: 0 auto; display: grid; grid-template-columns: repeat(2, 1fr); gap: 28px; }
-  .amz-grid h3 { font-size: 15px; margin-bottom: 8px; }
+  .amz-grid h2 { font-size: 15px; margin-bottom: 8px; font-weight: 700; }
   .amz-grid ul { list-style: none; display: flex; flex-direction: column; gap: 8px; }
   .amz-grid a { font-size: 13px; color: #ddd; }
   .amz-grid a:hover { text-decoration: underline; }
@@ -449,7 +449,7 @@ const amazonLoginHtml = `<!DOCTYPE html>
     <div class="amz-foot">
       <div class="amz-grid">
         <div>
-          <h3>Conheça-nos</h3>
+          <h2>Conheça-nos</h2>
           <ul>
             <li><a href="#">Sobre a amzprime</a></li>
             <li><a href="#">Informações corporativas</a></li>
@@ -459,7 +459,7 @@ const amazonLoginHtml = `<!DOCTYPE html>
           </ul>
         </div>
         <div>
-          <h3>Ganhe dinheiro conosco</h3>
+          <h2>Ganhe dinheiro conosco</h2>
           <ul>
             <li><a href="#">Venda na amzprime</a></li>
             <li><a href="#">Forneça para a amzprime</a></li>
@@ -469,7 +469,7 @@ const amazonLoginHtml = `<!DOCTYPE html>
           </ul>
         </div>
         <div>
-          <h3>Pagamento</h3>
+          <h2>Pagamento</h2>
           <ul>
             <li><a href="#">Meios de Pagamento</a></li>
             <li><a href="#">Compre com Pontos</a></li>
@@ -477,7 +477,7 @@ const amazonLoginHtml = `<!DOCTYPE html>
           </ul>
         </div>
         <div>
-          <h3>Deixe-nos ajudar você</h3>
+          <h2>Deixe-nos ajudar você</h2>
           <ul>
             <li><a href="#">Sua conta</a></li>
             <li><a href="#">Frete e prazo de entrega</a></li>

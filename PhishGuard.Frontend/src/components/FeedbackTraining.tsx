@@ -4,6 +4,11 @@ import type {
   FeedbackMockup,
   FeedbackTrainingConfig,
 } from '../data/feedbackTrainings';
+import {
+  TRACKING_ACTIONS,
+  readEducationalFeedbackParams,
+  trackingEndpoint,
+} from '../shared/trackingContract';
 
 // ============================================================================
 // FeedbackTraining — Tela Educacional de Feedback (Just-in-Time Training)
@@ -151,9 +156,13 @@ export default function FeedbackTraining({ config, preview = false }: Props) {
   const cardRefs = useRef<Record<number, HTMLDivElement | null>>({});
 
   // IDs de rastreamento vindos da landing (best-effort — podem não existir num
-  // acesso direto à rota). Usados só para AUDITAR a conclusão do módulo.
-  const campaignId = searchParams.get('c') || searchParams.get('campaign') || '';
-  const targetId = searchParams.get('t') || searchParams.get('target') || '';
+  // acesso direto à rota). Usados só para AUDITAR a conclusão do módulo. Os nomes
+  // dos parâmetros (c/t) vêm do contrato compartilhado — nada de fallback legado
+  // para 'campaign'/'target', que era justamente a divergência §1.3d eliminada.
+  const { campaignId: campaignParam, targetId: targetParam } =
+    readEducationalFeedbackParams(searchParams);
+  const campaignId = campaignParam || '';
+  const targetId = targetParam || '';
 
   // Clique num hotspot destaca e rola até o card explicativo correspondente.
   const focarCard = useCallback((numero: number) => {
@@ -171,7 +180,7 @@ export default function FeedbackTraining({ config, preview = false }: Props) {
     // contexto de campanha/alvo.
     if (campaignId && targetId) {
       try {
-        await fetch(`/api/tracking/complete/${campaignId}/${targetId}`, {
+        await fetch(trackingEndpoint(TRACKING_ACTIONS.complete, campaignId, targetId), {
           method: 'POST',
           headers: { 'ngrok-skip-browser-warning': 'true' },
         });

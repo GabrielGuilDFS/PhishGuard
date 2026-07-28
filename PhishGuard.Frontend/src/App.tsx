@@ -18,6 +18,7 @@ import CheckoutPage from './pages/CheckoutPage';
 import { educationalTemplates } from './data/educationalTemplates';
 import { feedbackTrainings } from './data/feedbackTrainings';
 import FeedbackTraining from './components/FeedbackTraining';
+import { EDU_FEEDBACK_QUERY } from './shared/trackingContract';
 
 // Rota de feedback educacional resolvida por ?template=:
 //   1) se houver um treinamento INTERATIVO (Just-in-Time Training) para o id,
@@ -26,7 +27,8 @@ import FeedbackTraining from './components/FeedbackTraining';
 //      mantendo compatibilidade com as iscas ainda não migradas.
 const EducationalFeedback = () => {
   const [searchParams] = useSearchParams();
-  const templateId = searchParams.get('template') || 'basico_phishing';
+  // Nome do parâmetro vem do contrato compartilhado (não hardcode 'template').
+  const templateId = searchParams.get(EDU_FEEDBACK_QUERY.template) || 'basico_phishing';
 
   const training = feedbackTrainings[templateId];
   if (training) {

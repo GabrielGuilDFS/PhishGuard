@@ -88,8 +88,14 @@ jobs:
         run: echo "Suite E2E (Playwright + Mailpit) sera adicionada no Passo 13 do roadmap de QA."
 
   # ---------------------------------------------------------------------------
-  # SECURITY — audit de dependencias. CodeQL (C# + JS) entra no Passo 15.
-  # Non-blocking por ora (Passo 11 promove a gate bloqueante).
+  # SECURITY — audit de dependencias (Passo 11: DevSecOps basico). CodeQL entra no
+  # Passo 15. Os audits rodam como VISIBILIDADE (continue-on-error): hoje ambos
+  # reportam highs em dependencias TRANSITIVAS (dev-tooling do frontend: vite,
+  # rollup, postcss, react-router, brace-expansion via @vitest/coverage-v8; e no
+  # backend: System.Text.Json/Npgsql/Caching.Memory 8.0.0). Quem REMEDIA essa divida
+  # e o Dependabot (.github/dependabot.yml, PRs semanais nuget+npm). Promover a gate
+  # bloqueante (remover os continue-on-error) so DEPOIS que os bumps do Dependabot
+  # zerarem o baseline — do contrario a CI quebra no 1o run sem ganho de seguranca.
   # ---------------------------------------------------------------------------
   security:
     name: Security (audit de dependencias)
@@ -102,20 +108,28 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
+          cache: npm
+          cache-dependency-path: PhishGuard.Frontend/package-lock.json
 
       - name: Configurar .NET SDK 8
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.0.x'
 
-      # TODO(Passo 11): tornar bloqueante (remover continue-on-error).
+      # Precisa das dev-deps instaladas para o audit enxergar a arvore transitiva.
+      - name: Instalar dependencias (frontend)
+        working-directory: PhishGuard.Frontend
+        run: npm ci
+
       - name: npm audit (frontend)
         working-directory: PhishGuard.Frontend
         run: npm audit --audit-level=high
         continue-on-error: true
 
-      - name: dotnet list --vulnerable (backend)
+      - name: dotnet list --vulnerable (backend + testes)
+        # dotnet list --vulnerable retorna exit 0 mesmo com vulnerabilidades: a solution
+        # inteira (Backend + Tests) e varrida so para imprimir o relatorio no log da CI.
         run: |
-          dotnet restore PhishGuard.Backend/PhishGuard.Backend.csproj
-          dotnet list PhishGuard.Backend/PhishGuard.Backend.csproj package --vulnerable --include-transitive
+          dotnet restore PhishGuard.sln
+          dotnet list PhishGuard.sln package --vulnerable --include-transitive
         continue-on-error: true
