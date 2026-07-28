@@ -1,5 +1,6 @@
 using MailKit.Security;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 using MimeKit;
 using PhishGuard.Backend.Data;
@@ -35,12 +36,17 @@ public class CampaignDispatchServiceTests
         public int SendCount { get; private set; }
         public bool IsConnected { get; private set; }
         public bool IsAuthenticated { get; private set; }
+        // Última opção de socket recebida no Connect — para asserir o modo TLS configurado.
+        public SecureSocketOptions? UltimaOpcaoSocket { get; private set; }
+        // Endereços que chegaram ao Send (para provar que um destino bloqueado nunca é enviado).
+        public List<string> Enviados { get; } = new();
 
         public FakeSmtpClient(Func<string, bool> deveFalhar) => _deveFalhar = deveFalhar;
 
         public Task ConnectAsync(string host, int port, SecureSocketOptions options, CancellationToken ct)
         {
             ConnectCount++;
+            UltimaOpcaoSocket = options;
             IsConnected = true;
             return Task.CompletedTask;
         }
@@ -55,6 +61,7 @@ public class CampaignDispatchServiceTests
         {
             SendCount++;
             var destino = message.To.Mailboxes.First().Address;
+            Enviados.Add(destino);
             if (_deveFalhar(destino))
                 throw new InvalidOperationException($"Falha SMTP simulada para {destino}.");
             return Task.CompletedTask;
@@ -154,6 +161,20 @@ public class CampaignDispatchServiceTests
             throttleEntreEnvios: TimeSpan.Zero);
     }
 
+    // Constrói o serviço pelo ctor PÚBLICO (que lê IConfiguration) para exercitar a
+    // allowlist de destino e o modo de socket SMTP — features de homologação do Passo 13.
+    private static CampaignDispatchService CriarServicoComConfig(
+        AppDbContext ctx, ISmtpClient client, Dictionary<string, string?> config)
+    {
+        var configuration = new ConfigurationBuilder().AddInMemoryCollection(config).Build();
+        return new CampaignDispatchService(
+            ctx,
+            NullLogger<CampaignDispatchService>.Instance,
+            new PassthroughProtector(),
+            new FakeSmtpClientFactory(client),
+            configuration);
+    }
+
     private static async Task<List<SimulationLog>> LogsAsync(AppDbContext ctx, Guid campaignId, string acao)
         => await ctx.SimulationsLogs.IgnoreQueryFilters()
             .Where(l => l.CampaignId == campaignId && l.Acao == acao)
@@ -225,5 +246,72 @@ public class CampaignDispatchServiceTests
         // 1 tentativa inicial + 3 retries = 4 chamadas de SendAsync antes de registrar Falha.
         Assert.Equal(4, client.SendCount);
         Assert.Single(await LogsAsync(ctx, campaign.Id, SimulationActions.Falha));
+    }
+
+    // ── Passo 13: allowlist de destino (§2.1d) ────────────────────────────────
+
+    [Fact]
+    public async Task Allowlist_BloqueiaDestinoForaDoDominio_SemEnviar_E_RegistraFalha()
+    {
+        var (ctx, campaign) = await SemearCampanhaAsync("vitima@test.io", "fora@empresa.com");
+        var client = new FakeSmtpClient(_ => false); // SMTP nunca falha; quem bloqueia é a allowlist
+        var servico = CriarServicoComConfig(ctx, client, new Dictionary<string, string?>
+        {
+            ["AppSettings:OutboundEmailAllowedDomains"] = "test.io",
+        });
+
+        await servico.DispatchAsync(campaign);
+
+        // Só o destino permitido chegou ao SMTP; o de fora nunca foi enviado.
+        Assert.Equal(new[] { "vitima@test.io" }, client.Enviados);
+
+        var envios = await LogsAsync(ctx, campaign.Id, SimulationActions.Envio);
+        var falhas = await LogsAsync(ctx, campaign.Id, SimulationActions.Falha);
+        Assert.Equal(campaign.Targets.First(t => t.Email == "vitima@test.io").Id, Assert.Single(envios).TargetId);
+        Assert.Equal(campaign.Targets.First(t => t.Email == "fora@empresa.com").Id, Assert.Single(falhas).TargetId);
+        Assert.Equal(CampaignStatus.EmAndamento, campaign.Status);
+    }
+
+    [Fact]
+    public async Task Allowlist_Vazia_NaoRestringe_EnvioNormalParaQualquerDominio()
+    {
+        var (ctx, campaign) = await SemearCampanhaAsync("qualquer@empresa.com");
+        var client = new FakeSmtpClient(_ => false);
+        // Sem a chave de allowlist => produção: nenhuma restrição.
+        var servico = CriarServicoComConfig(ctx, client, new Dictionary<string, string?>());
+
+        await servico.DispatchAsync(campaign);
+
+        Assert.Equal(new[] { "qualquer@empresa.com" }, client.Enviados);
+        Assert.Single(await LogsAsync(ctx, campaign.Id, SimulationActions.Envio));
+    }
+
+    // ── Passo 13: modo de socket SMTP configurável (Mailpit em homologação) ───
+
+    [Fact]
+    public async Task SecureSocket_Configuravel_UsaOModoDaConfig_NoConnect()
+    {
+        var (ctx, campaign) = await SemearCampanhaAsync("vitima@test.io");
+        var client = new FakeSmtpClient(_ => false);
+        var servico = CriarServicoComConfig(ctx, client, new Dictionary<string, string?>
+        {
+            ["AppSettings:SmtpSecureSocketOptions"] = "StartTlsWhenAvailable",
+        });
+
+        await servico.DispatchAsync(campaign);
+
+        Assert.Equal(SecureSocketOptions.StartTlsWhenAvailable, client.UltimaOpcaoSocket);
+    }
+
+    [Fact]
+    public async Task SecureSocket_SemConfig_MantemStartTlsDeProducao()
+    {
+        var (ctx, campaign) = await SemearCampanhaAsync("vitima@test.io");
+        var client = new FakeSmtpClient(_ => false);
+        var servico = CriarServicoComConfig(ctx, client, new Dictionary<string, string?>());
+
+        await servico.DispatchAsync(campaign);
+
+        Assert.Equal(SecureSocketOptions.StartTls, client.UltimaOpcaoSocket);
     }
 }

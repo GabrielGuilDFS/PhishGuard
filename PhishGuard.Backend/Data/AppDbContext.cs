@@ -196,9 +196,15 @@ namespace PhishGuard.Backend.Data
                 // do claim (Agendada → Processando) passa a incluir "WHERE xmin = @original";
                 // se duas instâncias do worker reivindicarem a MESMA campanha, apenas a
                 // primeira efetiva — a segunda recebe DbUpdateConcurrencyException e desiste,
-                // impedindo o disparo duplicado do lote. Sob o provedor InMemory (testes) a
-                // anotação é apenas metadado inócuo.
-                entity.UseXminAsConcurrencyToken();
+                // impedindo o disparo duplicado do lote.
+                //
+                // 'xmin' é uma coluna de SISTEMA exclusiva do PostgreSQL: só faz sentido (e só
+                // mapeia) sob o Npgsql. Por isso é aplicada de forma provider-aware — sob SQLite
+                // (suíte de isolamento de tenant) ou InMemory a anotação seria metadado inócuo,
+                // mas o EnsureCreated() do SQLite tentaria materializar a coluna e falharia. O
+                // gate mantém o modelo de PRODUÇÃO idêntico e o de teste criável.
+                if (Database.IsNpgsql())
+                    entity.UseXminAsConcurrencyToken();
 
                 // FK física TenantId → Tenants (Cascade: purga do tenant).
                 entity.HasOne<Tenant>().WithMany().HasForeignKey(c => c.TenantId)

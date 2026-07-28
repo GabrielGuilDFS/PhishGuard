@@ -1,0 +1,91 @@
+# ============================================================================
+# Stack de HOMOLOGAÇÃO E2E (Passo 13) — db + backend + frontend + Mailpit.
+# Sem ngrok: uma origem local (localhost:5173), o Vite reverte /api para o backend.
+# SMTP capturado pelo Mailpit — nada sai para a internet.
+#
+#   docker compose -f docker-compose.e2e.yml --env-file .env.e2e up -d --build
+#   (na pasta e2e/)  npx playwright test
+#   docker compose -f docker-compose.e2e.yml --env-file .env.e2e down -v
+#
+# Projeto ISOLADO (name abaixo): não colide com a stack de dev/prod (docker-compose.yml,
+# projeto "phishguard") — containers, rede e dados são próprios e efêmeros.
+# ============================================================================
+name: phishguard-e2e
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: phishguard-e2e-db
+    command: -p 5433
+    env_file:
+      - .env.e2e
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -p 5433"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks:
+      - phishguard-e2e
+
+  # SMTP fake: captura os e-mails e os expõe via API HTTP (8025). Nada sai para fora.
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: phishguard-e2e-mailpit
+    ports:
+      - "8025:8025"   # UI + API HTTP (consultada pelo Playwright)
+      - "1025:1025"   # SMTP (recebe os disparos do backend)
+    environment:
+      # Aceita AUTH com qualquer credencial, inclusive sobre conexão em texto puro —
+      # o backend autentica normalmente sem precisar de TLS/cert no Mailpit.
+      MP_SMTP_AUTH_ACCEPT_ANY: "true"
+      MP_SMTP_AUTH_ALLOW_INSECURE: "true"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8025/readyz"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks:
+      - phishguard-e2e
+
+  backend:
+    build:
+      context: ./PhishGuard.Backend
+      dockerfile: Dockerfile
+    container_name: phishguard-e2e-backend
+    ports:
+      - "5000:5000"
+    environment:
+      ASPNETCORE_ENVIRONMENT: "Development"
+      ConnectionStrings__DefaultConnection: "Host=db;Port=5433;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}"
+      AppSettings__Token: "${AppSettings__Token}"
+      AppSettings__PublicApiBaseUrl: "${AppSettings__PublicApiBaseUrl}"
+      AppSettings__PublicAppBaseUrl: "${AppSettings__PublicAppBaseUrl}"
+      AppSettings__AllowedCorsOrigins__0: "${AppSettings__AllowedCorsOrigins__0}"
+      # Homologação: reaproveita o Mailpit (texto puro) e trava a saída em @test.io.
+      AppSettings__SmtpSecureSocketOptions: "${AppSettings__SmtpSecureSocketOptions}"
+      AppSettings__OutboundEmailAllowedDomains: "${AppSettings__OutboundEmailAllowedDomains}"
+      AppSettings__SmtpThrottleMs: "${AppSettings__SmtpThrottleMs}"
+    depends_on:
+      db:
+        condition: service_healthy
+      mailpit:
+        condition: service_healthy
+    networks:
+      - phishguard-e2e
+
+  frontend:
+    build:
+      context: ./PhishGuard.Frontend
+      dockerfile: Dockerfile
+    container_name: phishguard-e2e-frontend
+    ports:
+      - "5173:5173"
+    environment:
+      CHOKIDAR_USEPOLLING: "true"
+    depends_on:
+      - backend
+    networks:
+      - phishguard-e2e
+
+networks:
+  phishguard-e2e:
+    driver: bridge

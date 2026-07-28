@@ -1,0 +1,17 @@
+{
+  "name": "phishguard-e2e",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Suíte E2E (Playwright + Mailpit) do PhishGuard — ciclo de vida completo de uma campanha (§2.1). Projeto npm isolado: não polui o frontend nem o backend.",
+  "type": "module",
+  "scripts": {
+    "test": "playwright test",
+    "test:e2e": "playwright test",
+    "install:browsers": "playwright install --with-deps chromium",
+    "stack:up": "docker compose -f ../docker-compose.e2e.yml --env-file ../.env.e2e up -d --build",
+    "stack:down": "docker compose -f ../docker-compose.e2e.yml --env-file ../.env.e2e down -v"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.50.1"
+  }
+}

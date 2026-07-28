@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Threading;
@@ -46,6 +47,18 @@ namespace PhishGuard.Backend.Services
         // Precisa ser um endereço acessível PELO ALVO — senão o clique nunca chega ao backend.
         private readonly string _baseTrackingUrl;
 
+        // Modo de segurança do socket SMTP. Default de PRODUÇÃO: StartTls (upgrade TLS na
+        // 587). Configurável (AppSettings:SmtpSecureSocketOptions) só para HOMOLOGAÇÃO —
+        // ex.: "StartTlsWhenAvailable" para falar com o Mailpit (SMTP em texto puro na 1025),
+        // sem afetar o disparo real (Gmail continua anunciando STARTTLS e sendo criptografado).
+        private readonly SecureSocketOptions _secureSocketOptions;
+
+        // ALLOWLIST DE DESTINO (§2.1d): quando NÃO vazia, o disparo só envia para e-mails
+        // cujo domínio esteja na lista (AppSettings:OutboundEmailAllowedDomains). Rede de
+        // segurança de HOMOLOGAÇÃO: garante que nenhum e-mail de teste escape para uma caixa
+        // real, MESMO que o SMTP seja trocado por engano. Vazia (produção) = sem restrição.
+        private readonly IReadOnlyCollection<string> _dominiosPermitidos;
+
         public CampaignDispatchService(
             AppDbContext context,
             ILogger<CampaignDispatchService> logger,
@@ -59,6 +72,8 @@ namespace PhishGuard.Backend.Services
             if (string.IsNullOrWhiteSpace(apiBase))
                 apiBase = "http://localhost:5000";
             _baseTrackingUrl = $"{apiBase}/api/tracking";
+            _secureSocketOptions = ResolverSecureSocket(configuration);
+            _dominiosPermitidos = ResolverDominiosPermitidos(configuration);
         }
 
         // Pausa entre envios (anti-spam) configurável em AppSettings:SmtpThrottleMs. Default
@@ -87,9 +102,51 @@ namespace PhishGuard.Backend.Services
             _smtpClientFactory = smtpClientFactory;
             _backoffProvider = backoffProvider;
             _throttleEntreEnvios = throttleEntreEnvios;
-            // Default para o caminho de testes (ctor interno). O ctor público de produção
-            // sobrescreve com a URL pública resolvida da configuração.
+            // Defaults para o caminho de testes (ctor interno). O ctor público de produção
+            // sobrescreve com os valores resolvidos da configuração.
             _baseTrackingUrl = "http://localhost:5000/api/tracking";
+            _secureSocketOptions = SecureSocketOptions.StartTls;
+            _dominiosPermitidos = Array.Empty<string>();
+        }
+
+        // Resolve o modo de socket SMTP da config. Aceita os nomes do enum SecureSocketOptions
+        // (StartTls, StartTlsWhenAvailable, SslOnConnect, Auto, None). Default: StartTls.
+        private static SecureSocketOptions ResolverSecureSocket(IConfiguration configuration)
+        {
+            var raw = configuration["AppSettings:SmtpSecureSocketOptions"];
+            return Enum.TryParse<SecureSocketOptions>(raw, ignoreCase: true, out var opt)
+                ? opt
+                : SecureSocketOptions.StartTls;
+        }
+
+        // Lê a allowlist de domínios de destino (separados por ',' ou ';'). Normaliza para
+        // minúsculas e SEM o '@' inicial. Vazio/ausente => sem restrição (produção).
+        private static IReadOnlyCollection<string> ResolverDominiosPermitidos(IConfiguration configuration)
+        {
+            var raw = configuration["AppSettings:OutboundEmailAllowedDomains"];
+            if (string.IsNullOrWhiteSpace(raw))
+                return Array.Empty<string>();
+
+            return raw
+                .Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Select(d => d.TrimStart('@').ToLowerInvariant())
+                .Where(d => d.Length > 0)
+                .Distinct()
+                .ToArray();
+        }
+
+        // Aplica a allowlist a um endereço de destino. Lista vazia => tudo permitido.
+        private bool DestinoPermitido(string email)
+        {
+            if (_dominiosPermitidos.Count == 0)
+                return true;
+
+            var at = email.LastIndexOf('@');
+            if (at < 0 || at == email.Length - 1)
+                return false; // e-mail sem domínio: bloqueia por segurança.
+
+            var dominio = email[(at + 1)..].ToLowerInvariant();
+            return _dominiosPermitidos.Contains(dominio);
         }
 
         // Backoff exponencial 2s→4s→8s + jitter de até 1s (descorrelaciona reconexões).
@@ -158,7 +215,7 @@ namespace PhishGuard.Backend.Services
             async Task GarantirConexaoAsync(CancellationToken ct)
             {
                 if (!client.IsConnected)
-                    await client.ConnectAsync(smtpConfig.Host, smtpConfig.Porta, SecureSocketOptions.StartTls, ct);
+                    await client.ConnectAsync(smtpConfig.Host, smtpConfig.Porta, _secureSocketOptions, ct);
                 if (!client.IsAuthenticated)
                     await client.AuthenticateAsync(smtpConfig.Usuario, senhaSmtp, ct);
             }
@@ -175,6 +232,29 @@ namespace PhishGuard.Backend.Services
                 // Resiliência: uma falha definitiva num alvo (e-mail inválido, indisponibilidade
                 // do SMTP após todos os retries) não pode derrubar o disparo inteiro. Registra
                 // o alvo como "Falha" e segue para o próximo destinatário.
+                // ALLOWLIST (§2.1d): em homologação, recusa qualquer destino fora dos
+                // domínios permitidos ANTES de tocar no SMTP — nenhum e-mail de teste
+                // vaza para uma caixa real. Registra "Falha" (rastreável) e segue o lote.
+                if (!DestinoPermitido(target.Email))
+                {
+                    _logger.LogWarning(
+                        "Alvo {Email} bloqueado pela allowlist de domínios de destino (campanha {CampaignId}). E-mail NÃO enviado.",
+                        target.Email, campaign.Id);
+
+                    _context.SimulationsLogs.Add(new SimulationLog
+                    {
+                        Id = Guid.NewGuid(),
+                        TenantId = campaign.TenantId,
+                        CampaignId = campaign.Id,
+                        TargetId = target.Id,
+                        Acao = SimulationActions.Falha,
+                        DataHora = DateTime.UtcNow,
+                        IpOrigem = "SISTEMA"
+                    });
+                    await _context.SaveChangesAsync(cancellationToken);
+                    continue;
+                }
+
                 try
                 {
                     var message = new MimeMessage();

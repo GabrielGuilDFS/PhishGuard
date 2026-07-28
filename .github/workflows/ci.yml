@@ -75,17 +75,64 @@ jobs:
         run: npm run build
 
   # ---------------------------------------------------------------------------
-  # E2E — RESERVADO para o Passo 13 (Playwright + Mailpit). Ainda nao ha suite E2E,
-  # entao o job apenas sinaliza o placeholder e passa. Sera ativado quando o
-  # docker-compose.e2e.yml e os specs em e2e/ existirem.
+  # E2E — Playwright + Mailpit (Passo 13). Sobe a stack de homologacao
+  # (docker-compose.e2e.yml: db + backend + frontend + mailpit) e roda o ciclo de
+  # vida completo de uma campanha (§2.1). SMTP capturado pelo Mailpit + allowlist
+  # @test.io: nada sai para a internet.
   # ---------------------------------------------------------------------------
   e2e:
-    name: E2E (reservado — Passo 13)
+    name: E2E (Playwright + Mailpit)
     runs-on: ubuntu-latest
     needs: [ backend, frontend ]
     steps:
-      - name: Placeholder
-        run: echo "Suite E2E (Playwright + Mailpit) sera adicionada no Passo 13 do roadmap de QA."
+      - name: Checkout do codigo
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js (LTS)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: e2e/package-lock.json
+
+      - name: Subir a stack de homologacao (db + backend + frontend + mailpit)
+        run: docker compose -f docker-compose.e2e.yml --env-file .env.e2e up -d --build
+
+      - name: Instalar dependencias E2E + browser
+        working-directory: e2e
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+
+      - name: Aguardar o app responder
+        run: |
+          for i in $(seq 1 60); do
+            curl -sf http://localhost:5173 >/dev/null && echo "app de pe" && exit 0
+            sleep 3
+          done
+          echo "app nao respondeu a tempo" && exit 1
+
+      - name: Rodar Playwright (ciclo de vida da campanha)
+        working-directory: e2e
+        run: npx playwright test
+        env:
+          CI: "true"
+
+      - name: Logs dos containers (em caso de falha)
+        if: failure()
+        run: docker compose -f docker-compose.e2e.yml logs --no-color --tail=200
+
+      - name: Publicar relatorio do Playwright
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: e2e/playwright-report
+          if-no-files-found: ignore
+
+      - name: Derrubar a stack
+        if: always()
+        run: docker compose -f docker-compose.e2e.yml --env-file .env.e2e down -v
 
   # ---------------------------------------------------------------------------
   # SECURITY — audit de dependencias (Passo 11: DevSecOps basico). CodeQL entra no
