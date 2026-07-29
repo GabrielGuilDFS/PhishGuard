@@ -203,8 +203,20 @@ namespace PhishGuard.Backend.Data
                 // (suíte de isolamento de tenant) ou InMemory a anotação seria metadado inócuo,
                 // mas o EnsureCreated() do SQLite tentaria materializar a coluna e falharia. O
                 // gate mantém o modelo de PRODUÇÃO idêntico e o de teste criável.
+                //
+                // Mapeamento EXPLÍCITO (shadow property) em vez do atalho
+                // 'UseXminAsConcurrencyToken()' do Npgsql: aquele método foi marcado obsoleto e
+                // depois REMOVIDO nas versões novas do provider — usá-lo quebrava o build quando
+                // o restore unificava o Npgsql para uma versão >8. Esta forma é 100% EF Core
+                // padrão (nenhuma extensão Npgsql-específica), compila em qualquer versão do
+                // provider e expande para EXATAMENTE o que o atalho gerava, então o
+                // ModelSnapshot continua idêntico (sem migration nova).
                 if (Database.IsNpgsql())
-                    entity.UseXminAsConcurrencyToken();
+                    entity.Property<uint>("xmin")
+                        .HasColumnName("xmin")
+                        .HasColumnType("xid")
+                        .ValueGeneratedOnAddOrUpdate()
+                        .IsConcurrencyToken();
 
                 // FK física TenantId → Tenants (Cascade: purga do tenant).
                 entity.HasOne<Tenant>().WithMany().HasForeignKey(c => c.TenantId)

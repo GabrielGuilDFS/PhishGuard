@@ -1,7 +1,18 @@
-# Dependabot — atualizacoes automaticas de dependencias (Passo 11 do roadmap de QA).
-# Abre PRs semanais com bumps de seguranca/versao; o job `security` da CI (npm audit +
-# dotnet list --vulnerable) valida cada PR. Este e o motor que zera, ao longo do tempo,
-# a divida de vulnerabilidades transitivas que os audits hoje ainda reportam.
+# Dependabot — MODO DEFENSIVO (ajustado para a reta final do TCC).
+#
+# Objetivo: manter a `main` limpa e o repositorio sem poluicao de PRs falhos diante da
+# banca, SEM abrir mao de resposta a vulnerabilidades. Duas alavancas:
+#
+#   1) `interval: "monthly"`         -> cadencia baixa (era semanal): menos ruido.
+#   2) `open-pull-requests-limit: 1` -> no maximo 1 PR de VERSAO aberto por ecossistema.
+#   3) grupo unico por ecossistema   -> se vier bump, vem consolidado num PR so (menos
+#                                       conflito de lockfile, menos "1/4 checks failed").
+#
+# >>> MODO "SO SEGURANCA" (recomendado ate a entrega) <<<
+# Troque `open-pull-requests-limit` para 0. Isso DESLIGA os PRs de versao (cosmeticos),
+# mas os PRs de SEGURANCA (GitHub Security Advisories) CONTINUAM sendo abertos — exige
+# "Dependabot security updates" ligado em Settings > Code security. Para um TCC cujo tema
+# e seguranca, esse e o melhor equilibrio: zero ruido, mas nenhuma CVE passa batido.
 version: 2
 updates:
   # ---------------------------------------------------------------------------
@@ -11,11 +22,10 @@ updates:
   - package-ecosystem: "nuget"
     directory: "/"
     schedule:
-      interval: "weekly"
-      day: "monday"
+      interval: "monthly"
       time: "06:00"
       timezone: "America/Sao_Paulo"
-    open-pull-requests-limit: 10
+    open-pull-requests-limit: 1
     labels:
       - "dependencies"
       - "backend"
@@ -23,13 +33,12 @@ updates:
       prefix: "chore(deps)"
       include: "scope"
     groups:
-      # Agrupa os pacotes de infra da Microsoft/EF num unico PR — evita enxurrada de
-      # PRs correlacionados e reduz o risco de bumps parciais inconsistentes.
-      microsoft-and-ef:
+      # Grupo unico: TODO bump de backend cai num PR consolidado — nunca mais bumps
+      # parciais inconsistentes (foi o que quebrou o grupo EF9: subiu EF Core mas
+      # esqueceu o Sqlite, gerando TypeLoadException entre EF8 x EF9).
+      backend-all:
         patterns:
-          - "Microsoft.*"
-          - "System.*"
-          - "Npgsql*"
+          - "*"
 
   # ---------------------------------------------------------------------------
   # FRONTEND (npm) — usa o package-lock.json de PhishGuard.Frontend/.
@@ -37,11 +46,10 @@ updates:
   - package-ecosystem: "npm"
     directory: "/PhishGuard.Frontend"
     schedule:
-      interval: "weekly"
-      day: "monday"
+      interval: "monthly"
       time: "06:00"
       timezone: "America/Sao_Paulo"
-    open-pull-requests-limit: 10
+    open-pull-requests-limit: 1
     labels:
       - "dependencies"
       - "frontend"
@@ -49,13 +57,7 @@ updates:
       prefix: "chore(deps)"
       include: "scope"
     groups:
-      # Toolchain de build/teste num PR so (vite, vitest, eslint, tipos) — sao dev-deps
-      # que sobem juntas e concentram hoje a maior parte dos avisos do npm audit.
-      dev-toolchain:
-        dependency-type: "development"
-      # Runtime React agrupado para manter react/react-dom/react-router em sincronia.
-      react:
+      # Grupo unico: TODO bump de frontend num PR so (react, mui, vite/vitest, tipos).
+      frontend-all:
         patterns:
-          - "react"
-          - "react-dom"
-          - "react-router*"
+          - "*"

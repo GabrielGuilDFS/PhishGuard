@@ -4,7 +4,7 @@ using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
-using Microsoft.OpenApi.Models;
+using Microsoft.OpenApi;
 using System.Net;
 using System.Text;
 using System.Threading.RateLimiting;
@@ -106,18 +106,15 @@ builder.Services.AddSwaggerGen(c =>
         Scheme = "Bearer"
     });
 
-    c.AddSecurityRequirement(new OpenApiSecurityRequirement
+    // Swashbuckle 10 / Microsoft.OpenApi 2.0: AddSecurityRequirement agora recebe uma
+    // Func<OpenApiDocument, OpenApiSecurityRequirement> (a referência ao scheme precisa do
+    // documento hospedeiro). A referência em si deixou de ser um OpenApiSecurityScheme com
+    // .Reference/OpenApiReference e passou a ser o tipo dedicado OpenApiSecuritySchemeReference.
+    c.AddSecurityRequirement(document => new OpenApiSecurityRequirement
     {
         {
-            new OpenApiSecurityScheme
-            {
-                Reference = new OpenApiReference
-                {
-                    Type = ReferenceType.SecurityScheme,
-                    Id = "Bearer"
-                }
-            },
-            new string[] {}
+            new OpenApiSecuritySchemeReference("Bearer", document),
+            new List<string>()
         }
     });
 });
