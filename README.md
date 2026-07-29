@@ -96,19 +96,39 @@ Para viabilizar o desenvolvimento dentro do cronograma acadêmico, o projeto seg
 
 ### Pré-requisitos
 * [.NET SDK 8.0+](https://dotnet.microsoft.com/download)
-* [Node.js (LTS v18+)](https://nodejs.org/)
+* [Node.js (LTS v20+)](https://nodejs.org/)
 * [Docker + Docker Compose](https://www.docker.com/) (sobe o PostgreSQL)
 
-> **Segredo do JWT:** a chave de assinatura NÃO fica versionada. Defina-a via variável
-> de ambiente `AppSettings__Token` (ver `.env` para o Docker) ou, em dev local, via
-> user-secrets: `dotnet user-secrets set "AppSettings:Token" "<chave-longa>" --project PhishGuard.Backend`.
+### 🔧 Configuração (obrigatório na 1ª vez — vale para QUALQUER PC)
+
+Toda a configuração de máquina vive em variáveis de ambiente. O repositório versiona
+apenas o **template** `.env.example`; o `.env` real é gitignored (cada dev tem o seu):
+
+```bash
+cp .env.example .env      # Windows PowerShell:  Copy-Item .env.example .env
+# edite o .env e preencha: POSTGRES_PASSWORD e AppSettings__Token (chave longa/aleatória)
+```
+
+> **Porta do Postgres:** controlada por uma única variável `POSTGRES_PORT` no `.env`
+> (default **5433**, não 5432, para não conflitar com um Postgres já instalado na sua
+> máquina). Mude só ali e o compose inteiro acompanha. **Convenção:** use SEMPRE o
+> Postgres do Docker — nunca o nativo do host — assim a porta não diverge entre PCs.
+>
+> **Segredo do JWT:** `AppSettings__Token` no `.env` (Docker) ou, em dev local sem
+> Docker, via user-secrets:
+> `dotnet user-secrets set "AppSettings:Token" "<chave-longa>" --project PhishGuard.Backend`.
+>
+> **Base da API (frontend):** default `http://localhost:5000/api`. Para sobrescrever
+> (ex.: atrás de túnel), crie `PhishGuard.Frontend/.env` a partir do `.env.example` de
+> lá e ajuste `VITE_API_BASE_URL`.
 
 ### Opção A — Stack completa via Docker (recomendado)
 ```bash
 git clone https://github.com/GabrielGuilDFS/PhishGuard.git
 cd PhishGuard
+cp .env.example .env      # e preencha os segredos (ver acima)
 
-# Sobe db (5433) + backend (5000) + frontend (5173).
+# Sobe db + backend (5000) + frontend (5173). A porta do db vem de POSTGRES_PORT (.env).
 # O backend aplica as migrations automaticamente no startup — não é preciso rodar
 # `dotnet ef database update` manualmente.
 docker compose up -d --build
@@ -118,6 +138,8 @@ docker compose up -d --build
 ```bash
 # Atalho (Windows): sobe só o Postgres (serviço `db`) e abre backend + frontend.
 run-local.bat
+# Linux/macOS: equivalente multiplataforma
+./run-local.sh
 
 # ...ou manualmente, em terminais separados:
 docker compose up -d db

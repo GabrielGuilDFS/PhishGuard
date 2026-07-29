@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
+import { API_BASE } from '../config';
 import {
     Typography, Box, Button, TextField, Table, TableBody,
     TableCell, TableContainer, TableHead, TableRow, Paper, IconButton,
@@ -210,8 +211,6 @@ export default function Campaigns() {
     // do último status conhecido por campanha (para diferenciar mudanças entre polls).
     const [flashingIds, setFlashingIds] = useState<Set<string>>(new Set());
     const statusAnteriorRef = useRef<Map<string, string>>(new Map());
-
-    const API_BASE = 'http://localhost:5000/api';
 
     const token = localStorage.getItem('phishguard_token');
     const headers = {

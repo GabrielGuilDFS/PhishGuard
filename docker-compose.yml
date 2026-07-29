@@ -3,9 +3,10 @@ services:
     image: postgres:16-alpine
     container_name: phishguard-db
     restart: unless-stopped
-    command: -p 5433
+    # Porta derivada de POSTGRES_PORT (.env) — fonte unica; default 5433.
+    command: -p ${POSTGRES_PORT:-5433}
     ports:
-      - "5433:5433"
+      - "${POSTGRES_PORT:-5433}:${POSTGRES_PORT:-5433}"
     env_file:
       - .env
     volumes:
@@ -23,7 +24,7 @@ services:
       - "5000:5000"
     environment:
       ASPNETCORE_ENVIRONMENT: "Development"
-      ConnectionStrings__DefaultConnection: "Host=db;Port=5433;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}"
+      ConnectionStrings__DefaultConnection: "Host=db;Port=${POSTGRES_PORT:-5433};Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}"
       AppSettings__Token: "${AppSettings__Token}"
       # 1 TÚNEL: frontend e backend compartilham o MESMO domínio público. O Vite
       # (frontend) faz reverse-proxy de /api para o backend na rede interna. Por isso
