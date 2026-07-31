@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { API_BASE } from '../config';
 import {
   Box,
   Button,
@@ -37,7 +38,7 @@ export default function Login() {
     setErro('');
 
     try {
-      const response = await fetch('http://localhost:5000/api/Auth/login', {
+      const response = await fetch(`${API_BASE}/Auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password })

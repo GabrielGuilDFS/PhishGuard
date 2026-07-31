@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode, type SyntheticEvent } from 'react';
+import { API_BASE } from '../config';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { clearSession } from '../auth/session';
 import {
@@ -203,7 +204,7 @@ export default function CheckoutPage() {
       };
 
       try {
-        await fetch('http://localhost:5000/api/Tenants/ativar', {
+        await fetch(`${API_BASE}/Tenants/ativar`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),

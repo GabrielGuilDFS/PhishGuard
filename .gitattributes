@@ -1,0 +1,10 @@
+# Normalizacao de fim de linha — portabilidade entre Windows/Linux/macOS.
+# Por padrao o Git normaliza para LF no repositorio e converte no checkout.
+* text=auto
+
+# Shell scripts DEVEM ter LF, senao quebram no Linux/macOS ("bad interpreter").
+*.sh text eol=lf
+
+# Scripts .bat/.cmd sao exclusivos do Windows — mantenha CRLF.
+*.bat text eol=crlf
+*.cmd text eol=crlf

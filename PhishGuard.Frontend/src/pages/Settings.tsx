@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { API_BASE } from '../config';
 import {
   Box,
   Typography,
@@ -94,7 +95,7 @@ export default function Settings() {
       }
 
       try {
-        const response = await fetch('http://localhost:5000/api/Auth/profile', {
+        const response = await fetch(`${API_BASE}/Auth/profile`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
@@ -132,7 +133,7 @@ export default function Settings() {
           return;
         }
 
-        const response = await fetch('http://localhost:5000/api/SmtpConfig', {
+        const response = await fetch(`${API_BASE}/SmtpConfig`, {
           method: 'GET',
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -181,7 +182,7 @@ export default function Settings() {
         return;
       }
 
-      const response = await fetch('http://localhost:5000/api/Auth/profile', {
+      const response = await fetch(`${API_BASE}/Auth/profile`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -229,7 +230,7 @@ export default function Settings() {
         Senha: smtp.password
       };
 
-      const response = await fetch('http://localhost:5000/api/SmtpConfig', {
+      const response = await fetch(`${API_BASE}/SmtpConfig`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -261,7 +262,7 @@ export default function Settings() {
     try {
       const token = localStorage.getItem('phishguard_token');
 
-      const response = await fetch('http://localhost:5000/api/SmtpConfig/Testar', {
+      const response = await fetch(`${API_BASE}/SmtpConfig/Testar`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,

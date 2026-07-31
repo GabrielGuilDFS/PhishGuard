@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { API_BASE } from '../config';
 import {
   Box,
   Button,
@@ -115,7 +116,7 @@ export default function Register() {
     try {
       setLoading(true);
 
-      const response = await fetch('http://localhost:5000/api/Auth/register', {
+      const response = await fetch(`${API_BASE}/Auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

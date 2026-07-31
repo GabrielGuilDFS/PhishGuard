@@ -29,8 +29,7 @@ import { alpha } from '@mui/material/styles';
 import PageContainer from '../components/PageContainer';
 import { brandPalette, statusColors, mutedTextFor, rgbChannelsOf, SOFT_BORDER_ALPHA } from '../theme';
 import { useThemeMode } from '../context/ThemeModeContext';
-
-const API_BASE = 'http://localhost:5000/api';
+import { API_BASE } from '../config';
 
 // Cores semânticas de status — papéis EXCLUSIVOS e iguais nos dois modos:
 // danger = falha crítica (clicou/inseriu dados), warning = alerta/pendência,

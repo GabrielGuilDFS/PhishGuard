@@ -6,6 +6,9 @@ obj/
 *.pdb
 *.cache
 
+# Guia de trabalho do Claude — local, nao versionar.
+CLAUDE.md
+
 .logoFalsa
 .paginaSimulada
 node_modules/
@@ -13,7 +16,9 @@ dist/
 build/
 .env
 .DS_Store
-docs/RELATORIO-QA.md
+
+# Documentacao/relatorios gerados — nao essenciais para rodar o projeto.
+docs/
 
 .vscode/
 diff_status.txt

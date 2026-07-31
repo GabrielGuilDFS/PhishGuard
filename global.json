@@ -1,0 +1,8 @@
+{
+  "//": "Fixa a toolchain .NET em qualquer PC. O projeto tem como alvo net8.0; sem isto, um dev com SDK 9/10 instalado usaria essa versao por padrao. rollForward=latestMinor mantem dentro do major 8 (usa o maior 8.x instalado), nunca sobe para 10.",
+  "sdk": {
+    "version": "8.0.0",
+    "rollForward": "latestMinor",
+    "allowPrerelease": false
+  }
+}

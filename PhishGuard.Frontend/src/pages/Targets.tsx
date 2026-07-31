@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { API_BASE } from '../config';
 import { 
   Box, Button, Typography, Paper, Table, TableBody, TableCell, 
   TableContainer, TableHead, TableRow, IconButton, Dialog, 
@@ -51,7 +52,7 @@ export default function Targets() {
     const token = localStorage.getItem('phishguard_token');
     try {
       // 1. URL ATUALIZADA PARA TARGETS
-      const response = await fetch('http://localhost:5000/api/Targets', {
+      const response = await fetch(`${API_BASE}/Targets`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (response.ok) {
@@ -73,7 +74,7 @@ export default function Targets() {
   const fetchQuota = async () => {
     const token = localStorage.getItem('phishguard_token');
     try {
-      const response = await fetch('http://localhost:5000/api/Tenant/quota', {
+      const response = await fetch(`${API_BASE}/Tenant/quota`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (response.ok) {
@@ -108,7 +109,7 @@ export default function Targets() {
         for (const item of dadosCSV) {
           try {
             // 2. URL ATUALIZADA PARA TARGETS
-            await fetch('http://localhost:5000/api/Targets', {
+            await fetch(`${API_BASE}/Targets`, {
               method: 'POST',
               headers: { 
                 'Content-Type': 'application/json',
@@ -140,8 +141,8 @@ export default function Targets() {
     const token = localStorage.getItem('phishguard_token');
     // 3. URLs ATUALIZADAS PARA TARGETS
     const url = editId
-      ? `http://localhost:5000/api/Targets/${editId}`
-      : 'http://localhost:5000/api/Targets';
+      ? `${API_BASE}/Targets/${editId}`
+      : `${API_BASE}/Targets`;
 
     try {
       const response = await fetch(url, {
@@ -187,7 +188,7 @@ export default function Targets() {
     const token = localStorage.getItem('phishguard_token');
     if (window.confirm("Deseja realmente excluir este alvo?")) {
       try {
-        const response = await fetch(`http://localhost:5000/api/Targets/${id}`, {
+        const response = await fetch(`${API_BASE}/Targets/${id}`, {
           method: 'DELETE',
           headers: { 'Authorization': `Bearer ${token}` }
         });
@@ -230,7 +231,7 @@ export default function Targets() {
     const token = localStorage.getItem('phishguard_token');
     
     try {
-      const response = await fetch('http://localhost:5000/api/SmtpConfig/Testar', {
+      const response = await fetch(`${API_BASE}/SmtpConfig/Testar`, {
         method: 'POST',
         headers: { 
           'Authorization': `Bearer ${token}`,
