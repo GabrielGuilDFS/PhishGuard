@@ -95,8 +95,8 @@ Para viabilizar o desenvolvimento dentro do cronograma acadêmico, o projeto seg
 ## 🛠️ Instalação e Execução
 
 ### Pré-requisitos
-* [.NET SDK 8.0+](https://dotnet.microsoft.com/download)
-* [Node.js (LTS v20+)](https://nodejs.org/)
+* [.NET SDK 8.0+](https://dotnet.microsoft.com/download) — a versão fica **fixada** em `global.json` (`rollForward: latestMinor`), então mesmo com SDK 9/10 instalado os comandos `dotnet` usam a banda 8.x do projeto.
+* [Node.js (LTS v20+)](https://nodejs.org/) — versão fixada em `.nvmrc` (bate com a imagem `node:20-alpine` do Docker). Rode `nvm use` para alinhar.
 * [Docker + Docker Compose](https://www.docker.com/) (sobe o PostgreSQL)
 
 ### 🔧 Configuração (obrigatório na 1ª vez — vale para QUALQUER PC)
