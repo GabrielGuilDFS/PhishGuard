@@ -46,13 +46,13 @@ describe('bho MAX — Template de E-mail', () => {
     expect(container.innerHTML).not.toMatch(/\{\{.*?\}\}/);
   });
 
-  it('injeta a logo parodiada como PNG (data-URI no preview; cid:logo-bhomax no disparo) e conforma a marca', () => {
+  it('injeta a logo própria como PNG (data-URI no preview; cid:logo-bhomax no disparo) e conforma a marca', () => {
     const { container } = render(<div dangerouslySetInnerHTML={{ __html: emailComProps() }} />);
     const temPng = Array.from(container.querySelectorAll('img')).some((i) =>
       i.getAttribute('src')?.startsWith('data:image/png'),
     );
     expect(temPng).toBe(true);
-    // Conformidade da marca parodiada no corpo.
+    // Conformidade da marca exibida no corpo.
     expect(container.textContent).toContain('bho MAX');
   });
 

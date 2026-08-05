@@ -7,7 +7,7 @@ using System.Reflection;
 namespace PhishGuard.Backend.Content
 {
     /// <summary>
-    /// Catálogo das iscas oficiais homologadas (HBO Max, Netflix, Amazon, ...).
+    /// Catálogo das iscas oficiais homologadas (bho MAX, NetsFlix, amzprime, ...).
     ///
     /// A tela de Templates passou a persistir APENAS o identificador da isca
     /// (ex.: "amazon-notificacao-geral") no campo CorpoHtml — nunca mais a string

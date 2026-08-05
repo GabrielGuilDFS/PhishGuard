@@ -161,7 +161,7 @@ const hboMaxRedefinicaoSenhaHtml = `<!DOCTYPE html>
       <a href="#">Informações</a>
       <a href="#">Ajuda</a>
     </nav>
-    <p class="hbo-copy">© 2026 bho MAX. Todos os direitos reservados. (marca fictícia — sem afiliação real)</p>
+    <p class="hbo-copy">© 2026 bho MAX. Todos os direitos reservados.</p>
   </footer>
 
   <button class="hbo-chat" type="button" aria-label="Abrir chat de ajuda">
@@ -170,8 +170,8 @@ const hboMaxRedefinicaoSenhaHtml = `<!DOCTYPE html>
 </body>
 </html>`;
 
-// Interface simulada "NetsFlix - Acesse sua conta" (login/captura) — paródia FICTÍCIA
-// (compliance de IP: sem logo/fita curvada, sem "Netflix" no texto; logo = "N" plano em
+// Interface simulada "NetsFlix - Acesse sua conta" (login/captura). Identidade própria
+// (compliance de IP: sem logo/fita curvada, sem a marca real no texto; logo = "N" plano em
 // CSS #E50914). Consolidação do clone Next.js + MUI + Tailwind originalmente em ".Pagina"
 // (Hero): os
 // componentes React e o estilo utilitário foram unificados numa ÚNICA string de
@@ -203,7 +203,7 @@ const netflixLoginHtml = `<!DOCTYPE html>
   .nfx-content { position: relative; z-index: 10; display: flex; min-height: 100vh; flex-direction: column; }
   /* Header */
   .nfx-header { display: flex; align-items: center; justify-content: space-between; padding: 20px 24px; }
-  /* Logo parodiado: letra "N" plana (2D), Arial Black / geométrica, vermelho de marca,
+  /* Logo próprio: letra "N" plana (2D), Arial Black / geométrica, vermelho de marca,
      leve escala vertical p/ manter o peso visual — sem imagem/SVG da fita curvada. */
   .nfx-logo { user-select: none; display: inline-block; font-family: 'Arial Black', 'Helvetica Neue', Arial, sans-serif; font-size: 2.25rem; font-weight: 900; line-height: 1; letter-spacing: -0.02em; color: #E50914; transform: scaleY(1.1); }
   @media (min-width: 768px) { .nfx-header { padding: 20px 48px; } .nfx-logo { font-size: 2.6rem; } }
@@ -266,8 +266,8 @@ const netflixLoginHtml = `<!DOCTYPE html>
 </body>
 </html>`;
 
-// Interface simulada "amzprime - Alterar Senha" (login/captura) — paródia FICTÍCIA da
-// Amazon p/ compliance de IP (sem logo/marca/dados cadastrais reais). Consolidação do
+// Interface simulada "amzprime - Alterar Senha" (login/captura). Identidade própria p/
+// compliance de IP (sem logo/marca/dados cadastrais reais). Consolidação do
 // clone Next.js originalmente em ".pagina" (Header + ChangePasswordForm + Footer).
 //
 // ⚠️ AUTO-CONTIDO (correção 2026-07-17): antes esta era a ÚNICA landing que dependia
@@ -284,9 +284,9 @@ const netflixLoginHtml = `<!DOCTYPE html>
 //    precisamos mais do CDN). O reset `a{text-decoration:none;color:inherit}` mata de vez
 //    o "tudo azul sublinhado".
 //
-// Sem imagens externas: o logo "amzprime" (wordmark parodiado, fonte de design em
+// Sem imagens externas: o logo "amzprime" (wordmark próprio, fonte de design em
 // .logoFalsa/) é textual e todos os ícones são SVG inline (sem caminhos de arquivo
-// que possam quebrar). Paródia p/ compliance de IP: sem marca/dados cadastrais reais.
+// que possam quebrar). Identidade própria p/ compliance de IP: sem marca/dados cadastrais reais.
 //
 // Telemetria: mesmo padrão do HBO/Netflix — <form onsubmit> inline dispara o
 // gatilho de rastreamento (só flags de validação, NUNCA a senha — LGPD) e então
@@ -307,7 +307,7 @@ const amazonLoginHtml = `<!DOCTYPE html>
   button { font-family: inherit; cursor: pointer; }
   input { font-family: inherit; }
 
-  /* ---------- Wordmark parodiado "amzprime" (fonte de design em .logoFalsa/) ----------
+  /* ---------- Wordmark próprio "amzprime" (fonte de design em .logoFalsa/) ----------
      Nunito Sans (livre) no lugar do Amazon Ember. Em fundo ESCURO (header/rodapé desta
      landing) "amz" vai em branco por legibilidade — no e-mail (fundo branco) "amz" usa
      #232F3E. "prime" fica sempre no azul-marca #00A8E1 (gatilho cognitivo). */
@@ -509,11 +509,11 @@ const amazonLoginHtml = `<!DOCTYPE html>
 </html>`;
 
 // ---------------------------------------------------------------------------
-// LANDING FICTÍCIA "Microsft 365" — página falsa de login corporativo (par da isca de
+// LANDING "Microsft 365" — página falsa de login corporativo (par da isca de
 // e-mail 'microcorp-expiracao-senha' -> cenário 'cenario-microcorp'). Consolidada em UMA
 // string HTML com CSS embutido (as demais landings seguem o mesmo padrão; classes
 // Tailwind não compilam no HTML injetado por dangerouslySetInnerHTML nem no preview em
-// iframe). SEM propriedade intelectual real: identidade é o logotipo-paródia (grid 2x2 de
+// iframe). SEM propriedade intelectual real: identidade é o logotipo próprio (grid 2x2 de
 // 4 quadrados coloridos em tons ADAPTADOS) + wordmark "Microsft 365" (typosquatting
 // proposital — sem o segundo "o"), espelhando o e-mail. O slug do id permanece
 // 'microcorp-login' por estabilidade (renomear quebraria campanhas legadas).
@@ -666,6 +666,10 @@ const mercadoLivLoginHtml = `<!DOCTYPE html>
   *{box-sizing:border-box;margin:0;padding:0}
   :root{--ml-yellow:#FEE501;--ml-blue:#2E347E;--ml-fg:#1a1a2e;--ml-border:#e6e6e6;--ml-muted-fg:#737373}
   body{min-height:100vh;display:flex;flex-direction:column;background:#fff;color:var(--ml-fg);font-family:'Nunito',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;-webkit-font-smoothing:antialiased}
+  /* Wrapper de página: a landing é injetada via dangerouslySetInnerHTML (o <body> é
+     descartado), então a coluna flex de altura total precisa viver num elemento REAL do
+     conteúdo — senão o rodapé "sobe" para o meio. min-h-screen + footer margin-top:auto. */
+  .ml-page{min-height:100vh;display:flex;flex-direction:column}
   a{color:inherit;text-decoration:none}
   /* Header amarelo (#FEE501) com a logo caixa-baixa "mercado/liv" em azul (#2E347E) */
   .ml-header{background:var(--ml-yellow)}
@@ -705,8 +709,8 @@ const mercadoLivLoginHtml = `<!DOCTYPE html>
   .ml-divider .txt{font-size:13px;color:var(--ml-muted-fg)}
   .ml-google{display:flex;height:48px;width:100%;align-items:center;justify-content:center;gap:12px;border:1px solid var(--ml-border);background:#fff;border-radius:6px;font-size:15px;font-family:inherit;color:var(--ml-fg);cursor:pointer}
   .ml-google:hover{background:#f7f7f7}
-  /* Footer */
-  .ml-footer{background:#f5f5f5}
+  /* Footer — mt-auto empurra para a base da coluna flex .ml-page */
+  .ml-footer{background:#f5f5f5;margin-top:auto}
   .ml-footer-inner{max-width:1200px;margin:0 auto;padding:16px 24px;display:flex;flex-direction:column;gap:8px;font-size:13px;color:var(--ml-muted-fg)}
   @media(min-width:768px){.ml-footer-inner{flex-direction:row;align-items:center;justify-content:space-between}}
   .ml-footer a{color:var(--ml-blue)}
@@ -716,6 +720,7 @@ const mercadoLivLoginHtml = `<!DOCTYPE html>
 </style>
 </head>
 <body>
+  <div class="ml-page">
   <!-- CABECALHO amarelo (#FEE501) + logo "mercado/liv" (caixa baixa, azul #2E347E) -->
   <header class="ml-header">
     <div class="ml-header-inner">
@@ -766,10 +771,11 @@ const mercadoLivLoginHtml = `<!DOCTYPE html>
 
   <footer class="ml-footer">
     <div class="ml-footer-inner">
-      <p><a href="#">Como cuidamos da sua privacidade</a> - Copyright &copy; 1999-2026 Mercado Liv - marca ficticia (simulacao de conscientizacao PhishGuard).</p>
+      <p><a href="#">Como cuidamos da sua privacidade</a> - Copyright &copy; 1999-2026 Mercado Liv Atividades de Internet Ltda. - CNPJ 18.472.036/0001-45 - atendimento@mercadoliv.com</p>
       <p class="ml-recaptcha"><span>Protegido por reCAPTCHA -</span><a href="#">Privacidade</a><span>-</span><a href="#">Condicoes</a></p>
     </div>
   </footer>
+  </div>
 </body>
 </html>`;
 

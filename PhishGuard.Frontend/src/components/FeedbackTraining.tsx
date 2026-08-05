@@ -139,10 +139,6 @@ function MockupPanel({
             </button>
           );
         })}
-
-        <span className="pointer-events-none absolute bottom-2 left-1/2 -translate-x-1/2 rounded-full bg-slate-900/70 px-3 py-1 text-[11px] font-medium text-white">
-          {mockup.titulo}
-        </span>
       </div>
     </div>
   );
@@ -215,7 +211,7 @@ export default function FeedbackTraining({ config, preview = false }: Props) {
       <div className="mx-auto max-w-6xl">
         {/* 1. HEADER DE FEEDBACK */}
         <header className="mb-6 overflow-hidden rounded-2xl bg-white shadow-md">
-          <div className="flex items-start gap-3 bg-amber-400 px-6 py-4">
+          <div className="flex items-center gap-2 bg-amber-400 px-6 py-4">
             <span className="text-2xl leading-none" aria-hidden="true">⚠️</span>
             <p className="text-sm font-bold text-amber-950 sm:text-base">{config.header.badge}</p>
           </div>
@@ -282,6 +278,44 @@ export default function FeedbackTraining({ config, preview = false }: Props) {
                 </div>
               );
             })}
+          </div>
+        </section>
+
+        {/* 3.5 REGRAS DE OURO — dicas universais reforçadas em TODA página educacional
+             (independentes da isca): autenticação para troca de senha + verificação de
+             origem antes de digitar credenciais. */}
+        <section className="mb-8">
+          <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-5 sm:p-6">
+            <h2 className="mb-4 flex items-center gap-2 text-lg font-bold text-emerald-900">
+              <span className="text-xl leading-none" aria-hidden="true">🛡️</span>
+              Regras de ouro contra o phishing
+            </h2>
+            <ul className="space-y-4">
+              <li>
+                <h3 className="flex items-center gap-3 text-sm font-bold text-emerald-900 sm:text-base">
+                  <span className="w-5 flex-shrink-0 text-center text-xl leading-none" aria-hidden="true">🔐</span>
+                  <span>Trocas de senha só acontecem quando você já está logado</span>
+                </h3>
+                <p className="mt-1 pl-8 text-sm leading-relaxed text-emerald-800">
+                  Para alterar uma senha, você precisa estar devidamente autenticado dentro da
+                  plataforma oficial. Serviços legítimos <strong>nunca</strong> pedem redefinição
+                  direta por um link de e-mail sem que você entre primeiro na sua conta. Se uma
+                  página aberta a partir de um e-mail já pede a senha nova (ou a atual), é fraude.
+                </p>
+              </li>
+              <li>
+                <h3 className="flex items-center gap-3 text-sm font-bold text-emerald-900 sm:text-base">
+                  <span className="w-5 flex-shrink-0 text-center text-xl leading-none" aria-hidden="true">🕵️</span>
+                  <span>Confira quem enviou e para onde o link leva antes de digitar qualquer credencial</span>
+                </h3>
+                <p className="mt-1 pl-8 text-sm leading-relaxed text-emerald-800">
+                  Verifique <strong>quem realmente enviou</strong> o e-mail (o endereço completo
+                  depois do <code>@</code>, não apenas o nome exibido, que é fácil de falsificar) e
+                  o <strong>endereço que aparece na barra do navegador</strong>. Na dúvida, não
+                  clique no botão: acesse o site oficial digitando você mesmo o endereço.
+                </p>
+              </li>
+            </ul>
           </div>
         </section>
 

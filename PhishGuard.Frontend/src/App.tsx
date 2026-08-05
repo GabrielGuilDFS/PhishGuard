@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, useSearchParams } from 'react-router-dom';
+import { BrowserRouter, useSearchParams } from 'react-router-dom';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import AdminLayout from './layouts/AdminLayout';
@@ -10,7 +10,7 @@ import Templates from './pages/Templates';
 import { ThemeModeProvider } from './context/ThemeModeContext';
 import { NotificationProvider } from './context/NotificationContext';
 import ForcedLightScope from './theme/ForcedLightScope';
-import PrivateRoute from './auth/PrivateRoute';
+import AppRoutes from './routing/AppRoutes';
 
 import LandingPage from './pages/LandingPage';
 import HomeLandingPage from './pages/HomeLandingPage';
@@ -47,31 +47,20 @@ function App() {
     <ThemeModeProvider>
       <NotificationProvider>
         <BrowserRouter>
-          <Routes>
-            {/* Vitrine pública: travada no modo light, ignora o toggle do painel.
-                O <ForcedLightScope> fica AQUI (e não dentro de cada página) para que
-                exista um único ponto de verdade sobre quais rotas são travadas. */}
-            <Route path="/" element={<ForcedLightScope><HomeLandingPage /></ForcedLightScope>} />
-            <Route path="/login" element={<ForcedLightScope><Login /></ForcedLightScope>} />
-            <Route path="/register" element={<ForcedLightScope><Register /></ForcedLightScope>} />
-            <Route path="/checkout" element={<CheckoutPage />} />
-            <Route path="/landing/:id" element={<LandingPage />} />
-            <Route path="/educational-feedback" element={<EducationalFeedback />} />
-            <Route
-              path="/admin"
-              element={
-                <PrivateRoute>
-                  <AdminLayout />
-                </PrivateRoute>
-              }
-            >
-              <Route path="dashboard" element={<AdminDashboard />} />
-              <Route path="targets" element={<Targets />} />
-              <Route path="campaigns" element={<Campaigns />} />
-              <Route path="templates" element={<Templates />} />
-              <Route path="settings" element={<Settings />} />
-            </Route>
-          </Routes>
+          <AppRoutes
+            home={<ForcedLightScope><HomeLandingPage /></ForcedLightScope>}
+            login={<ForcedLightScope><Login /></ForcedLightScope>}
+            register={<ForcedLightScope><Register /></ForcedLightScope>}
+            checkout={<CheckoutPage />}
+            landing={<LandingPage />}
+            educationalFeedback={<EducationalFeedback />}
+            adminLayout={<AdminLayout />}
+            dashboard={<AdminDashboard />}
+            targets={<Targets />}
+            campaigns={<Campaigns />}
+            templates={<Templates />}
+            settings={<Settings />}
+          />
         </BrowserRouter>
       </NotificationProvider>
     </ThemeModeProvider>

@@ -7,7 +7,7 @@ import { feedbackTrainings } from './feedbackTrainings';
 import FeedbackTraining from '../components/FeedbackTraining';
 
 // ============================================================================
-// Suíte do CENÁRIO "amzprime" (paródia FICTÍCIA da Amazon — o "Amasson" do pedido).
+// Suíte do CENÁRIO "amzprime" (identidade própria, compliance de IP).
 // Mesmo BLUEPRINT, adaptado à isca real:
 //   • E-mail (amazon-notificacao-seguranca): identidade é WORDMARK textual
 //     ("amz"+"prime", CSS — sem logo raster/cid); placeholder {{LINK_PHISHING}}.
@@ -39,7 +39,7 @@ describe('amzprime — Template de E-mail', () => {
     expect(container.innerHTML).not.toMatch(/\{\{.*?\}\}/);
   });
 
-  it('usa wordmark textual parodiado (sem logo raster/cid) e conforma a marca "amzprime"', () => {
+  it('usa wordmark textual próprio (sem logo raster/cid) e conforma a marca "amzprime"', () => {
     const isca = templatesPredefinidos.find((t) => t.id === IDS.email)!;
     const { container } = render(<div dangerouslySetInnerHTML={{ __html: emailComProps() }} />);
     expect(container.textContent).toContain('amzprime');
