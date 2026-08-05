@@ -10,7 +10,7 @@ import Templates from './Templates';
 // preview — E-mail, Página Falsa e Página Educacional. Um Cenário amarra a isca de
 // e-mail à sua página falsa e ao seu treinamento. Registrar/Descartar cenário foram
 // REMOVIDOS: o par de linhas nasce sob demanda ao salvar a campanha (Campaigns.tsx).
-// Cenário renomeado para a paródia fictícia "amzprime" (compliance de IP).
+// Cenário renomeado para "amzprime" (identidade própria, compliance de IP).
 const CENARIO_AMAZON = 'amzprime — Alerta de Segurança';
 
 // A tela é 100% estática (não faz fetch): o mock existe só para flagrar qualquer

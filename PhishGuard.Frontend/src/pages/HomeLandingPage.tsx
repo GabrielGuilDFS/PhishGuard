@@ -90,7 +90,7 @@ const recursos: Recurso[] = [
     icon: <SendIcon sx={{ fontSize: 22 }} />,
     titulo: 'Disparos de E-mails Simulados',
     descricao:
-      'Um catálogo pronto de cenários que imitam marcas populares (paródias como NetsFlix e amzprime). Programe campanhas e meça quem realmente cai no anzol — sem risco para a operação.',
+      'Um catálogo pronto de cenários que imitam marcas populares como NetsFlix e amzprime. Programe campanhas e meça quem realmente cai no anzol — sem risco para a operação.',
   },
   {
     icon: <WebIcon sx={{ fontSize: 22 }} />,

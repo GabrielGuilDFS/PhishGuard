@@ -8,9 +8,9 @@ import { formatarDataAcessoBRT } from '../utils/emailExpiration';
 import FeedbackTraining from '../components/FeedbackTraining';
 
 // ============================================================================
-// Suíte do CENÁRIO "Microsft 365" (paródia corporativa; typosquatting proposital).
+// Suíte do CENÁRIO "Microsft 365" (identidade própria; typosquatting proposital).
 // Mesmo BLUEPRINT, adaptado à isca real:
-//   • E-mail (microcorp-expiracao-senha): logotipo-paródia = grid 2x2 de quadrados
+//   • E-mail (microcorp-expiracao-senha): logotipo próprio = grid 2x2 de quadrados
 //     coloridos (CSS/<table>, sem logo raster/cid); placeholders {{NOME}},
 //     {{LINK_PHISHING}} e {{DATA_ACESSO}} (fuso de Brasília).
 //   • Página falsa (microcorp-login): captura e-mail + senha corporativos.
@@ -47,7 +47,7 @@ describe('Microsft 365 — Template de E-mail', () => {
     expect(container.innerHTML).not.toMatch(/\{\{.*?\}\}/);
   });
 
-  it('logotipo-paródia em CSS (sem logo raster/cid) e conforma a marca "Microsft 365"', () => {
+  it('logotipo próprio em CSS (sem logo raster/cid) e conforma a marca "Microsft 365"', () => {
     const isca = templatesPredefinidos.find((t) => t.id === IDS.email)!;
     const { container } = render(
       <div dangerouslySetInnerHTML={{ __html: emailComProps('X', formatarDataAcessoBRT()) }} />,
