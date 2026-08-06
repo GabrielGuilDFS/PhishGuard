@@ -21,8 +21,8 @@ services:
 
   backend:
     build:
-      context: ./PhishGuard.Backend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: PhishGuard.Backend/Dockerfile
     container_name: phishguard-backend
     restart: unless-stopped
     ports:

@@ -2,13 +2,13 @@
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
 
+# O contexto de build é a raiz do repositório (Render, Compose e E2E).
 # Copia primeiro o projeto para aproveitar o cache de restore.
-COPY PhishGuard.Backend.csproj ./
+COPY PhishGuard.Backend/PhishGuard.Backend.csproj ./
 
 RUN dotnet restore "PhishGuard.Backend.csproj"
 
-# O contexto é a pasta PhishGuard.Backend em Compose e Render.
-COPY . .
+COPY PhishGuard.Backend/ .
 
 RUN dotnet build "PhishGuard.Backend.csproj" -c Release -o /app/build
 

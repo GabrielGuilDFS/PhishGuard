@@ -170,6 +170,10 @@ disco faria as credenciais existentes ficarem indecifráveis após um novo deplo
 5. Valide `/health/live`, `/health/ready`, `/swagger` e o acesso direto a
    `/admin/dashboard` no frontend.
 
+Para um serviço Docker configurado manualmente, use `PhishGuard.Backend/Dockerfile`
+como **Dockerfile Path** e deixe o **Docker Build Context** na raiz (`.`). O Dockerfile
+usa caminhos relativos à raiz do monorepo.
+
 > Se já existir um serviço Node/Express chamado `phishguard-backend`, exclua ou
 > renomeie esse serviço antes de aplicar o Blueprint. A Render não permite trocar o
 > runtime de um serviço existente de Node para Docker. A resposta

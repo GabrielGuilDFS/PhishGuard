@@ -5,7 +5,7 @@ services:
     plan: starter
     region: oregon
     dockerfilePath: ./PhishGuard.Backend/Dockerfile
-    dockerContext: ./PhishGuard.Backend
+    dockerContext: .
     healthCheckPath: /health/ready
     autoDeployTrigger: checksPass
     disk:

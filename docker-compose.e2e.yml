@@ -48,8 +48,8 @@ services:
 
   backend:
     build:
-      context: ./PhishGuard.Backend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: PhishGuard.Backend/Dockerfile
     container_name: phishguard-e2e-backend
     ports:
       - "5000:5000"
