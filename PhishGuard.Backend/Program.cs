@@ -212,11 +212,25 @@ builder.Services.AddCors(options =>
         // permitir o domínio PÚBLICO do túnel (ngrok) sem recompilar — a landing servida
         // pelo domínio público precisa que o POST de submissão para o backend passe no
         // preflight de CORS. Fallback: apenas o dev local (http://localhost:5173).
-        var origins = builder.Configuration
+        var configuredOrigins = builder.Configuration
             .GetSection("AppSettings:AllowedCorsOrigins")
-            .Get<string[]>();
+            .Get<string[]>() ?? [];
 
-        if (origins == null || origins.Length == 0)
+        // O domínio público do frontend já é uma configuração obrigatória para
+        // redirects e links de rastreamento. Incluí-lo também aqui evita que uma
+        // lista indexada incompleta no provedor deixe login/registro sem CORS.
+        var publicAppBaseUrl = builder.Configuration["AppSettings:PublicAppBaseUrl"];
+        var origins = configuredOrigins
+            .Append(publicAppBaseUrl)
+            .Where(origin => !string.IsNullOrWhiteSpace(origin))
+            .Select(origin => origin!.Trim().TrimEnd('/'))
+            .Where(origin => Uri.TryCreate(origin, UriKind.Absolute, out var uri)
+                && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps)
+                && string.IsNullOrEmpty(uri.PathAndQuery.Trim('/')))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        if (origins.Length == 0)
             origins = new[] { "http://localhost:5173" };
 
         policy.WithOrigins(origins)
