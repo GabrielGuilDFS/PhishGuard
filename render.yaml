@@ -26,9 +26,9 @@ services:
       - key: AppSettings__PublicApiBaseUrl
         value: https://phishguard-backend-rcbr.onrender.com
       - key: AppSettings__PublicAppBaseUrl
-        value: https://phishguard-frontend.onrender.com
+        value: https://phishguard-frontend-ty8k.onrender.com
       - key: AppSettings__AllowedCorsOrigins__0
-        value: https://phishguard-frontend.onrender.com
+        value: https://phishguard-frontend-ty8k.onrender.com
       - key: AppSettings__TrustPlatformProxy
         value: "true"
       - key: AppSettings__CrossSiteRefreshCookie

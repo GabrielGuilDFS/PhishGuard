@@ -183,7 +183,7 @@ usa caminhos relativos à raiz do monorepo.
 > deploy antigo, não a esta API ASP.NET.
 
 Os hostnames públicos usados no Blueprint são
-`phishguard-backend-rcbr.onrender.com` e `phishguard-frontend.onrender.com`. Caso a Render
+`phishguard-backend-rcbr.onrender.com` e `phishguard-frontend-ty8k.onrender.com`. Caso a Render
 atribua nomes diferentes, atualize em conjunto:
 
 - `AppSettings__PublicApiBaseUrl`;
