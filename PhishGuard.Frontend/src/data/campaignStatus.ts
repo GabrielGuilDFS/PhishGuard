@@ -5,6 +5,7 @@ export const CampaignStatus = {
   Rascunho: 'Rascunho',
   Agendada: 'Agendada',
   Processando: 'Processando',
+  FalhaNoDisparo: 'Falha no Disparo',
   EmAndamento: 'Em Andamento',
   Finalizada: 'Finalizada',
 } as const;

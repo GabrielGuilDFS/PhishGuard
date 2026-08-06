@@ -16,6 +16,8 @@ const POLL_MS = 8000;
 let statusAtual = 'Agendada';
 // Data de encerramento da coleta devolvida pelo mock (null = coleta sem prazo).
 let dataFimAtual: string | null = null;
+let smtpConfigurado = true;
+let smtpTransporteDisponivel = true;
 
 function campanha() {
   return {
@@ -33,6 +35,16 @@ function campanha() {
 const fetchMock = vi.fn((url: string) => {
   if (String(url).includes('/Campaigns')) {
     return Promise.resolve({ ok: true, json: async () => [campanha()] });
+  }
+  if (String(url).includes('/SmtpConfig/status')) {
+    return Promise.resolve({
+      ok: true,
+      json: async () => ({
+        configurado: smtpConfigurado,
+        transporteDisponivel: smtpTransporteDisponivel,
+        transporteIndisponivelMotivo: smtpTransporteDisponivel ? undefined : 'SMTP bloqueado pelo ambiente.',
+      })
+    });
   }
   return Promise.resolve({ ok: true, json: async () => [] });
 });
@@ -60,6 +72,8 @@ beforeEach(() => {
   fetchMock.mockClear();
   statusAtual = 'Agendada';
   dataFimAtual = null;
+  smtpConfigurado = true;
+  smtpTransporteDisponivel = true;
   vi.stubGlobal('fetch', fetchMock);
   setToken(jwtDeTeste({
     tenant_id: '11111111-1111-1111-1111-111111111111',
@@ -75,6 +89,16 @@ afterEach(() => {
 });
 
 describe('Campaigns — atualização reativa do status (polling inteligente)', () => {
+  it('exibe alerta acionável quando o SMTP não está pronto', async () => {
+    statusAtual = 'Rascunho';
+    smtpConfigurado = false;
+    renderTela();
+    await flush();
+
+    expect(screen.getByText(/servidor SMTP ainda não foi configurado/i)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /configurar smtp/i })).toHaveAttribute('href', '/admin/settings?tab=smtp');
+  });
+
   it('abre o modal novo via ?nova=1 sem recarregar a listagem', async () => {
     statusAtual = 'Finalizada';
     renderTela('/admin/campaigns?nova=1');

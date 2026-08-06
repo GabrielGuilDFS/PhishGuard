@@ -19,6 +19,7 @@ namespace PhishGuard.Backend.Models
         public const string Rascunho = "Rascunho";
         public const string Agendada = "Agendada";
         public const string Processando = "Processando";
+        public const string FalhaNoDisparo = "Falha no Disparo";
         public const string EmAndamento = "Em Andamento";
         public const string Finalizada = "Finalizada";
     }

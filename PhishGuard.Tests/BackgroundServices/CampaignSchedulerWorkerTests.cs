@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using PhishGuard.Backend.BackgroundServices;
 using PhishGuard.Backend.Models;
+using PhishGuard.Backend.Services;
 using PhishGuard.Tests.TestDoubles;
 using System;
 using System.Threading;
@@ -128,7 +129,7 @@ public class CampaignSchedulerWorkerTests : CampaignTestBase
     // A campanha reivindicada (Processando) NÃO regride e é reprocessada no próximo ciclo.
     // ------------------------------------------------------------------------------------
     [Fact]
-    public async Task Worker_FalhaAutenticacaoSmtp_ClassificaNoLog_ECampanhaFicaProcessando()
+    public async Task Worker_FalhaAutenticacaoSmtp_ClassificaNoLog_ECampanhaFicaEmFalha()
     {
         // Arrange
         var (context, tenantProvider) = CriarContexto();
@@ -147,9 +148,10 @@ public class CampaignSchedulerWorkerTests : CampaignTestBase
         // Act
         await worker.ProcessarCampanhasElegiveisAsync(CancellationToken.None);
 
-        // Assert: claim feito (Agendada→Processando), disparo falhou → permanece Processando.
+        // Assert: claim feito, falha definitiva registrada sem retry infinito.
         var db = await context.Campaigns.IgnoreQueryFilters().FirstAsync(c => c.Id == agendada.Id);
-        Assert.Equal(CampaignStatus.Processando, db.Status);
+        Assert.Equal(CampaignStatus.FalhaNoDisparo, db.Status);
+        Assert.Equal(SmtpOperationalPolicy.AuthenticationFailedCode, db.DispatchErrorCode);
 
         // O log isola a categoria: AUTENTICAÇÃO SMTP.
         Assert.Contains(logger.Mensagens, m => m.Contains("AUTENTICAÇÃO SMTP"));
@@ -222,12 +224,12 @@ public class CampaignSchedulerWorkerTests : CampaignTestBase
         // Act: NÃO deve lançar — a falha de uma campanha é isolada das demais.
         await worker.ProcessarCampanhasElegiveisAsync(CancellationToken.None);
 
-        // Assert: a saudável foi disparada e concluída; a com falha ficou em Processando.
+        // Assert: a saudável foi disparada e concluída; a com falha ficou acionável.
         Assert.Contains(saudavel.Id, dispatch.Disparadas);
         var saudavelDb = await context.Campaigns.IgnoreQueryFilters().FirstAsync(c => c.Id == saudavel.Id);
         var comFalhaDb = await context.Campaigns.IgnoreQueryFilters().FirstAsync(c => c.Id == comFalha.Id);
         Assert.Equal(CampaignStatus.EmAndamento, saudavelDb.Status);
-        Assert.Equal(CampaignStatus.Processando, comFalhaDb.Status);
+        Assert.Equal(CampaignStatus.FalhaNoDisparo, comFalhaDb.Status);
         Assert.Contains(logger.Mensagens, m => m.Contains("CONFIGURAÇÃO/FILA"));
     }
 

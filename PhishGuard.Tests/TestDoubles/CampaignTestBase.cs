@@ -154,6 +154,18 @@ public abstract class CampaignTestBase
 
         context.Templates.Add(template);
         context.Targets.Add(alvo);
+        if (!await context.SmtpConfigs.IgnoreQueryFilters().AnyAsync(s => s.TenantId == tenantId))
+        {
+            context.SmtpConfigs.Add(new SmtpConfig
+            {
+                Id = Guid.NewGuid(),
+                TenantId = tenantId,
+                Host = "smtp.teste.local",
+                Porta = 587,
+                Usuario = "remetente@teste.local",
+                Senha = "senha-protegida-de-teste"
+            });
+        }
         context.Campaigns.Add(campanha);
         await context.SaveChangesAsync();
 

@@ -16,7 +16,12 @@ namespace PhishGuard.Backend.Models
 
         public string Senha { get; set; } = string.Empty;
 
+        public DateTime? UltimoTesteEmUtc { get; set; }
+
+        public bool? UltimoTesteSucesso { get; set; }
+
+        public string? UltimoErroCodigo { get; set; }
+
         public Tenant Tenant { get; set; } = null!;
     }
 }
-

@@ -60,6 +60,9 @@ namespace PhishGuard.Backend.Services
         // segurança de HOMOLOGAÇÃO: garante que nenhum e-mail de teste escape para uma caixa
         // real, MESMO que o SMTP seja trocado por engano. Vazia (produção) = sem restrição.
         private readonly IReadOnlyCollection<string> _dominiosPermitidos;
+        private readonly bool _smtpTransportEnabled;
+        private readonly string? _smtpTransportDisabledReason;
+        private readonly TimeSpan _smtpOperationTimeout;
 
         public CampaignDispatchService(
             AppDbContext context,
@@ -78,6 +81,10 @@ namespace PhishGuard.Backend.Services
             _trackingTokenService = trackingTokenService;
             _secureSocketOptions = ResolverSecureSocket(configuration);
             _dominiosPermitidos = ResolverDominiosPermitidos(configuration);
+            _smtpTransportEnabled = SmtpOperationalPolicy.IsTransportEnabled(configuration);
+            _smtpTransportDisabledReason = SmtpOperationalPolicy.GetTransportDisabledReason(configuration);
+            var timeoutSeconds = configuration.GetValue<int?>("AppSettings:SmtpOperationTimeoutSeconds") ?? 15;
+            _smtpOperationTimeout = TimeSpan.FromSeconds(Math.Clamp(timeoutSeconds, 5, 60));
         }
 
         // Pausa entre envios (anti-spam) configurável em AppSettings:SmtpThrottleMs. Default
@@ -115,6 +122,9 @@ namespace PhishGuard.Backend.Services
             _baseTrackingUrl = "http://localhost:5000/api/tracking";
             _secureSocketOptions = SecureSocketOptions.StartTls;
             _dominiosPermitidos = Array.Empty<string>();
+            _smtpTransportEnabled = true;
+            _smtpTransportDisabledReason = null;
+            _smtpOperationTimeout = TimeSpan.FromSeconds(15);
         }
 
         // Resolve o modo de socket SMTP da config. Aceita os nomes do enum SecureSocketOptions
@@ -164,6 +174,11 @@ namespace PhishGuard.Backend.Services
 
         public async Task DispatchAsync(Campaign campaign, CancellationToken cancellationToken = default)
         {
+            if (!_smtpTransportEnabled)
+                throw new SmtpOperationalException(
+                    SmtpOperationalPolicy.TransportUnavailableCode,
+                    _smtpTransportDisabledReason ?? "O transporte SMTP está indisponível neste ambiente.");
+
             // Garante que Template e Targets estejam carregados (o worker já os inclui;
             // este fallback cobre chamadas que passem a campanha sem navegações).
             if (campaign.Template == null)
@@ -182,8 +197,10 @@ namespace PhishGuard.Backend.Services
                 .IgnoreQueryFilters()
                 .FirstOrDefaultAsync(s => s.TenantId == campaign.TenantId, cancellationToken);
 
-            if (smtpConfig == null)
-                throw new InvalidOperationException("Configuração SMTP não encontrada para o tenant da campanha.");
+            if (!SmtpOperationalPolicy.IsConfigured(smtpConfig))
+                throw new SmtpOperationalException(
+                    SmtpOperationalPolicy.NotConfiguredCode,
+                    "Configuração SMTP não encontrada ou incompleta para o tenant da campanha.");
 
             // IDEMPOTÊNCIA: quem já recebeu (log de Envio) é pulado. Carrega o conjunto de
             // alvos já enviados desta campanha ANTES do loop — assim uma retomada após
@@ -207,7 +224,7 @@ namespace PhishGuard.Backend.Services
             }
 
             // Senha decifrada apenas no momento do uso (proteção em repouso).
-            var senhaSmtp = _senhaProtector.Unprotect(smtpConfig.Senha);
+            var senhaSmtp = _senhaProtector.Unprotect(smtpConfig!.Senha);
 
             using var client = _smtpClientFactory.Create();
 
@@ -223,9 +240,13 @@ namespace PhishGuard.Backend.Services
             async Task GarantirConexaoAsync(CancellationToken ct)
             {
                 if (!client.IsConnected)
-                    await client.ConnectAsync(smtpConfig.Host, smtpConfig.Porta, _secureSocketOptions, ct);
+                    await ExecutarComTimeoutAsync(
+                        token => client.ConnectAsync(smtpConfig.Host, smtpConfig.Porta, _secureSocketOptions, token),
+                        ct);
                 if (!client.IsAuthenticated)
-                    await client.AuthenticateAsync(smtpConfig.Usuario, senhaSmtp, ct);
+                    await ExecutarComTimeoutAsync(
+                        token => client.AuthenticateAsync(smtpConfig.Usuario, senhaSmtp, token),
+                        ct);
             }
 
             // Conexão inicial sob retry. Se falhar DEFINITIVAMENTE, a exceção propaga: sem
@@ -330,7 +351,7 @@ namespace PhishGuard.Backend.Services
                     await smtpRetryPolicy.ExecuteAsync(async ct =>
                     {
                         await GarantirConexaoAsync(ct);
-                        await client.SendAsync(message, ct);
+                        await ExecutarComTimeoutAsync(token => client.SendAsync(message, token), ct);
                     }, cancellationToken);
 
                     // Marca o Envio IMEDIATAMENTE após o sucesso e persiste, para que uma
@@ -385,7 +406,18 @@ namespace PhishGuard.Backend.Services
                 }
             }
 
-            await client.DisconnectAsync(true, cancellationToken);
+            try
+            {
+                await ExecutarComTimeoutAsync(token => client.DisconnectAsync(true, token), cancellationToken);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                // O lote já foi persistido por alvo. Uma falha ao encerrar a sessão não
+                // transforma entregas concluídas em falha nem provoca reprocessamento.
+                _logger.LogWarning(ex,
+                    "Não foi possível encerrar normalmente a sessão SMTP da campanha {CampaignId}.",
+                    campaign.Id);
+            }
 
             // Lote 100% processado: sai de "Processando" para "Em Andamento" (coleta).
             campaign.Status = CampaignStatus.EmAndamento;
@@ -393,7 +425,7 @@ namespace PhishGuard.Backend.Services
         }
 
         /// <summary>
-        /// Política de retry para operações SMTP: 3 tentativas, backoff exponencial
+        /// Política de retry para operações SMTP: 3 retries (4 tentativas no total), backoff exponencial
         /// (2s → 4s → 8s) + jitter aleatório de até 1s por tentativa. O jitter descorrelaciona
         /// reconexões simultâneas, evitando picos de carga contra o servidor SMTP.
         /// <see cref="OperationCanceledException"/> é deixada propagar (shutdown/cancelamento).
@@ -403,7 +435,11 @@ namespace PhishGuard.Backend.Services
             const int maxTentativas = 3;
 
             return Policy
-                .Handle<Exception>(ex => ex is not OperationCanceledException)
+                // Credencial/configuração inválida não é transitória: repetir apenas aumenta
+                // o tempo em "Processando" e pode acelerar bloqueios no provedor.
+                .Handle<Exception>(ex => ex is not OperationCanceledException
+                    and not SmtpOperationalException
+                    and not MailKit.Security.AuthenticationException)
                 .WaitAndRetryAsync(
                     retryCount: maxTentativas,
                     sleepDurationProvider: _backoffProvider, // produção: 2/4/8s + jitter; testes: zero
@@ -411,6 +447,24 @@ namespace PhishGuard.Backend.Services
                         _logger.LogWarning(ex,
                             "Falha SMTP transitória (tentativa {Tentativa}/{Max}). Novo retry em {Delay:g}.",
                             tentativa, maxTentativas, delay));
+        }
+
+        private async Task ExecutarComTimeoutAsync(
+            Func<CancellationToken, Task> operation,
+            CancellationToken cancellationToken)
+        {
+            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            timeoutCts.CancelAfter(_smtpOperationTimeout);
+
+            try
+            {
+                await operation(timeoutCts.Token);
+            }
+            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+            {
+                throw new TimeoutException(
+                    $"A operação SMTP excedeu o limite de {_smtpOperationTimeout.TotalSeconds:0} segundos.");
+            }
         }
     }
 }

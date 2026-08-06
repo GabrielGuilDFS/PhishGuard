@@ -244,8 +244,8 @@ export default function Targets() {
       if (response.ok) {
         showNotify(`Disparo bem-sucedido para ${emailDestino}!`, "success");
       } else {
-        const errorText = await response.text();
-        showNotify(`Falha no envio: ${errorText}`, "error");
+        const data = await response.json().catch(() => null) as { message?: string } | null;
+        showNotify(data?.message ?? "Não foi possível concluir o teste SMTP.", "error");
       }
     } catch {
       showNotify("Erro de rede ao tentar contatar o servidor.", "error");

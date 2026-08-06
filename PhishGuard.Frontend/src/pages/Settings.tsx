@@ -13,7 +13,10 @@ import {
   InputAdornment,
   Divider,
   ToggleButton,
-  ToggleButtonGroup
+  ToggleButtonGroup,
+  Alert,
+  Chip,
+  CircularProgress
 } from '@mui/material';
 // Deep imports (não o barrel `@mui/icons-material`): named imports do barrel quebram
 // o Vitest no Windows com EMFILE (milhares de ícones abertos de uma vez) — gotcha já
@@ -38,6 +41,16 @@ interface TabPanelProps {
   value: number;
 }
 
+interface SmtpStatus {
+  configurado: boolean;
+  senhaConfigurada: boolean;
+  transporteDisponivel: boolean;
+  transporteIndisponivelMotivo?: string;
+  ultimoTesteEmUtc?: string;
+  ultimoTesteSucesso?: boolean | null;
+  ultimoErroCodigo?: string;
+}
+
 function TabPanel(props: TabPanelProps) {
   const { children, value, index, ...other } = props;
   return (
@@ -58,7 +71,13 @@ function TabPanel(props: TabPanelProps) {
 export default function Settings() {
   const { showNotify } = useNotify();
   const { mode, setMode } = useThemeMode();
-  const [tabValue, setTabValue] = useState(0);
+  const [tabValue, setTabValue] = useState(
+    () => new URLSearchParams(window.location.search).get('tab') === 'smtp' ? 1 : 0
+  );
+  const [smtpStatus, setSmtpStatus] = useState<SmtpStatus | null>(null);
+  const [smtpDirty, setSmtpDirty] = useState(false);
+  const [savingSmtp, setSavingSmtp] = useState(false);
+  const [testingSmtp, setTestingSmtp] = useState(false);
 
   const handleChangeMode = (_event: React.MouseEvent<HTMLElement>, novoModo: AppThemeMode | null) => {
     // ToggleButtonGroup emite null quando o usuário clica no botão já ativo — ignora
@@ -154,6 +173,11 @@ export default function Settings() {
             password: prev.password
           }));
         }
+
+        const statusResponse = await authFetch(`${API_BASE}/SmtpConfig/status`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (statusResponse.ok) setSmtpStatus(await statusResponse.json() as SmtpStatus);
       } catch (error) {
         console.error("Erro ao carregar configurações de SMTP", error);
       }
@@ -212,6 +236,7 @@ export default function Settings() {
     e.preventDefault();
 
     try {
+      setSavingSmtp(true);
       const token = getToken();
       if (!token) {
         showNotify("Sessão expirada. Faça login novamente.", "error");
@@ -241,18 +266,29 @@ export default function Settings() {
       });
 
       if (response.ok) {
+        const data = await response.json() as { status?: SmtpStatus };
         showNotify("Configurações de SMTP salvas com sucesso!", "success");
         // Opcional: limpar o campo de senha da tela após salvar, já que o C# processou
         setSmtp(prev => ({ ...prev, password: '' }));
+        if (data.status) setSmtpStatus(data.status);
+        setSmtpDirty(false);
       } else {
-        showNotify("Falha ao salvar as configurações. Verifique os dados.", "error");
+        const data = await response.json().catch(() => null) as { message?: string } | null;
+        showNotify(data?.message ?? "Falha ao salvar as configurações. Verifique os dados.", "error");
       }
     } catch {
       showNotify("Erro de conexão com o servidor.", "error");
+    } finally {
+      setSavingSmtp(false);
     }
   };
 
   const handleTestEmail = async () => {
+
+    if (smtpDirty) {
+      showNotify("Salve as alterações SMTP antes de executar o teste.", "warning");
+      return;
+    }
 
     const emailDestino = window.prompt("Digite o e-mail que receberá a mensagem de teste do PhishGuard:");
 
@@ -261,6 +297,7 @@ export default function Settings() {
     showNotify("Tentando enviar e-mail de teste...", "info");
 
     try {
+      setTestingSmtp(true);
       const token = getToken();
 
       const response = await authFetch(`${API_BASE}/SmtpConfig/Testar`, {
@@ -270,23 +307,22 @@ export default function Settings() {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          host: smtp.host,
-          porta: Number(smtp.port) || 0,
-          usuario: smtp.user,
-          senha: smtp.password,
           emailDestino: emailDestino
         })
       });
 
       if (response.ok) {
         showNotify("Teste de conexão bem-sucedido! Verifique a caixa de entrada.", "success");
+        setSmtpStatus(prev => prev ? { ...prev, ultimoTesteSucesso: true, ultimoTesteEmUtc: new Date().toISOString(), ultimoErroCodigo: undefined } : prev);
       } else {
-        // Se der erro (ex: senha errada), o backend vai mandar a mensagem no BadRequest
-        const errorText = await response.text();
-        showNotify(`Falha no envio: ${errorText}`, "error");
+        const data = await response.json().catch(() => null) as { code?: string; message?: string } | null;
+        showNotify(data?.message ?? "Não foi possível concluir o teste SMTP.", "error");
+        setSmtpStatus(prev => prev ? { ...prev, ultimoTesteSucesso: false, ultimoTesteEmUtc: new Date().toISOString(), ultimoErroCodigo: data?.code } : prev);
       }
     } catch {
       showNotify("Erro de rede ao tentar contatar o servidor.", "error");
+    } finally {
+      setTestingSmtp(false);
     }
   };
 
@@ -370,6 +406,27 @@ export default function Settings() {
 
         <TabPanel value={tabValue} index={1}>
           <Box component="form" onSubmit={handleSaveSmtp} sx={{ maxWidth: 600 }}>
+            {smtpStatus && !smtpStatus.transporteDisponivel && (
+              <Alert severity="error" sx={{ mb: 2 }}>
+                {smtpStatus.transporteIndisponivelMotivo}
+              </Alert>
+            )}
+            {smtpStatus?.ultimoErroCodigo === 'SMTP_CREDENTIAL_UNREADABLE' && (
+              <Alert severity="warning" sx={{ mb: 2 }}>
+                A senha salva pertence a uma chave de criptografia antiga. Digite a senha SMTP novamente e salve para recuperar os disparos.
+              </Alert>
+            )}
+            <Stack direction="row" spacing={1} sx={{ mb: 2, flexWrap: 'wrap' }} useFlexGap>
+              <Chip
+                label={smtpStatus?.configurado ? 'Configuração salva' : 'SMTP não configurado'}
+                color={smtpStatus?.configurado ? 'success' : 'warning'}
+                size="small"
+              />
+              {smtpStatus?.senhaConfigurada && <Chip label="Senha cadastrada" color="info" size="small" />}
+              {smtpDirty && <Chip label="Alterações não salvas" color="warning" size="small" />}
+              {smtpStatus?.ultimoTesteSucesso === true && <Chip label="Último teste aprovado" color="success" size="small" />}
+              {smtpStatus?.ultimoTesteSucesso === false && <Chip label="Último teste falhou" color="error" size="small" />}
+            </Stack>
             <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
               <Box>
                 <Typography variant="h6">Configuração de Disparo</Typography>
@@ -380,7 +437,8 @@ export default function Settings() {
               <Button
                 onClick={handleTestEmail}
                 color="secondary"
-                startIcon={<SendIcon />} // Ou o ícone que você estiver usando
+                disabled={testingSmtp || smtpDirty || !smtpStatus?.configurado || !smtpStatus?.transporteDisponivel}
+                startIcon={testingSmtp ? <CircularProgress size={16} color="inherit" /> : <SendIcon />}
               >
                 TESTAR CONEXÃO
               </Button>
@@ -393,7 +451,7 @@ export default function Settings() {
                 placeholder="smtp.gmail.com"
                 margin="normal"
                 value={smtp.host}
-                onChange={(e) => setSmtp({ ...smtp, host: e.target.value })}
+                onChange={(e) => { setSmtp({ ...smtp, host: e.target.value }); setSmtpDirty(true); }}
               />
               <TextField
                 sx={{ width: 150 }}
@@ -403,7 +461,7 @@ export default function Settings() {
                 margin="normal"
                 value={smtp.port}
                 inputProps={{ min: 1, max: 65535, step: 1 }}
-                onChange={(e) => setSmtp({ ...smtp, port: e.target.value })}
+                onChange={(e) => { setSmtp({ ...smtp, port: e.target.value }); setSmtpDirty(true); }}
               />
             </Stack>
 
@@ -412,7 +470,7 @@ export default function Settings() {
               label="Usuário SMTP / E-mail"
               margin="normal"
               value={smtp.user}
-              onChange={(e) => setSmtp({ ...smtp, user: e.target.value })}
+              onChange={(e) => { setSmtp({ ...smtp, user: e.target.value }); setSmtpDirty(true); }}
             />
             <TextField
               fullWidth
@@ -420,14 +478,15 @@ export default function Settings() {
               label="Senha / App Password"
               margin="normal"
               value={smtp.password}
-              onChange={(e) => setSmtp({ ...smtp, password: e.target.value })}
+              placeholder={smtpStatus?.senhaConfigurada ? 'Deixe em branco para manter a senha atual' : undefined}
+              onChange={(e) => { setSmtp({ ...smtp, password: e.target.value }); setSmtpDirty(true); }}
               InputProps={{
                 startAdornment: <InputAdornment position="start"><LockIcon fontSize="small" /></InputAdornment>,
               }}
             />
 
             <Box sx={{ mt: 3 }}>
-              <Button type="submit" variant="contained" startIcon={<SaveIcon />}>
+              <Button type="submit" variant="contained" disabled={savingSmtp || !smtpDirty} startIcon={savingSmtp ? <CircularProgress size={16} color="inherit" /> : <SaveIcon />}>
                 Salvar Configurações SMTP
               </Button>
             </Box>

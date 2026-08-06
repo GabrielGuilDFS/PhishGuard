@@ -151,6 +151,8 @@ namespace PhishGuard.Backend.BackgroundServices
                         "Iniciando disparo da campanha {Id} ({Total} alvo(s)).",
                         campanha.Id, campanha.Targets.Count);
 
+                    campanha.DispatchAttemptCount++;
+                    await context.SaveChangesAsync(stoppingToken);
                     await dispatcher.DispatchAsync(campanha, stoppingToken);
                     _logger.LogInformation("Campanha {Id} disparada automaticamente.", campanha.Id);
                 }
@@ -163,12 +165,18 @@ namespace PhishGuard.Backend.BackgroundServices
                     // LOG ROBUSTO: classifica a causa provável para isolar, em produção, se a
                     // falha foi de AUTENTICAÇÃO SMTP, de CONEXÃO, de PROTOCOLO/TLS ou de
                     // CONFIGURAÇÃO/FILA (SMTP ausente, template/alvos faltando) — sem precisar
-                    // decifrar a stack trace crua. A campanha permanece em 'Processando' e é
-                    // reprocessada no próximo ciclo de forma idempotente; as demais seguem.
+                    // decifrar a stack trace crua. A campanha entra em um estado terminal de
+                    // falha e só volta à fila por retry explícito; as demais seguem.
                     var categoria = ClassificarFalhaDisparo(ex);
+                    var falha = SmtpOperationalPolicy.Classify(ex);
+                    campanha.Status = CampaignStatus.FalhaNoDisparo;
+                    campanha.DispatchErrorCode = falha.Code;
+                    campanha.DispatchErrorMessage = falha.Message;
+                    campanha.DispatchFailedAtUtc = DateTime.UtcNow;
+                    await context.SaveChangesAsync(stoppingToken);
                     _logger.LogError(ex,
                         "Falha ao disparar a campanha {Id}. Categoria provável: {Categoria}. A campanha " +
-                        "permanece em '{Status}' e será reprocessada no próximo ciclo; as demais seguem normalmente.",
+                        "foi movida para '{Status}' e aguarda correção e retry explícito; as demais seguem normalmente.",
                         campanha.Id, categoria, campanha.Status);
                 }
             }

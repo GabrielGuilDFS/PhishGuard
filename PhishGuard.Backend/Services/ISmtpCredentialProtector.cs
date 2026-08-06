@@ -47,9 +47,15 @@ namespace PhishGuard.Backend.Services
             }
             catch (CryptographicException)
             {
-                // Registro legado em texto puro (ou cifrado com chave indisponível):
-                // devolve como está para não quebrar o fluxo. Ao salvar de novo pela
-                // tela de Configurações, o valor passa a ser cifrado.
+                // Registros legados em texto puro não têm o prefixo do payload do ASP.NET
+                // Data Protection e continuam compatíveis. Um payload protegido que não
+                // pode ser aberto, porém, NUNCA deve ser enviado ao SMTP como se fosse a
+                // senha: isso mascara a perda do key ring como "credencial inválida".
+                if (stored.StartsWith("CfDJ", StringComparison.Ordinal))
+                    throw new SmtpOperationalException(
+                        SmtpOperationalPolicy.CredentialUnreadableCode,
+                        "A credencial SMTP salva não pode ser decifrada. Informe a senha novamente e salve a configuração.");
+
                 return stored;
             }
         }

@@ -33,6 +33,12 @@ services:
         value: "true"
       - key: AppSettings__CrossSiteRefreshCookie
         value: "true"
+      # Instancias gratuitas do Render bloqueiam egress SMTP nas portas 25/465/587.
+      # Ao migrar para um plano pago, altere para true e sincronize o Blueprint.
+      - key: AppSettings__SmtpTransportEnabled
+        value: "false"
+      - key: AppSettings__SmtpTransportDisabledReason
+        value: O plano gratuito do Render bloqueia conexoes SMTP nas portas 25, 465 e 587. Use um plano pago ou um provedor por API HTTPS.
       - key: Dashboard__TimeZoneId
         value: America/Sao_Paulo
 

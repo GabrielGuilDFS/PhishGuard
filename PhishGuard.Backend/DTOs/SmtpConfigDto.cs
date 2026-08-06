@@ -13,5 +13,15 @@ namespace PhishGuard.Backend.DTOs
 
         public bool SenhaConfigurada { get; set; }
     }
-}
 
+    public sealed class SmtpStatusDto
+    {
+        public bool Configurado { get; init; }
+        public bool SenhaConfigurada { get; init; }
+        public bool TransporteDisponivel { get; init; }
+        public string? TransporteIndisponivelMotivo { get; init; }
+        public DateTime? UltimoTesteEmUtc { get; init; }
+        public bool? UltimoTesteSucesso { get; init; }
+        public string? UltimoErroCodigo { get; init; }
+    }
+}

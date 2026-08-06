@@ -3,11 +3,12 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.DataProtection.EntityFrameworkCore;
 using PhishGuard.Backend.Models;
  
 namespace PhishGuard.Backend.Data
 {
-    public class AppDbContext : DbContext
+    public class AppDbContext : DbContext, IDataProtectionKeyContext
     {
         private readonly ITenantProvider _tenantProvider;
 
@@ -28,6 +29,7 @@ namespace PhishGuard.Backend.Data
         public DbSet<Campaign> Campaigns { get; set; }
         public DbSet<SimulationLog> SimulationsLogs { get; set; }
         public DbSet<AuthSession> AuthSessions { get; set; }
+        public DbSet<DataProtectionKey> DataProtectionKeys { get; set; }
 
         public Guid TenantIdAtual => _tenantProvider.GetTenantId();
 
@@ -132,7 +134,10 @@ namespace PhishGuard.Backend.Data
 
                 entity.Property(e => e.Senha)
                     .IsRequired()
-                    .HasMaxLength(255);
+                    .HasMaxLength(2048);
+
+                entity.Property(e => e.UltimoErroCodigo)
+                    .HasMaxLength(50);
 
                 entity.HasOne(e => e.Tenant)
                     .WithOne(t => t.SmtpConfig)
@@ -191,6 +196,10 @@ namespace PhishGuard.Backend.Data
                 entity.ToTable("Campaigns");
 
                 entity.HasQueryFilter(c => c.TenantId == this.TenantIdAtual);
+
+                entity.Property(c => c.DispatchErrorCode).HasMaxLength(50);
+                entity.Property(c => c.DispatchErrorMessage).HasMaxLength(300);
+                entity.Property(c => c.DispatchAttemptCount).HasDefaultValue(0);
 
                 // Claim ATÔMICO para scale-out: usa a coluna de sistema 'xmin' do Postgres
                 // como token de concorrência otimista (sem coluna/migration extra). O UPDATE

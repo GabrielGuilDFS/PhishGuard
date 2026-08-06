@@ -28,6 +28,7 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
     <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="8.0.0" />
+    <PackageReference Include="Microsoft.AspNetCore.DataProtection.EntityFrameworkCore" Version="8.0.0" />
     <!-- SQLite in-memory: banco relacional REAL (FKs, unique, tradução de query) sem
          Docker — usado na suíte de isolamento de tenant (Passo 1) para exercitar os
          Global Query Filters com fidelidade relacional que o provedor InMemory não tem. -->

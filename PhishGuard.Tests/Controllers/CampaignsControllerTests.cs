@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using PhishGuard.Backend.Controllers;
 using PhishGuard.Backend.DTOs;
 using PhishGuard.Backend.Models;
+using PhishGuard.Backend.Services;
 using PhishGuard.Tests.TestDoubles;
 using System;
 using System.Collections.Generic;
@@ -18,6 +19,13 @@ namespace PhishGuard.Tests.Controllers;
 // (Passo 7). Os test doubles e helpers de semeadura são compartilhados via CampaignTestBase.
 public class CampaignsControllerTests : CampaignTestBase
 {
+    private sealed class UnreadableSmtpProtector : ISmtpCredentialProtector
+    {
+        public string Protect(string? plaintext) => plaintext ?? string.Empty;
+        public string Unprotect(string? stored) => throw new SmtpOperationalException(
+            SmtpOperationalPolicy.CredentialUnreadableCode,
+            "Credencial ilegível.");
+    }
     // BINDING REAL DA API: exercita a desserialização (System.Text.Json, Web defaults) que
     // o [FromBody] usa. Se a chave camelCase 'dataFim' do front não casasse com a
     // propriedade PascalCase 'DataFim', o prazo chegaria null no controller — exatamente o
@@ -174,6 +182,48 @@ public class CampaignsControllerTests : CampaignTestBase
 
         var persistida = await context.Campaigns.IgnoreQueryFilters().FirstAsync(c => c.Id == campanha.Id);
         Assert.Equal(CampaignStatus.Processando, persistida.Status);
+    }
+
+    [Fact]
+    public async Task Ativar_SemSmtp_RetornaConflictEMantemRascunho()
+    {
+        var (context, tenantProvider) = CriarContexto();
+        var tenant = new Tenant { Id = Guid.NewGuid(), NomeEmpresa = "Empresa", Cnpj = "11111111000191", Ativo = true, CriadoEm = DateTime.UtcNow, Plano = PlanoTenant.Bronze };
+        context.Tenants.Add(tenant);
+        await context.SaveChangesAsync();
+        var campanha = await SemearCampanhaRascunhoAsync(context, tenantProvider, tenant.Id, DateTime.UtcNow.AddMinutes(-1));
+        var smtp = await context.SmtpConfigs.IgnoreQueryFilters().SingleAsync(s => s.TenantId == tenant.Id);
+        context.SmtpConfigs.Remove(smtp);
+        await context.SaveChangesAsync();
+
+        var controller = new CampaignsController(context, tenantProvider);
+        var resultado = await controller.AtivarCampanha(campanha.Id);
+
+        Assert.IsType<ConflictObjectResult>(resultado);
+        Assert.Equal(CampaignStatus.Rascunho, campanha.Status);
+    }
+
+    [Fact]
+    public async Task Ativar_ComCredencialSmtpIlegivel_RetornaConflictEMantemRascunho()
+    {
+        var (context, tenantProvider) = CriarContexto();
+        var tenant = new Tenant { Id = Guid.NewGuid(), NomeEmpresa = "Empresa", Cnpj = "11111111000191", Ativo = true, CriadoEm = DateTime.UtcNow, Plano = PlanoTenant.Bronze };
+        context.Tenants.Add(tenant);
+        await context.SaveChangesAsync();
+        var campanha = await SemearCampanhaRascunhoAsync(
+            context,
+            tenantProvider,
+            tenant.Id,
+            DateTime.UtcNow.AddMinutes(-1));
+
+        var controller = new CampaignsController(
+            context,
+            tenantProvider,
+            smtpCredentialProtector: new UnreadableSmtpProtector());
+        var resultado = await controller.AtivarCampanha(campanha.Id);
+
+        Assert.IsType<ConflictObjectResult>(resultado);
+        Assert.Equal(CampaignStatus.Rascunho, campanha.Status);
     }
 
     [Fact]

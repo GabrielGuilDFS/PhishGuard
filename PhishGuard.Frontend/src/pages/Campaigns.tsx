@@ -15,6 +15,7 @@ import SendIcon from '@mui/icons-material/Send';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
 import DoneAllIcon from '@mui/icons-material/DoneAll';
 import ClearAllIcon from '@mui/icons-material/ClearAll';
+import ReplayIcon from '@mui/icons-material/Replay';
 import { simulationScenarios, templatesPredefinidos, type SimulationScenario } from '../data/predefinedTemplates';
 import { landingTemplates } from '../data/landingTemplates';
 import { resolverPaginaEducativaDoCenario } from '../data/feedbackTrainings';
@@ -37,6 +38,16 @@ interface Campaign {
     templateNome: string;
     landingPageNome: string;
     educationalPageNome: string;
+    dispatchErrorCode?: string;
+    dispatchErrorMessage?: string;
+    dispatchFailedAtUtc?: string;
+}
+
+interface SmtpStatus {
+    configurado: boolean;
+    transporteDisponivel: boolean;
+    transporteIndisponivelMotivo?: string;
+    ultimoErroCodigo?: string;
 }
 
 interface LookupItem {
@@ -99,6 +110,7 @@ const STATUS_CHIP_COLOR: Record<string, 'default' | 'warning' | 'info' | 'succes
     [CampaignStatus.Rascunho]: 'default',
     [CampaignStatus.Agendada]: 'warning',    // aguardando o horário
     [CampaignStatus.Processando]: 'info',     // disparando o lote
+    [CampaignStatus.FalhaNoDisparo]: 'warning',
     [CampaignStatus.EmAndamento]: 'success',  // disparado / coletando
     [CampaignStatus.Finalizada]: 'default',   // encerrada
 };
@@ -191,6 +203,7 @@ export default function Campaigns() {
     const [loading, setLoading] = useState(false);
     const [campaignsLoaded, setCampaignsLoaded] = useState(false);
     const [activatingId, setActivatingId] = useState<string | null>(null);
+    const [smtpStatus, setSmtpStatus] = useState<SmtpStatus | null>(null);
 
     const [open, setOpen] = useState(false);
     const [currentId, setCurrentId] = useState<string | null>(null);
@@ -234,8 +247,18 @@ export default function Campaigns() {
     // render (fecha sobre `headers`), entao inclui-la nas deps refaria a busca em loop.
     useEffect(() => {
         fetchCampaigns();
+        fetchSmtpStatus();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
+
+    const fetchSmtpStatus = async () => {
+        try {
+            const res = await authFetch(`${API_BASE}/SmtpConfig/status`, { headers });
+            if (res.ok) setSmtpStatus(await res.json() as SmtpStatus);
+        } catch {
+            setSmtpStatus(null);
+        }
+    };
 
     // Existe alguma campanha "em trânsito" (Agendada/Processando)? Controla o polling.
     const temPendentes = useMemo(
@@ -525,8 +548,19 @@ export default function Campaigns() {
     };
 
     const filtered = campaigns.filter(c => c.nomeCampanha.toLowerCase().includes(searchTerm.toLowerCase()));
+    const smtpBlockingMessage = smtpStatus?.transporteIndisponivelMotivo
+        ?? (smtpStatus?.ultimoErroCodigo === 'SMTP_CREDENTIAL_UNREADABLE'
+            ? 'A senha SMTP salva não pode ser decifrada após o deploy. Informe-a novamente e salve a configuração.'
+            : 'O servidor SMTP ainda não foi configurado. Configure e salve o SMTP antes de ativar uma campanha.');
 
     const handleActivateCampaign = async (id: string) => {
+        if (!smtpStatus?.configurado || !smtpStatus.transporteDisponivel) {
+            showNotify(
+                smtpBlockingMessage,
+                'error'
+            );
+            return;
+        }
         if (!window.confirm('Deseja ativar esta campanha? Se a data de início já chegou, os e-mails serão disparados agora; caso contrário, ela ficará Agendada até o horário.')) return;
 
         setActivatingId(id);
@@ -545,6 +579,24 @@ export default function Campaigns() {
             }
         } catch (error) {
             console.error('Erro ao ativar campanha', error);
+            showNotify('Falha na comunicação com o servidor.', 'error');
+        } finally {
+            setActivatingId(null);
+        }
+    };
+
+    const handleRetryDispatch = async (id: string) => {
+        setActivatingId(id);
+        try {
+            const res = await authFetch(`${API_BASE}/Campaigns/${id}/retry-dispatch`, { method: 'POST', headers });
+            if (!res.ok) {
+                showNotify(mensagemAmigavel(await extrairMensagemDeErro(res)), 'error');
+                return;
+            }
+            const data = await res.json().catch(() => null);
+            showNotify(data?.message ?? 'Campanha reenfileirada.', 'success');
+            await fetchCampaigns();
+        } catch {
             showNotify('Falha na comunicação com o servidor.', 'error');
         } finally {
             setActivatingId(null);
@@ -629,6 +681,16 @@ export default function Campaigns() {
                 </Button>
             </Box>
 
+            {smtpStatus && (!smtpStatus.configurado || !smtpStatus.transporteDisponivel) && (
+                <Alert
+                    severity="error"
+                    action={<Button color="inherit" size="small" href="/admin/settings?tab=smtp">Configurar SMTP</Button>}
+                    sx={{ mb: 2 }}
+                >
+                    {smtpBlockingMessage}
+                </Alert>
+            )}
+
             <TextField
                 label="Buscar"
                 variant="outlined"
@@ -664,7 +726,16 @@ export default function Campaigns() {
                             <TableRow key={c.id}>
                                 <TableCell>{c.nomeCampanha}</TableCell>
                                 <TableCell>
-                                    <StatusBadge status={c.status} flashing={flashingIds.has(c.id)} />
+                                    <Stack spacing={0.5} alignItems="flex-start">
+                                        <StatusBadge status={c.status} flashing={flashingIds.has(c.id)} />
+                                        {c.status === CampaignStatus.FalhaNoDisparo && c.dispatchErrorMessage && (
+                                            <Tooltip title={c.dispatchErrorMessage}>
+                                                <Typography variant="caption" color="error" sx={{ maxWidth: 180 }} noWrap>
+                                                    {c.dispatchErrorMessage}
+                                                </Typography>
+                                            </Tooltip>
+                                        )}
+                                    </Stack>
                                 </TableCell>
                                 <TableCell>{new Date(c.dataInicio).toLocaleString()}</TableCell>
                                 <TableCell><ColetaFimCell campanha={c} /></TableCell>
@@ -686,6 +757,19 @@ export default function Campaigns() {
                                                 <SendIcon />
                                             </IconButton>
                                         )
+                                    )}
+                                    {c.status === CampaignStatus.FalhaNoDisparo && (
+                                        <Tooltip title="Tentar o disparo novamente">
+                                            <span>
+                                                <IconButton
+                                                    onClick={() => handleRetryDispatch(c.id)}
+                                                    color="warning"
+                                                    disabled={activatingId === c.id || !smtpStatus?.configurado || !smtpStatus?.transporteDisponivel}
+                                                >
+                                                    {activatingId === c.id ? <CircularProgress size={20} /> : <ReplayIcon />}
+                                                </IconButton>
+                                            </span>
+                                        </Tooltip>
                                     )}
                                     <IconButton onClick={() => openModal(c)} color="primary" title="Editar">
                                         <EditIcon />

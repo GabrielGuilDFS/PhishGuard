@@ -250,16 +250,11 @@ builder.Services.AddSingleton(serviceProvider => new DashboardReportingTime(
     builder.Configuration["Dashboard:TimeZoneId"] ?? DashboardReportingTime.DefaultTimeZoneId));
 
 // Data Protection: base da criptografia EM REPOUSO da senha SMTP (ISmtpCredentialProtector).
-// SetApplicationName fixo + chaves persistidas em disco garantem que o valor cifrado
-// continue decifrável após reinícios do processo.
-// ATENÇÃO (produção/Docker): "DataProtection-Keys" precisa morar em um VOLUME PERSISTENTE
-// (ou ser trocado por PersistKeysToDbContext); num container efêmero as chaves se perdem
-// no rebuild e as senhas salvas ficam indecifráveis.
+// SetApplicationName fixo + key ring no PostgreSQL garantem que o valor cifrado continue
+// decifrável após reinícios e deploys, inclusive em containers efêmeros do Render.
 builder.Services.AddDataProtection()
     .SetApplicationName("PhishGuard")
-    .PersistKeysToFileSystem(new DirectoryInfo(
-        builder.Configuration["DataProtection:KeysPath"]
-        ?? Path.Combine(builder.Environment.ContentRootPath, "DataProtection-Keys")));
+    .PersistKeysToDbContext<AppDbContext>();
 
 builder.Services.AddSingleton<ISmtpCredentialProtector, SmtpCredentialProtector>();
 

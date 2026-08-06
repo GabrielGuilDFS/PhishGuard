@@ -4,6 +4,8 @@ using Microsoft.EntityFrameworkCore;
 using PhishGuard.Backend.Data;
 using PhishGuard.Backend.Models;
 using PhishGuard.Backend.DTOs;
+using PhishGuard.Backend.Services;
+using Microsoft.Extensions.Configuration;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -18,14 +20,22 @@ namespace PhishGuard.Backend.Controllers
     {
         private readonly AppDbContext _context;
         private readonly ITenantProvider _tenantProvider;
+        private readonly IConfiguration _configuration;
+        private readonly ISmtpCredentialProtector? _smtpCredentialProtector;
 
         // O disparo de e-mails NÃO é responsabilidade deste controller: ele apenas
         // transiciona o estado da campanha. O envio assíncrono fica a cargo do
         // CampaignSchedulerWorker (baixo acoplamento + resiliência).
-        public CampaignsController(AppDbContext context, ITenantProvider tenantProvider)
+        public CampaignsController(
+            AppDbContext context,
+            ITenantProvider tenantProvider,
+            IConfiguration? configuration = null,
+            ISmtpCredentialProtector? smtpCredentialProtector = null)
         {
             _context = context;
             _tenantProvider = tenantProvider;
+            _configuration = configuration ?? new ConfigurationBuilder().Build();
+            _smtpCredentialProtector = smtpCredentialProtector;
         }
 
         [HttpGet]
@@ -46,6 +56,9 @@ namespace PhishGuard.Backend.Controllers
                     // por id a trazia), por isso a coluna aparecia vazia mesmo em campanhas
                     // que já tinham o prazo definido. Nula = coleta sem prazo (indefinida).
                     dataFim = c.DataFim,
+                    dispatchErrorCode = c.DispatchErrorCode,
+                    dispatchErrorMessage = c.DispatchErrorMessage,
+                    dispatchFailedAtUtc = c.DispatchFailedAtUtc,
                     templateNome = c.Template.Nome,
                     landingPageNome = c.PhishingPage.Nome,
                     educationalPageNome = c.EducationalPage.Nome
@@ -145,6 +158,45 @@ namespace PhishGuard.Backend.Controllers
                 return BadRequest("Apenas campanhas em Rascunho podem ser ativadas.");
             if (!campaign.Targets.Any()) return BadRequest("A campanha não possui alvos selecionados.");
 
+            var smtpConfig = await _context.SmtpConfigs
+                .FirstOrDefaultAsync(s => s.TenantId == tenantId);
+            if (!SmtpOperationalPolicy.IsConfigured(smtpConfig))
+            {
+                return Conflict(new
+                {
+                    code = SmtpOperationalPolicy.NotConfiguredCode,
+                    message = "Configure e salve o servidor SMTP antes de ativar a campanha.",
+                    settingsPath = "/admin/settings?tab=smtp"
+                });
+            }
+
+            var credentialError = _smtpCredentialProtector is null
+                ? null
+                : SmtpOperationalPolicy.ValidateCredential(smtpConfig, _smtpCredentialProtector);
+            if (credentialError is not null)
+            {
+                return Conflict(new
+                {
+                    code = credentialError,
+                    message = "A senha SMTP salva não pode ser utilizada. Informe a senha novamente e salve a configuração.",
+                    settingsPath = "/admin/settings?tab=smtp"
+                });
+            }
+
+            if (!SmtpOperationalPolicy.IsTransportEnabled(_configuration))
+            {
+                return Conflict(new
+                {
+                    code = SmtpOperationalPolicy.TransportUnavailableCode,
+                    message = SmtpOperationalPolicy.GetTransportDisabledReason(_configuration),
+                    settingsPath = "/admin/settings?tab=smtp"
+                });
+            }
+
+            campaign.DispatchErrorCode = null;
+            campaign.DispatchErrorMessage = null;
+            campaign.DispatchFailedAtUtc = null;
+
             // Início no FUTURO: apenas agenda. O CampaignSchedulerWorker faz o disparo
             // automaticamente quando a DataInicio for atingida.
             if (campaign.DataInicio > DateTime.UtcNow)
@@ -165,6 +217,40 @@ namespace PhishGuard.Backend.Controllers
                 message = "Disparo enfileirado. Os e-mails serão enviados em instantes.",
                 status = campaign.Status
             });
+        }
+
+        [HttpPost("{id}/retry-dispatch")]
+        public async Task<IActionResult> RetryDispatch(Guid id)
+        {
+            var tenantId = _tenantProvider.GetTenantId();
+            var campaign = await _context.Campaigns
+                .Include(c => c.Targets)
+                .FirstOrDefaultAsync(c => c.Id == id && c.TenantId == tenantId);
+
+            if (campaign == null) return NotFound("Campanha não encontrada.");
+            if (campaign.Status != CampaignStatus.FalhaNoDisparo)
+                return BadRequest("Apenas campanhas com falha de disparo podem ser reenfileiradas.");
+
+            var smtpConfig = await _context.SmtpConfigs.FirstOrDefaultAsync(s => s.TenantId == tenantId);
+            if (!SmtpOperationalPolicy.IsConfigured(smtpConfig))
+                return Conflict(new { code = SmtpOperationalPolicy.NotConfiguredCode, message = "Configure e salve o SMTP antes de tentar novamente.", settingsPath = "/admin/settings?tab=smtp" });
+            var credentialError = _smtpCredentialProtector is null
+                ? null
+                : SmtpOperationalPolicy.ValidateCredential(smtpConfig, _smtpCredentialProtector);
+            if (credentialError is not null)
+                return Conflict(new { code = credentialError, message = "A senha SMTP salva não pode ser utilizada. Informe a senha novamente e salve a configuração.", settingsPath = "/admin/settings?tab=smtp" });
+            if (!SmtpOperationalPolicy.IsTransportEnabled(_configuration))
+                return Conflict(new { code = SmtpOperationalPolicy.TransportUnavailableCode, message = SmtpOperationalPolicy.GetTransportDisabledReason(_configuration), settingsPath = "/admin/settings?tab=smtp" });
+
+            campaign.Status = campaign.DataInicio > DateTime.UtcNow
+                ? CampaignStatus.Agendada
+                : CampaignStatus.Processando;
+            campaign.DispatchErrorCode = null;
+            campaign.DispatchErrorMessage = null;
+            campaign.DispatchFailedAtUtc = null;
+            await _context.SaveChangesAsync();
+
+            return Accepted(new { message = "Campanha reenfileirada para disparo.", status = campaign.Status });
         }
 
         [HttpPut("{id}")]

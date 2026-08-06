@@ -44,5 +44,15 @@ namespace PhishGuard.Backend.Models
         public ICollection<Target> Targets { get; set; } = new List<Target>();
         
         public DateTime CriadoEm { get; set; }
+
+        [MaxLength(50)]
+        public string? DispatchErrorCode { get; set; }
+
+        [MaxLength(300)]
+        public string? DispatchErrorMessage { get; set; }
+
+        public DateTime? DispatchFailedAtUtc { get; set; }
+
+        public int DispatchAttemptCount { get; set; }
     }
 }
