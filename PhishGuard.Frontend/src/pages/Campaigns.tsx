@@ -1,5 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { API_BASE } from '../config';
+import { authFetch, getToken } from '../auth/session';
 import {
     Typography, Box, Button, TextField, Table, TableBody,
     TableCell, TableContainer, TableHead, TableRow, Paper, IconButton,
@@ -182,10 +184,12 @@ function ColetaFimCell({ campanha }: { campanha: Campaign }) {
 
 export default function Campaigns() {
     const { showNotify } = useNotify();
+    const [searchParams, setSearchParams] = useSearchParams();
 
     const [campaigns, setCampaigns] = useState<Campaign[]>([]);
     const [searchTerm, setSearchTerm] = useState('');
     const [loading, setLoading] = useState(false);
+    const [campaignsLoaded, setCampaignsLoaded] = useState(false);
     const [activatingId, setActivatingId] = useState<string | null>(null);
 
     const [open, setOpen] = useState(false);
@@ -211,8 +215,9 @@ export default function Campaigns() {
     // do último status conhecido por campanha (para diferenciar mudanças entre polls).
     const [flashingIds, setFlashingIds] = useState<Set<string>>(new Set());
     const statusAnteriorRef = useRef<Map<string, string>>(new Map());
+    const routeActionRef = useRef<string | null>(null);
 
-    const token = localStorage.getItem('phishguard_token');
+    const token = getToken();
     const headers = {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'
@@ -251,7 +256,7 @@ export default function Campaigns() {
 
     const fetchCampaigns = async () => {
         try {
-            const res = await fetch(`${API_BASE}/Campaigns`, { headers });
+            const res = await authFetch(`${API_BASE}/Campaigns`, { headers });
             if (!res.ok) return;
             const novas: Campaign[] = await res.json();
 
@@ -281,6 +286,8 @@ export default function Campaigns() {
         } catch (error) {
             console.error('Erro ao buscar campanhas', error);
             showNotify('Não foi possível carregar as campanhas.', 'error');
+        } finally {
+            setCampaignsLoaded(true);
         }
     };
 
@@ -294,10 +301,10 @@ export default function Campaigns() {
             setLoadingLookups(true);
             try {
                 const [tempRes, phishRes, eduRes, targetRes] = await Promise.all([
-                    fetch(`${API_BASE}/Templates`, { headers }),
-                    fetch(`${API_BASE}/PhishingPages`, { headers }),
-                    fetch(`${API_BASE}/EducationalPages`, { headers }),
-                    fetch(`${API_BASE}/Targets`, { headers })
+                    authFetch(`${API_BASE}/Templates`, { headers }),
+                    authFetch(`${API_BASE}/PhishingPages`, { headers }),
+                    authFetch(`${API_BASE}/EducationalPages`, { headers }),
+                    authFetch(`${API_BASE}/Targets`, { headers })
                 ]);
 
                 if (tempRes.ok && phishRes.ok && eduRes.ok && targetRes.ok) {
@@ -321,7 +328,7 @@ export default function Campaigns() {
 
         if (campaign) {
             try {
-                const res = await fetch(`${API_BASE}/Campaigns/${campaign.id}`, { headers });
+                const res = await authFetch(`${API_BASE}/Campaigns/${campaign.id}`, { headers });
                 if (res.ok) {
                     const data = await res.json();
                     setCurrentId(data.id);
@@ -364,6 +371,42 @@ export default function Campaigns() {
 
     const closeModal = () => setOpen(false);
 
+    // Deep-link vindo do dashboard. A query é consumida uma única vez e removida com
+    // replace: o histórico não ganha uma entrada extra e a listagem não é recarregada.
+    useEffect(() => {
+        const nova = searchParams.get('nova') === '1';
+        const editId = searchParams.get('editar')?.trim() || null;
+        const actionKey = nova ? 'nova' : editId ? `editar:${editId}` : null;
+        if (!actionKey || routeActionRef.current === actionKey) return;
+        if (editId && !campaignsLoaded) return;
+
+        const limparQueryDaAcao = () => {
+            const next = new URLSearchParams(searchParams);
+            next.delete('nova');
+            next.delete('editar');
+            setSearchParams(next, { replace: true });
+        };
+
+        if (editId) {
+            const campaign = campaigns.find((item) => item.id === editId);
+            if (!campaign) {
+                routeActionRef.current = actionKey;
+                showNotify('Campanha não encontrada.', 'error');
+                limparQueryDaAcao();
+                return;
+            }
+            routeActionRef.current = actionKey;
+            void openModal(campaign).finally(limparQueryDaAcao);
+            return;
+        }
+
+        routeActionRef.current = actionKey;
+        void openModal().finally(limparQueryDaAcao);
+        // openModal fecha sobre os lookups atuais; incluir a função nas dependências
+        // recriaria o efeito a cada render. actionKey+routeActionRef garantem consumo único.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [campaigns, campaignsLoaded, searchParams, setSearchParams, showNotify]);
+
     // Provisiona sob demanda o PAR de linhas (Template + PhishingPage) que o cenário
     // estático representa — find-or-create, espelhando garantirPaginaEducativa. Substitui
     // o antigo botão "Registrar" da Biblioteca de Modelos: o admin escolhe o cenário no
@@ -376,7 +419,7 @@ export default function Campaigns() {
 
         let emailRow = templates.find((t) => t.corpoHtml === s.emailTemplateId);
         if (!emailRow) {
-            const res = await fetch(`${API_BASE}/Templates`, {
+            const res = await authFetch(`${API_BASE}/Templates`, {
                 method: 'POST', headers,
                 body: JSON.stringify({
                     nome: isca.nome, assunto: isca.assunto,
@@ -392,7 +435,7 @@ export default function Campaigns() {
 
         let landingRow = phishingPages.find((p) => p.conteudoHtml === s.landingTemplateId);
         if (!landingRow) {
-            const res = await fetch(`${API_BASE}/PhishingPages`, {
+            const res = await authFetch(`${API_BASE}/PhishingPages`, {
                 method: 'POST', headers,
                 body: JSON.stringify({ nome: landing.nome, conteudoHtml: landing.id }),
             });
@@ -415,7 +458,7 @@ export default function Campaigns() {
         const existente = educationalPages.find(p => p.conteudoHtml === descritor.html);
         if (existente) return existente.id;
 
-        const res = await fetch(`${API_BASE}/EducationalPages`, {
+        const res = await authFetch(`${API_BASE}/EducationalPages`, {
             method: 'POST', headers,
             body: JSON.stringify({ nome: descritor.nome, conteudoHtml: descritor.html }),
         });
@@ -453,7 +496,7 @@ export default function Campaigns() {
             const method = currentId ? 'PUT' : 'POST';
             const url = currentId ? `${API_BASE}/Campaigns/${currentId}` : `${API_BASE}/Campaigns`;
 
-            const res = await fetch(url, { method, headers, body: JSON.stringify(payload) });
+            const res = await authFetch(url, { method, headers, body: JSON.stringify(payload) });
             if (res.ok) {
                 showNotify(currentId ? 'Campanha atualizada com sucesso.' : 'Campanha criada com sucesso.', 'success');
                 closeModal();
@@ -472,7 +515,7 @@ export default function Campaigns() {
     const handleDelete = async (id: string) => {
         if (!window.confirm('Excluir esta campanha?')) return;
         try {
-            const res = await fetch(`${API_BASE}/Campaigns/${id}`, { method: 'DELETE', headers });
+            const res = await authFetch(`${API_BASE}/Campaigns/${id}`, { method: 'DELETE', headers });
             if (res.ok) { showNotify('Campanha excluída.', 'success'); fetchCampaigns(); }
             else showNotify(mensagemAmigavel(await extrairMensagemDeErro(res)), 'error');
         } catch (error) {
@@ -488,7 +531,7 @@ export default function Campaigns() {
 
         setActivatingId(id);
         try {
-            const res = await fetch(`${API_BASE}/Campaigns/${id}/ativar`, { method: 'POST', headers });
+            const res = await authFetch(`${API_BASE}/Campaigns/${id}/ativar`, { method: 'POST', headers });
             if (res.ok) {
                 const data = await res.json().catch(() => null);
                 showNotify(

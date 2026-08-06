@@ -16,7 +16,7 @@ import {
   CssBaseline
 } from '@mui/material';
 import { alpha } from '@mui/material/styles';
-import { clearSession } from '../auth/session';
+import { logoutSession } from '../auth/session';
 // Deep imports (não o barrel `@mui/icons-material`): named imports do barrel quebram
 // o Vitest no Windows com EMFILE (milhares de ícones abertos de uma vez) — gotcha já
 // documentado no projeto.
@@ -41,8 +41,7 @@ export default function AdminLayout() {
 
   const handleLogout = () => {
     // Destruição completa da sessão (não só o token): ver src/auth/session.ts.
-    clearSession();
-    navigate('/login');
+    void logoutSession().finally(() => navigate('/login'));
   };
 
   // A antiga "Biblioteca de Recursos" (Cenários + Páginas Falsas + Educacionais) foi

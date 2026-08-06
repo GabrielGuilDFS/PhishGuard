@@ -7,8 +7,10 @@ import type {
 import {
   TRACKING_ACTIONS,
   readEducationalFeedbackParams,
-  trackingEndpoint,
 } from '../shared/trackingContract';
+import {
+  sendOrQueueTrackingEvent,
+} from '../shared/trackingRetryQueue';
 
 // ============================================================================
 // FeedbackTraining — Tela Educacional de Feedback (Just-in-Time Training)
@@ -149,16 +151,36 @@ export default function FeedbackTraining({ config, preview = false }: Props) {
   const navigate = useNavigate();
   const [ativo, setAtivo] = useState<number | null>(null);
   const [concluindo, setConcluindo] = useState(false);
+  const [concluido, setConcluido] = useState(false);
   const cardRefs = useRef<Record<number, HTMLDivElement | null>>({});
+  const navigationTimeoutRef = useRef<number | null>(null);
 
   // IDs de rastreamento vindos da landing (best-effort — podem não existir num
   // acesso direto à rota). Usados só para AUDITAR a conclusão do módulo. Os nomes
   // dos parâmetros (c/t) vêm do contrato compartilhado — nada de fallback legado
   // para 'campaign'/'target', que era justamente a divergência §1.3d eliminada.
-  const { campaignId: campaignParam, targetId: targetParam } =
+  const { campaignId: campaignParam, targetId: targetParam, trackingToken: tokenParam } =
     readEducationalFeedbackParams(searchParams);
   const campaignId = campaignParam || '';
   const targetId = targetParam || '';
+  const trackingToken = tokenParam || '';
+
+  useEffect(() => () => {
+    if (navigationTimeoutRef.current !== null)
+      window.clearTimeout(navigationTimeoutRef.current);
+  }, []);
+
+  useEffect(() => {
+    // Registra a chegada ao conteúdo separadamente da conclusão. Em StrictMode o
+    // efeito pode executar mais de uma vez; fila e backend são idempotentes.
+    if (preview || !campaignId || !targetId || !trackingToken) return;
+    void sendOrQueueTrackingEvent(
+      TRACKING_ACTIONS.educationalView,
+      campaignId,
+      targetId,
+      trackingToken,
+    );
+  }, [preview, campaignId, targetId, trackingToken]);
 
   // Clique num hotspot destaca e rola até o card explicativo correspondente.
   const focarCard = useCallback((numero: number) => {
@@ -171,21 +193,21 @@ export default function FeedbackTraining({ config, preview = false }: Props) {
     // navega, para não sequestrar o roteador do painel administrativo.
     if (preview) return;
     setConcluindo(true);
-    // Registra a conclusão para fins de AUDITORIA do módulo (best-effort: uma
-    // falha de rede não pode prender o usuário na tela). Só dispara se houver
-    // contexto de campanha/alvo.
-    if (campaignId && targetId) {
-      try {
-        await fetch(trackingEndpoint(TRACKING_ACTIONS.complete, campaignId, targetId), {
-          method: 'POST',
-          headers: { 'ngrok-skip-browser-warning': 'true' },
-        });
-      } catch {
-        /* silencioso: a conclusão não deve travar por erro de telemetria */
-      }
+    // Registra a conclusão para auditoria. Uma falha nunca bloqueia o participante:
+    // o evento é guardado localmente para retry e a confirmação visual é exibida.
+    if (campaignId && targetId && trackingToken) {
+      // Reafirma a visualização antes da conclusão para preservar a ordem do funil
+      // mesmo quando o participante conclui imediatamente após o primeiro render.
+      await sendOrQueueTrackingEvent(TRACKING_ACTIONS.educationalView, campaignId, targetId, trackingToken);
+      await sendOrQueueTrackingEvent(TRACKING_ACTIONS.complete, campaignId, targetId, trackingToken);
     }
-    navigate(config.conclusao.redirecionarPara);
-  }, [preview, campaignId, targetId, navigate, config.conclusao.redirecionarPara]);
+    setConcluindo(false);
+    setConcluido(true);
+    navigationTimeoutRef.current = window.setTimeout(
+      () => navigate(config.conclusao.redirecionarPara),
+      600,
+    );
+  }, [preview, campaignId, targetId, trackingToken, navigate, config.conclusao.redirecionarPara]);
 
   // Keyframes do pulso do hotspot (injetado uma vez; sem preflight do Tailwind
   // não há @keyframes global, então declaramos aqui de forma auto-contida).
@@ -324,10 +346,12 @@ export default function FeedbackTraining({ config, preview = false }: Props) {
           <button
             type="button"
             onClick={concluir}
-            disabled={concluindo}
+            disabled={concluindo || concluido}
             className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-8 py-3 text-base font-bold text-white shadow-md transition-colors hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-70"
           >
-            {concluindo ? (
+            {concluido ? (
+              <>✓ Treinamento concluído</>
+            ) : concluindo ? (
               <>
                 <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
                 Registrando conclusão…
@@ -336,6 +360,11 @@ export default function FeedbackTraining({ config, preview = false }: Props) {
               <>✓ {config.conclusao.label}</>
             )}
           </button>
+          {concluido && (
+            <p role="status" aria-live="polite" className="text-sm font-semibold text-emerald-700">
+              Obrigado! Seu aprendizado foi concluído com sucesso.
+            </p>
+          )}
           <p className="text-xs text-slate-400">
             {preview
               ? 'Pré-visualização — no fluxo real, concluir registra a participação para auditoria do módulo.'

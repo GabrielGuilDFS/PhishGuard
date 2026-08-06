@@ -93,6 +93,59 @@ namespace PhishGuard.Backend.Migrations
                     b.ToTable("administradores");
                 });
 
+            modelBuilder.Entity("PhishGuard.Backend.Models.AuthSession", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("AdministratorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("administrator_id");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at_utc");
+
+                    b.Property<DateTime>("ExpiresAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expires_at_utc");
+
+                    b.Property<DateTime?>("LastRotatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("last_rotated_at_utc");
+
+                    b.Property<string>("RefreshTokenHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("refresh_token_hash");
+
+                    b.Property<DateTime?>("RevokedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("revoked_at_utc");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_auth_sessions");
+
+                    b.HasIndex("AdministratorId")
+                        .HasDatabaseName("ix_auth_sessions_administrator_id");
+
+                    b.HasIndex("RefreshTokenHash")
+                        .IsUnique()
+                        .HasDatabaseName("ix_auth_sessions_refresh_token_hash");
+
+                    b.HasIndex("TenantId", "AdministratorId", "RevokedAtUtc")
+                        .HasDatabaseName("ix_auth_sessions_tenant_id_administrator_id_revoked_at_utc");
+
+                    b.ToTable("auth_sessions");
+                });
+
             modelBuilder.Entity("PhishGuard.Backend.Models.Campaign", b =>
                 {
                     b.Property<Guid>("Id")
@@ -272,14 +325,15 @@ namespace PhishGuard.Backend.Migrations
                     b.HasKey("Id")
                         .HasName("pk_simulations_logs");
 
-                    b.HasIndex("CampaignId")
-                        .HasDatabaseName("ix_simulations_logs_campaign_id");
-
                     b.HasIndex("TargetId")
                         .HasDatabaseName("ix_simulations_logs_target_id");
 
-                    b.HasIndex("TenantId")
-                        .HasDatabaseName("ix_simulations_logs_tenant_id");
+                    b.HasIndex("CampaignId", "TargetId", "Acao")
+                        .IsUnique()
+                        .HasDatabaseName("ux_simulations_logs_campaign_target_action");
+
+                    b.HasIndex("TenantId", "DataHora", "Acao", "CampaignId", "TargetId")
+                        .HasDatabaseName("ix_simulations_logs_dashboard_overview");
 
                     b.ToTable("simulations_logs");
                 });
@@ -488,6 +542,23 @@ namespace PhishGuard.Backend.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_administradores_tenants_tenant_id");
+                });
+
+            modelBuilder.Entity("PhishGuard.Backend.Models.AuthSession", b =>
+                {
+                    b.HasOne("PhishGuard.Backend.Models.Administrador", null)
+                        .WithMany()
+                        .HasForeignKey("AdministratorId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_auth_sessions_administradores_administrator_id");
+
+                    b.HasOne("PhishGuard.Backend.Models.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_auth_sessions_tenants_tenant_id");
                 });
 
             modelBuilder.Entity("PhishGuard.Backend.Models.Campaign", b =>

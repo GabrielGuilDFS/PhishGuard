@@ -125,7 +125,7 @@ namespace PhishGuard.Backend.Controllers
 
     public class PageInputDto
     {
-        public string Nome { get; set; }
-        public string ConteudoHtml { get; set; } 
+        public string Nome { get; set; } = string.Empty;
+        public string ConteudoHtml { get; set; } = string.Empty;
     }
 }

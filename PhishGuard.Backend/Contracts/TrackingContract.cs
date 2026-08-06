@@ -31,11 +31,14 @@ namespace PhishGuard.Backend.Contracts
         /// <summary>Parâmetro canônico do ID do alvo.</summary>
         public const string QueryTarget = "t";
 
+        /// <summary>Capability token assinado do participante.</summary>
+        public const string QueryToken = "k";
+
         /// <summary>
         /// Monta a URL canônica da tela educacional de feedback (espelho de
         /// <c>educationalFeedbackUrl</c> no TS). Campos nulos/vazios são omitidos.
         /// </summary>
-        public static string EducationalFeedbackUrl(string? template, string? campaignId, string? targetId)
+        public static string EducationalFeedbackUrl(string? template, string? campaignId, string? targetId, string? trackingToken = null)
         {
             var parts = new List<string>();
             if (!string.IsNullOrEmpty(template))
@@ -44,6 +47,8 @@ namespace PhishGuard.Backend.Contracts
                 parts.Add($"{QueryCampaign}={Uri.EscapeDataString(campaignId)}");
             if (!string.IsNullOrEmpty(targetId))
                 parts.Add($"{QueryTarget}={Uri.EscapeDataString(targetId)}");
+            if (!string.IsNullOrEmpty(trackingToken))
+                parts.Add($"{QueryToken}={Uri.EscapeDataString(trackingToken)}");
 
             return parts.Count == 0
                 ? EducationalFeedbackPath

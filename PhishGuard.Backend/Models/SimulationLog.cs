@@ -25,7 +25,7 @@ namespace PhishGuard.Backend.Models
         [Required]
         [MaxLength(50)]
         [Column("acao")]
-        public string Acao { get; set; }
+        public string Acao { get; set; } = string.Empty;
 
         [Required]
         [Column("data_hora")]
@@ -34,6 +34,6 @@ namespace PhishGuard.Backend.Models
         [Required]
         [MaxLength(45)]
         [Column("ip_origem")]
-        public string IpOrigem { get; set; }
+        public string IpOrigem { get; set; } = string.Empty;
     }
 }

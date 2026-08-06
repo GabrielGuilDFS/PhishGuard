@@ -18,6 +18,7 @@ export const TRACKING_ACTIONS = {
   open: 'open',
   click: 'click',
   submit: 'submit',
+  educationalView: 'educational-view',
   complete: 'complete',
 } as const;
 
@@ -31,8 +32,10 @@ export function trackingEndpoint(
   action: TrackingAction,
   campaignId: string,
   targetId: string,
+  trackingToken: string,
 ): string {
-  return `${TRACKING_API_BASE}/${action}/${campaignId}/${targetId}`;
+  const query = new URLSearchParams({ k: trackingToken });
+  return `${TRACKING_API_BASE}/${action}/${campaignId}/${targetId}?${query.toString()}`;
 }
 
 /**
@@ -68,12 +71,15 @@ export const EDU_FEEDBACK_QUERY = {
   campaign: 'c',
   /** ID do alvo. */
   target: 't',
+  /** Capability token assinado do participante. */
+  token: 'k',
 } as const;
 
 export interface EducationalFeedbackParams {
   template?: string;
   campaignId?: string;
   targetId?: string;
+  trackingToken?: string;
 }
 
 /**
@@ -90,6 +96,7 @@ export function educationalFeedbackUrl(params: EducationalFeedbackParams): strin
   if (params.template) qs.set(EDU_FEEDBACK_QUERY.template, params.template);
   if (params.campaignId) qs.set(EDU_FEEDBACK_QUERY.campaign, params.campaignId);
   if (params.targetId) qs.set(EDU_FEEDBACK_QUERY.target, params.targetId);
+  if (params.trackingToken) qs.set(EDU_FEEDBACK_QUERY.token, params.trackingToken);
   const query = qs.toString();
   return query ? `${EDUCATIONAL_FEEDBACK_PATH}?${query}` : EDUCATIONAL_FEEDBACK_PATH;
 }
@@ -100,10 +107,11 @@ export function educationalFeedbackUrl(params: EducationalFeedbackParams): strin
  */
 export function readEducationalFeedbackParams(
   search: URLSearchParams,
-): { template: string | null; campaignId: string | null; targetId: string | null } {
+): { template: string | null; campaignId: string | null; targetId: string | null; trackingToken: string | null } {
   return {
     template: search.get(EDU_FEEDBACK_QUERY.template),
     campaignId: search.get(EDU_FEEDBACK_QUERY.campaign),
     targetId: search.get(EDU_FEEDBACK_QUERY.target),
+    trackingToken: search.get(EDU_FEEDBACK_QUERY.token),
   };
 }

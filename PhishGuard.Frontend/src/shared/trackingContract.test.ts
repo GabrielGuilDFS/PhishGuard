@@ -15,10 +15,11 @@ import { landingTemplates } from '../data/landingTemplates';
 
 describe('trackingEndpoint', () => {
   it('monta /api/tracking/<ação>/:c/:t para cada ação', () => {
-    expect(trackingEndpoint(TRACKING_ACTIONS.click, 'c1', 't1')).toBe('/api/tracking/click/c1/t1');
-    expect(trackingEndpoint(TRACKING_ACTIONS.submit, 'c1', 't1')).toBe('/api/tracking/submit/c1/t1');
-    expect(trackingEndpoint(TRACKING_ACTIONS.complete, 'c1', 't1')).toBe('/api/tracking/complete/c1/t1');
-    expect(trackingEndpoint(TRACKING_ACTIONS.open, 'c1', 't1')).toBe('/api/tracking/open/c1/t1');
+    expect(trackingEndpoint(TRACKING_ACTIONS.click, 'c1', 't1', 'signed')).toBe('/api/tracking/click/c1/t1?k=signed');
+    expect(trackingEndpoint(TRACKING_ACTIONS.submit, 'c1', 't1', 'signed')).toBe('/api/tracking/submit/c1/t1?k=signed');
+    expect(trackingEndpoint(TRACKING_ACTIONS.educationalView, 'c1', 't1', 'signed')).toBe('/api/tracking/educational-view/c1/t1?k=signed');
+    expect(trackingEndpoint(TRACKING_ACTIONS.complete, 'c1', 't1', 'signed')).toBe('/api/tracking/complete/c1/t1?k=signed');
+    expect(trackingEndpoint(TRACKING_ACTIONS.open, 'c1', 't1', 'signed')).toBe('/api/tracking/open/c1/t1?k=signed');
   });
 });
 
@@ -41,12 +42,13 @@ describe('educationalFeedbackUrl', () => {
   });
 
   it('faz round-trip com readEducationalFeedbackParams', () => {
-    const url = educationalFeedbackUrl({ template: 'netsflix', campaignId: 'c9', targetId: 't9' });
+    const url = educationalFeedbackUrl({ template: 'netsflix', campaignId: 'c9', targetId: 't9', trackingToken: 'signed' });
     const params = new URLSearchParams(url.split('?')[1]);
     expect(readEducationalFeedbackParams(params)).toEqual({
       template: 'netsflix',
       campaignId: 'c9',
       targetId: 't9',
+      trackingToken: 'signed',
     });
   });
 });
@@ -58,6 +60,7 @@ describe('readEducationalFeedbackParams — nomes canônicos', () => {
       template: null,
       campaignId: null,
       targetId: null,
+      trackingToken: null,
     });
   });
 });

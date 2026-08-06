@@ -5,6 +5,8 @@ using PhishGuard.Backend.Controllers;
 using PhishGuard.Backend.Data;
 using PhishGuard.Backend.DTOs;
 using PhishGuard.Backend.Models;
+using System.IdentityModel.Tokens.Jwt;
+using Microsoft.AspNetCore.Http;
 
 namespace PhishGuard.Tests.Controllers;
 
@@ -34,6 +36,9 @@ public class LoginControllerTests
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
                 ["AppSettings:Token"] = ChaveTokenTeste
+                , ["AppSettings:JwtIssuer"] = "PhishGuard.Backend.Tests"
+                , ["AppSettings:JwtAudience"] = "PhishGuard.Frontend.Tests"
+                , ["AppSettings:AccessTokenMinutes"] = "60"
             })
             .Build();
     }
@@ -72,7 +77,11 @@ public class LoginControllerTests
         context.Administradores.Add(admin);
         await context.SaveChangesAsync();
 
-        var controller = new LoginController(context, configuration);
+        var controller = new LoginController(context, configuration, TimeProvider.System);
+        controller.ControllerContext = new ControllerContext
+        {
+            HttpContext = new DefaultHttpContext { Request = { Scheme = "https" } }
+        };
         return (controller, context, email);
     }
 
@@ -84,15 +93,95 @@ public class LoginControllerTests
     [Fact]
     public async Task Login_ComCredenciaisValidas_DeveRetornarTokenJwtOk()
     {
-        var (controller, email) = await CriarControllerComAdminAsync();
+        var (controller, context, email) = await CriarControllerComAdminEContextoAsync();
 
         var resultado = await controller.Login(new LoginDto { Email = email, Password = SenhaValida });
 
         var okResult = Assert.IsType<OkObjectResult>(resultado.Result);
         Assert.Equal(200, okResult.StatusCode);
 
-        var token = Assert.IsType<string>(okResult.Value);
+        var authResponse = Assert.IsType<AuthResponseDto>(okResult.Value);
+        var token = authResponse.AccessToken;
         Assert.False(string.IsNullOrWhiteSpace(token));
+
+        var jwt = new JwtSecurityTokenHandler().ReadJwtToken(token);
+        Assert.Equal("PhishGuard.Backend.Tests", jwt.Issuer);
+        Assert.Contains("PhishGuard.Frontend.Tests", jwt.Audiences);
+        Assert.Contains(jwt.Claims, claim => claim.Type == JwtRegisteredClaimNames.Jti);
+        var session = await context.AuthSessions.IgnoreQueryFilters().SingleAsync();
+        Assert.Contains(jwt.Claims, claim => claim.Type == "sid" && claim.Value == session.Id.ToString());
+        Assert.Equal(64, session.RefreshTokenHash.Length);
+        var setCookie = controller.Response.Headers.SetCookie.ToString();
+        Assert.Contains("phishguard_refresh=", setCookie);
+        Assert.Contains("httponly", setCookie, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("secure", setCookie, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("samesite=strict", setCookie, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("path=/api/auth", setCookie);
+        Assert.DoesNotContain("path=/api/Auth", setCookie);
+        var rawRefreshToken = setCookie.Split(';')[0].Split('=', 2)[1];
+        Assert.NotEqual(rawRefreshToken, session.RefreshTokenHash);
+        Assert.InRange(jwt.ValidTo, DateTime.UtcNow.AddMinutes(59), DateTime.UtcNow.AddMinutes(61));
+    }
+
+    [Fact]
+    public async Task LoginEmHttpLocal_NaoForcaCookieSecurePorUrlPublica()
+    {
+        var (controller, _, email) = await CriarControllerComAdminEContextoAsync();
+        controller.ControllerContext = new ControllerContext
+        {
+            HttpContext = new DefaultHttpContext { Request = { Scheme = "http" } }
+        };
+
+        await controller.Login(new LoginDto { Email = email, Password = SenhaValida });
+
+        var setCookie = controller.Response.Headers.SetCookie.ToString();
+        Assert.Contains("path=/api/auth", setCookie);
+        Assert.DoesNotContain("secure", setCookie, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task RefreshRotacionaOCookie_ELogoutRevogaASessao()
+    {
+        var (controller, context, email) = await CriarControllerComAdminEContextoAsync();
+        await controller.Login(new LoginDto { Email = email, Password = SenhaValida });
+        var primeiroCookie = controller.Response.Headers.SetCookie.ToString().Split(';')[0];
+        var hashAntes = (await context.AuthSessions.IgnoreQueryFilters().SingleAsync()).RefreshTokenHash;
+
+        controller.ControllerContext = new ControllerContext
+        {
+            HttpContext = new DefaultHttpContext { Request = { Scheme = "https" } }
+        };
+        controller.Request.Headers.Cookie = primeiroCookie;
+        var refresh = await controller.Refresh();
+
+        Assert.IsType<OkObjectResult>(refresh.Result);
+        var segundoCookie = controller.Response.Headers.SetCookie.ToString().Split(';')[0];
+        Assert.NotEqual(primeiroCookie, segundoCookie);
+        var session = await context.AuthSessions.IgnoreQueryFilters().SingleAsync();
+        Assert.NotEqual(hashAntes, session.RefreshTokenHash);
+        Assert.NotNull(session.LastRotatedAtUtc);
+
+        controller.ControllerContext = new ControllerContext
+        {
+            HttpContext = new DefaultHttpContext { Request = { Scheme = "https" } }
+        };
+        controller.Request.Headers.Cookie = segundoCookie;
+        Assert.IsType<NoContentResult>(await controller.Logout());
+        Assert.NotNull(session.RevokedAtUtc);
+    }
+
+    [Fact]
+    public async Task Login_ComTenantInativo_RejeitaSemEmitirToken()
+    {
+        var (controller, context, email) = await CriarControllerComAdminEContextoAsync();
+        var tenant = await context.Tenants.SingleAsync();
+        tenant.Ativo = false;
+        await context.SaveChangesAsync();
+
+        var resultado = await controller.Login(new LoginDto { Email = email, Password = SenhaValida });
+
+        var badRequest = Assert.IsType<BadRequestObjectResult>(resultado.Result);
+        Assert.Equal("Usuário ou senha inválidos.", badRequest.Value);
     }
 
     [Fact]

@@ -1,9 +1,12 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { render, screen, act } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 // Teste de UI co-located (padrão de espelhamento do frontend).
 import Campaigns from './Campaigns';
 import { toDateTimeLocal } from '../utils/dateTime';
 import { NotificationProvider } from '../context/NotificationContext';
+import { clearSession, setToken } from '../auth/session';
+import { jwtDeTeste } from '../test/jwt';
 
 // Deve casar com POLL_INTERVAL_MS em Campaigns.tsx.
 const POLL_MS = 8000;
@@ -37,11 +40,13 @@ const fetchMock = vi.fn((url: string) => {
 const chamadasCampaigns = () =>
   fetchMock.mock.calls.filter(c => String(c[0]).includes('/Campaigns')).length;
 
-function renderTela() {
+function renderTela(initialEntry = '/admin/campaigns') {
   return render(
-    <NotificationProvider>
-      <Campaigns />
-    </NotificationProvider>
+    <MemoryRouter initialEntries={[initialEntry]}>
+      <NotificationProvider>
+        <Campaigns />
+      </NotificationProvider>
+    </MemoryRouter>
   );
 }
 
@@ -56,16 +61,29 @@ beforeEach(() => {
   statusAtual = 'Agendada';
   dataFimAtual = null;
   vi.stubGlobal('fetch', fetchMock);
-  localStorage.setItem('phishguard_token', 'test-token');
+  setToken(jwtDeTeste({
+    tenant_id: '11111111-1111-1111-1111-111111111111',
+    exp: Math.floor(Date.now() / 1000) + 3600,
+  }));
 });
 
 afterEach(() => {
   vi.useRealTimers();
   vi.unstubAllGlobals();
+  clearSession();
   localStorage.clear();
 });
 
 describe('Campaigns — atualização reativa do status (polling inteligente)', () => {
+  it('abre o modal novo via ?nova=1 sem recarregar a listagem', async () => {
+    statusAtual = 'Finalizada';
+    renderTela('/admin/campaigns?nova=1');
+    await flush();
+
+    expect(screen.getByRole('dialog', { name: 'Nova Campanha' })).toBeInTheDocument();
+    expect(chamadasCampaigns()).toBe(1);
+  });
+
   it('faz polling enquanto há campanha Agendada e reflete a virada para "Em Andamento" sozinho', async () => {
     renderTela();
     await flush();

@@ -4,6 +4,7 @@ import {
   configurarSmtpMailpit,
   criarCampanhaComAlvo,
   esperarEmailNoMailpit,
+  esperarEnvioAuditado,
   extrairLink,
   getFunnel,
   registrarELogar,
@@ -29,7 +30,11 @@ test('ciclo de vida completo de uma campanha (§2.1)', async ({ page, request })
 
   // 2. O worker dispara e o Mailpit captura (nenhum e-mail sai para a internet).
   const corpo = await esperarEmailNoMailpit(request, targetEmail);
-  const linkClique = extrairLink(corpo, new RegExp(`https?://[^\\s"']+/api/tracking/click/${campaignId}/${targetId}`));
+  await esperarEnvioAuditado(request, sessao);
+  const linkClique = extrairLink(
+    corpo,
+    new RegExp(`https?://[^\\s"']+/api/tracking/click/${campaignId}/${targetId}[^\\s"'<>]*`),
+  );
 
   // 3. O alvo "clica": o backend loga o Clique e redireciona para a página falsa.
   await page.goto(linkClique);

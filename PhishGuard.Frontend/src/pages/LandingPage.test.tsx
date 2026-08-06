@@ -21,10 +21,11 @@ afterAll(() => server.close());
 
 const CAMP = 'camp-abc';
 const TGT = 'tgt-xyz';
+const TRACKING_TOKEN = 'token-assinado';
 
 function renderLanding(pageId: string) {
   return render(
-    <MemoryRouter initialEntries={[`/landing/${pageId}?c=${CAMP}&t=${TGT}`]}>
+    <MemoryRouter initialEntries={[`/landing/${pageId}?c=${CAMP}&t=${TGT}&k=${TRACKING_TOKEN}`]}>
       <Routes>
         <Route path="/landing/:id" element={<LandingPage />} />
       </Routes>
@@ -48,9 +49,10 @@ describe('LandingPage (componente real)', () => {
     // Os placeholders foram substituídos pelos valores da query string: o gatilho de
     // telemetria embutido no <form> aponta para a URL real, sem {{...}} remanescente.
     const html = container.innerHTML;
-    expect(html).toContain(`/api/tracking/submit/${CAMP}/${TGT}`);
+    expect(container.querySelector('form')).not.toHaveAttribute('onsubmit');
     expect(html).not.toMatch(/\{\{\s*CAMPAIGN_ID\s*\}\}/);
     expect(html).not.toMatch(/\{\{\s*TARGET_ID\s*\}\}/);
+    expect(html).not.toMatch(/\{\{\s*TRACKING_TOKEN\s*\}\}/);
   });
 
   it('fallback legado: quando o conteúdo não casa um molde, injeta o HTML bruto do banco', async () => {

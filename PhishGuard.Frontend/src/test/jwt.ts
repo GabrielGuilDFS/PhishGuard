@@ -9,5 +9,5 @@
 export function jwtDeTeste(payload: Record<string, unknown>): string {
   const b64url = (obj: Record<string, unknown>) =>
     btoa(JSON.stringify(obj)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-  return `${b64url({ alg: 'HS512', typ: 'JWT' })}.${b64url(payload)}.assinatura-fake`;
+  return `${b64url({ alg: 'HS512', typ: 'JWT' })}.${b64url({ sid: 'sessao-de-teste', ...payload })}.assinatura-fake`;
 }

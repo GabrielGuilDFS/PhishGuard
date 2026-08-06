@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { API_BASE } from '../config';
+import { API_BASE, AUTH_API_BASE } from '../config';
+import { authFetch, getToken } from '../auth/session';
 import {
   Box,
   Typography,
@@ -76,7 +77,7 @@ export default function Settings() {
 
   useEffect(() => {
     const fetchProfile = async () => {
-      const token = localStorage.getItem('phishguard_token');
+      const token = getToken();
       if (!token) return;
 
       try {
@@ -95,7 +96,7 @@ export default function Settings() {
       }
 
       try {
-        const response = await fetch(`${API_BASE}/Auth/profile`, {
+        const response = await authFetch(`${AUTH_API_BASE}/profile`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
@@ -110,7 +111,7 @@ export default function Settings() {
           }));
         }
       } catch {
-        console.warn("Rota GET /api/Auth/profile não implementada. Usando claims do JWT.");
+        console.warn("Rota GET /api/auth/profile não implementada. Usando claims do JWT.");
       }
     };
 
@@ -127,13 +128,13 @@ export default function Settings() {
   useEffect(() => {
     const fetchSmtpConfig = async () => {
       try {
-        const token = localStorage.getItem('phishguard_token');
+        const token = getToken();
         if (!token) {
           showNotify("Sessão expirada. Faça login novamente.", "error");
           return;
         }
 
-        const response = await fetch(`${API_BASE}/SmtpConfig`, {
+        const response = await authFetch(`${API_BASE}/SmtpConfig`, {
           method: 'GET',
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -176,13 +177,13 @@ export default function Settings() {
     }
 
     try {
-      const token = localStorage.getItem('phishguard_token');
+      const token = getToken();
       if (!token) {
         showNotify("Sessão expirada. Faça login novamente.", "error");
         return;
       }
 
-      const response = await fetch(`${API_BASE}/Auth/profile`, {
+      const response = await authFetch(`${AUTH_API_BASE}/profile`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -211,7 +212,7 @@ export default function Settings() {
     e.preventDefault();
 
     try {
-      const token = localStorage.getItem('phishguard_token');
+      const token = getToken();
       if (!token) {
         showNotify("Sessão expirada. Faça login novamente.", "error");
         return;
@@ -230,7 +231,7 @@ export default function Settings() {
         Senha: smtp.password
       };
 
-      const response = await fetch(`${API_BASE}/SmtpConfig`, {
+      const response = await authFetch(`${API_BASE}/SmtpConfig`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -260,9 +261,9 @@ export default function Settings() {
     showNotify("Tentando enviar e-mail de teste...", "info");
 
     try {
-      const token = localStorage.getItem('phishguard_token');
+      const token = getToken();
 
-      const response = await fetch(`${API_BASE}/SmtpConfig/Testar`, {
+      const response = await authFetch(`${API_BASE}/SmtpConfig/Testar`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,

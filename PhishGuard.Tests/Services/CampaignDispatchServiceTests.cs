@@ -6,6 +6,7 @@ using MimeKit;
 using PhishGuard.Backend.Data;
 using PhishGuard.Backend.Models;
 using PhishGuard.Backend.Services;
+using PhishGuard.Backend.Security;
 
 namespace PhishGuard.Tests.Services;
 
@@ -14,6 +15,11 @@ namespace PhishGuard.Tests.Services;
 // para zerar backoff e throttle — os testes rodam em milissegundos, não em segundos.
 public class CampaignDispatchServiceTests
 {
+    private sealed class TestTrackingTokenService : ITrackingTokenService
+    {
+        public string Create(Guid campaignId, Guid targetId) => "test-token";
+        public bool Validate(string? token, Guid campaignId, Guid targetId) => token == "test-token";
+    }
     private sealed class FakeTenantProvider : ITenantProvider
     {
         public Guid GetTenantId() => Guid.Empty;
@@ -38,6 +44,7 @@ public class CampaignDispatchServiceTests
         public bool IsAuthenticated { get; private set; }
         // Última opção de socket recebida no Connect — para asserir o modo TLS configurado.
         public SecureSocketOptions? UltimaOpcaoSocket { get; private set; }
+        public MimeMessage? UltimaMensagem { get; private set; }
         // Endereços que chegaram ao Send (para provar que um destino bloqueado nunca é enviado).
         public List<string> Enviados { get; } = new();
 
@@ -60,6 +67,7 @@ public class CampaignDispatchServiceTests
         public Task SendAsync(MimeMessage message, CancellationToken ct)
         {
             SendCount++;
+            UltimaMensagem = message;
             var destino = message.To.Mailboxes.First().Address;
             Enviados.Add(destino);
             if (_deveFalhar(destino))
@@ -172,6 +180,7 @@ public class CampaignDispatchServiceTests
             NullLogger<CampaignDispatchService>.Instance,
             new PassthroughProtector(),
             new FakeSmtpClientFactory(client),
+            new TestTrackingTokenService(),
             configuration);
     }
 
@@ -193,6 +202,25 @@ public class CampaignDispatchServiceTests
         Assert.Single(await LogsAsync(ctx, campaign.Id, SimulationActions.Envio));
         Assert.Empty(await LogsAsync(ctx, campaign.Id, SimulationActions.Falha));
         Assert.Equal(CampaignStatus.EmAndamento, campaign.Status);
+    }
+
+    [Fact]
+    public async Task Envio_AnexaPixelInvisivelEAcessivelComAtributosExplicitos()
+    {
+        var (ctx, campaign) = await SemearCampanhaAsync("alvo@empresa.com");
+        var client = new FakeSmtpClient(_ => false);
+        var servico = CriarServico(ctx, client);
+
+        await servico.DispatchAsync(campaign);
+
+        var html = client.UltimaMensagem?.HtmlBody;
+        Assert.NotNull(html);
+        Assert.Contains($"/api/tracking/open/{campaign.Id}/", html);
+        Assert.Contains("width=\"1\" height=\"1\"", html);
+        Assert.Contains("display:block !important; width:1px !important; height:1px !important;", html);
+        Assert.DoesNotContain("display:none", html);
+        Assert.Contains("alt=\"\" aria-hidden=\"true\"", html);
+        Assert.Contains("alt=\"\" aria-hidden=\"true\"", html);
     }
 
     [Fact]

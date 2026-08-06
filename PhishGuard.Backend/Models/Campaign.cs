@@ -14,7 +14,7 @@ namespace PhishGuard.Backend.Models
 
         [Required]
         [MaxLength(150)]
-        public string NomeCampanha { get; set; }
+        public string NomeCampanha { get; set; } = string.Empty;
 
         [Required]
         [MaxLength(20)]
@@ -28,18 +28,18 @@ namespace PhishGuard.Backend.Models
         [Required]
         public Guid EmailTemplateId { get; set; }
         [ForeignKey("EmailTemplateId")]
-        public Template Template { get; set; }
+        public Template Template { get; set; } = null!;
 
         [Required]
         public Guid LandingPageId { get; set; }
         [ForeignKey("LandingPageId")]
-        public PhishingPage PhishingPage { get; set; }
+        public PhishingPage PhishingPage { get; set; } = null!;
 
         [Required]
         public Guid EducationalPageId { get; set; }
 
 [ForeignKey("EducationalPageId")]
-        public EducationalPage EducationalPage { get; set; }
+        public EducationalPage EducationalPage { get; set; } = null!;
 
         public ICollection<Target> Targets { get; set; } = new List<Target>();
         

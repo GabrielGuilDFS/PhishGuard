@@ -7,7 +7,7 @@ namespace PhishGuard.Backend.DTOs
     {
         [Required]
         [MaxLength(150)]
-        public string NomeCampanha { get; set; }
+        public string NomeCampanha { get; set; } = string.Empty;
 
         [Required]
         public DateTime DataInicio { get; set; }

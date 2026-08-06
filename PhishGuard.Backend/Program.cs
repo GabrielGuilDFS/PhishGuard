@@ -8,6 +8,7 @@ using Microsoft.OpenApi;
 using System.Net;
 using System.Text;
 using System.Threading.RateLimiting;
+using System.Security.Claims;
 using PhishGuard.Backend.Data;  
 using PhishGuard.Backend.Models;
 using BCrypt.Net;
@@ -16,6 +17,9 @@ using PhishGuard.Backend.Security;
 using PhishGuard.Backend.Services;
 using PhishGuard.Backend.BackgroundServices;
 
+// O cenário acadêmico/startup inicial é elegível para a licença Community.
+// QuestPDF exige a declaração uma única vez, antes da criação dos documentos.
+QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -31,6 +35,14 @@ var jwtKey = builder.Configuration.GetSection("AppSettings:Token").Value
              ?? throw new InvalidOperationException(
                  "Segredo do JWT ausente. Defina 'AppSettings__Token' (variável de ambiente/.env) " +
                  "ou 'AppSettings:Token' via user-secrets.");
+var jwtKeyBytes = Encoding.UTF8.GetBytes(jwtKey);
+if (jwtKeyBytes.Length < 64)
+    throw new InvalidOperationException("O segredo do JWT deve ter pelo menos 64 bytes.");
+
+var jwtIssuer = builder.Configuration["AppSettings:JwtIssuer"]
+                ?? throw new InvalidOperationException("Emissor do JWT ausente em 'AppSettings:JwtIssuer'.");
+var jwtAudience = builder.Configuration["AppSettings:JwtAudience"]
+                  ?? throw new InvalidOperationException("Audiência do JWT ausente em 'AppSettings:JwtAudience'.");
 
 builder.Services.AddAuthentication(options =>
 {
@@ -39,14 +51,47 @@ builder.Services.AddAuthentication(options =>
 })
 .AddJwtBearer(options =>
 {
-    options.RequireHttpsMetadata = false; 
-    options.SaveToken = true;
+    options.RequireHttpsMetadata = !builder.Environment.IsDevelopment();
+    options.SaveToken = false;
     options.TokenValidationParameters = new TokenValidationParameters
     {
         ValidateIssuerSigningKey = true,
-        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey)),
-        ValidateIssuer = false, 
-        ValidateAudience = false 
+        IssuerSigningKey = new SymmetricSecurityKey(jwtKeyBytes),
+        ValidateIssuer = true,
+        ValidIssuer = jwtIssuer,
+        ValidateAudience = true,
+        ValidAudience = jwtAudience,
+        ValidateLifetime = true,
+        RequireExpirationTime = true,
+        ClockSkew = TimeSpan.FromMinutes(1)
+    };
+    options.Events = new JwtBearerEvents
+    {
+        OnTokenValidated = async context =>
+        {
+            var principal = context.Principal;
+            var administratorValue = principal?.FindFirstValue(ClaimTypes.NameIdentifier);
+            var tenantValue = principal?.FindFirstValue("tenant_id");
+            var sessionValue = principal?.FindFirstValue("sid");
+            if (!Guid.TryParse(administratorValue, out var administratorId)
+                || !Guid.TryParse(tenantValue, out var tenantId)
+                || !Guid.TryParse(sessionValue, out var sessionId))
+            {
+                context.Fail("Sessão inválida.");
+                return;
+            }
+
+            var sessionValidator = context.HttpContext.RequestServices
+                .GetRequiredService<IAuthSessionValidator>();
+            var sessionIsActive = await sessionValidator.IsActiveAsync(
+                administratorId,
+                tenantId,
+                sessionId,
+                context.HttpContext.RequestAborted);
+
+            if (!sessionIsActive)
+                context.Fail("Sessão revogada ou expirada.");
+        }
     };
 });
 
@@ -65,8 +110,19 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {
     options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
-    options.KnownNetworks.Clear();
-    options.KnownProxies.Clear();
+    var trustedProxyAddresses = builder.Configuration
+        .GetSection("AppSettings:TrustedProxies")
+        .Get<string[]>() ?? [];
+
+    foreach (var address in trustedProxyAddresses)
+    {
+        if (!IPAddress.TryParse(address, out var proxyAddress))
+            throw new InvalidOperationException($"IP de proxy confiável inválido: '{address}'.");
+
+        options.KnownProxies.Add(proxyAddress);
+    }
+
+    options.ForwardLimit = Math.Max(1, trustedProxyAddresses.Length);
 });
 
 // Rate-limiting anti-brute-force do login: janela fixa de 5 tentativas/minuto,
@@ -84,6 +140,23 @@ builder.Services.AddRateLimiter(options =>
                       ?? IPAddress.None.ToString();
 
         return RateLimitPartition.GetFixedWindowLimiter(chaveIp, _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 5,
+            Window = TimeSpan.FromMinutes(1),
+            QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+            QueueLimit = 0
+        });
+    });
+
+    // PDF é CPU-bound. Limita exportações por tenant autenticado e impede geração
+    // abusiva em paralelo; antes da autenticação, usa o IP como fallback.
+    options.AddPolicy("dashboard-export", httpContext =>
+    {
+        var partitionKey = httpContext.User.FindFirst("tenant_id")?.Value
+            ?? httpContext.Connection.RemoteIpAddress?.ToString()
+            ?? IPAddress.None.ToString();
+
+        return RateLimitPartition.GetFixedWindowLimiter(partitionKey, _ => new FixedWindowRateLimiterOptions
         {
             PermitLimit = 5,
             Window = TimeSpan.FromMinutes(1),
@@ -136,12 +209,19 @@ builder.Services.AddCors(options =>
 
         policy.WithOrigins(origins)
               .AllowAnyHeader()
-              .AllowAnyMethod();
+              .AllowAnyMethod()
+              .AllowCredentials();
     });
 });
 
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ITenantProvider, TenantProvider>();
+builder.Services.AddScoped<IAuthSessionValidator, AuthSessionValidator>();
+builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddSingleton<ITrackingTokenService, TrackingTokenService>();
+builder.Services.AddSingleton(serviceProvider => new DashboardReportingTime(
+    serviceProvider.GetRequiredService<TimeProvider>(),
+    builder.Configuration["Dashboard:TimeZoneId"] ?? DashboardReportingTime.DefaultTimeZoneId));
 
 // Data Protection: base da criptografia EM REPOUSO da senha SMTP (ISmtpCredentialProtector).
 // SetApplicationName fixo + chaves persistidas em disco garantem que o valor cifrado
@@ -169,6 +249,8 @@ builder.Services.AddSingleton<ISmtpClientFactory, MailKitSmtpClientFactory>();
 // Serviço de disparo (reutilizado pelo botão manual e pelo worker de agendamento)
 // e worker em segundo plano que dispara campanhas quando a DataInicio é atingida.
 builder.Services.AddScoped<ICampaignDispatchService, CampaignDispatchService>();
+builder.Services.AddScoped<IDashboardOverviewService, DashboardOverviewService>();
+builder.Services.AddSingleton<IDashboardExportService, DashboardExportService>();
 builder.Services.AddHostedService<CampaignSchedulerWorker>();
 
 var app = builder.Build();
@@ -185,34 +267,57 @@ if (app.Environment.IsDevelopment())
 // qualquer coisa que dependa dele (rate-limiter, logs). Ordem é crítica.
 app.UseForwardedHeaders();
 
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHsts();
+    app.UseHttpsRedirection();
+}
+
+app.Use(async (context, next) =>
+{
+    context.Response.Headers.XContentTypeOptions = "nosniff";
+    context.Response.Headers.XFrameOptions = "DENY";
+    context.Response.Headers["Referrer-Policy"] = "no-referrer";
+    context.Response.Headers.ContentSecurityPolicy = "default-src 'none'; frame-ancestors 'none'; base-uri 'none'";
+    context.Response.Headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=(), payment=()";
+    await next();
+});
+
 app.UseCors("AllowReactApp");
 
-app.UseRateLimiter();
-
 app.UseAuthentication();
+app.UseRateLimiter();
 app.UseAuthorization();
 
 app.MapControllers();
 
-// --- CÓDIGO DE AUTOMIGRAÇÃO PARA O DOCKER ---
+app.MapGet("/health/live", () => Results.Ok(new { status = "healthy" }))
+    .AllowAnonymous();
+
+app.MapGet("/health/ready", async (AppDbContext context, CancellationToken cancellationToken) =>
+    await context.Database.CanConnectAsync(cancellationToken)
+        ? Results.Ok(new { status = "ready" })
+        : Results.Json(new { status = "unavailable" }, statusCode: StatusCodes.Status503ServiceUnavailable))
+    .AllowAnonymous();
+
+// Migrações são requisito de prontidão. Uma falha encerra o processo para impedir
+// que a API anuncie saúde enquanto opera sobre um schema incompatível.
 using (var scope = app.Services.CreateScope())
 {
-    var services = scope.ServiceProvider;
-    try
+    var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    var startupLogger = scope.ServiceProvider
+        .GetRequiredService<ILoggerFactory>()
+        .CreateLogger("DatabaseStartup");
+
+    var pendingMigrations = (await context.Database.GetPendingMigrationsAsync()).ToArray();
+    if (pendingMigrations.Length > 0)
     {
-        var context = services.GetRequiredService<AppDbContext>();
-        if (context.Database.GetPendingMigrations().Any())
-        {
-            Console.WriteLine("--> Aplicando migrações pendentes no banco de dados do Docker...");
-            context.Database.Migrate();
-            Console.WriteLine("--> Migrações aplicadas com sucesso!");
-        }
-    }
-    catch (Exception ex)
-    {
-        Console.WriteLine($"--> Erro ao aplicar migrações na inicialização: {ex.Message}");
+        startupLogger.LogInformation(
+            "Aplicando {MigrationCount} migração(ões) pendente(s).",
+            pendingMigrations.Length);
+        await context.Database.MigrateAsync();
+        startupLogger.LogInformation("Migrações aplicadas com sucesso.");
     }
 }
-// --------------------------------------------
 
 app.Run();

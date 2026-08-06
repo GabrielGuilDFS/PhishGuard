@@ -1,6 +1,6 @@
-import { type ReactNode } from 'react';
+import { type ReactNode, useEffect, useState } from 'react';
 import { Navigate } from 'react-router-dom';
-import { clearSession, validateSession } from './session';
+import { restoreSession, validateSession } from './session';
 
 /**
  * Barreira de acesso ao painel administrativo.
@@ -15,10 +15,20 @@ import { clearSession, validateSession } from './session';
  * storage esperando a próxima navegação — e o usuário é enviado ao login limpo.
  */
 export default function PrivateRoute({ children }: { children: ReactNode }) {
-  const sessao = validateSession();
-  if (!sessao.valida) {
-    clearSession();
-    return <Navigate to="/login" replace />;
-  }
+  const [state, setState] = useState<'checking' | 'authenticated' | 'anonymous'>(
+    () => validateSession().valida ? 'authenticated' : 'checking',
+  );
+
+  useEffect(() => {
+    if (state !== 'checking') return;
+    let active = true;
+    void restoreSession().then((restored) => {
+      if (active) setState(restored ? 'authenticated' : 'anonymous');
+    });
+    return () => { active = false; };
+  }, [state]);
+
+  if (state === 'checking') return null;
+  if (state === 'anonymous') return <Navigate to="/login" replace />;
   return <>{children}</>;
 }

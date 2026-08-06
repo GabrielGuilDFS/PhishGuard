@@ -22,10 +22,11 @@ namespace PhishGuard.Backend.Data
                 .SetBasePath(Directory.GetCurrentDirectory())
                 .AddJsonFile("appsettings.json", optional: true)
                 .AddJsonFile("appsettings.Development.json", optional: true)
+                .AddEnvironmentVariables()
                 .Build();
 
             var connectionString = configuration.GetConnectionString("DefaultConnection")
-                ?? "Host=localhost;Port=5433;Database=phishguard_db;Username=postgres;Password=new";
+                ?? "Host=localhost;Port=5433;Database=phishguard_db;Username=postgres";
 
             var options = new DbContextOptionsBuilder<AppDbContext>()
                 .UseNpgsql(connectionString)

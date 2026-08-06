@@ -113,8 +113,9 @@ Prioridades e regras inegociáveis:
 - **Tratamento inteligente de erro de requisição:** toda chamada `fetch` deve tratar
   respostas não-2xx e exceções de rede, dando feedback ao usuário via
   `NotificationContext` (Snackbars). Nunca deixe uma promise rejeitada silenciosa.
-- **Autenticação:** token JWT vive em `localStorage` na chave `phishguard_token` e vai
-  no header `Authorization: Bearer <token>`. A API base é `http://localhost:5000/api`.
+- **Autenticação:** o access token JWT vive somente em memória e vai no header
+  `Authorization: Bearer <token>`; a sessão sobrevive ao F5 por refresh token em cookie
+  HttpOnly. A API base do browser é same-origin `/api`, encaminhada pelo proxy Vite.
 
 ---
 

@@ -27,6 +27,7 @@ namespace PhishGuard.Backend.Data
         public DbSet<EducationalPage> EducationalPages { get; set; }
         public DbSet<Campaign> Campaigns { get; set; }
         public DbSet<SimulationLog> SimulationsLogs { get; set; }
+        public DbSet<AuthSession> AuthSessions { get; set; }
 
         public Guid TenantIdAtual => _tenantProvider.GetTenantId();
 
@@ -253,6 +254,44 @@ namespace PhishGuard.Backend.Data
                     .OnDelete(DeleteBehavior.Cascade);
                 entity.HasOne<Tenant>().WithMany().HasForeignKey(l => l.TenantId)
                     .OnDelete(DeleteBehavior.Cascade);
+
+                // Dashboard executivo: o prefixo (tenant_id, data_hora) restringe a
+                // janela temporal antes de classificar a ação e deduplicar o par
+                // campanha+alvo. Todos os membros têm o mesmo tipo físico usado pelos
+                // predicados EF (uuid/timestamptz-via-timestamp/text/uuid/uuid).
+                entity.HasIndex(l => new
+                    {
+                        l.TenantId,
+                        l.DataHora,
+                        l.Acao,
+                        l.CampaignId,
+                        l.TargetId
+                    })
+                    .HasDatabaseName("ix_simulations_logs_dashboard_overview");
+
+                // Idempotência concorrente: a checagem no TrackingController evita a
+                // escrita comum, e este índice fecha a janela de corrida entre duas
+                // requisições simultâneas do mesmo evento.
+                entity.HasIndex(l => new { l.CampaignId, l.TargetId, l.Acao })
+                    .IsUnique()
+                    .HasDatabaseName("ux_simulations_logs_campaign_target_action");
+            });
+
+            modelBuilder.Entity<AuthSession>(entity =>
+            {
+                entity.HasKey(session => session.Id);
+                entity.HasQueryFilter(session => session.TenantId == this.TenantIdAtual);
+                entity.Property(session => session.RefreshTokenHash).IsRequired().HasMaxLength(64);
+                entity.HasIndex(session => session.RefreshTokenHash).IsUnique();
+                entity.HasIndex(session => new { session.TenantId, session.AdministratorId, session.RevokedAtUtc });
+                entity.HasOne<Administrador>()
+                    .WithMany()
+                    .HasForeignKey(session => session.AdministratorId)
+                    .OnDelete(DeleteBehavior.Cascade);
+                entity.HasOne<Tenant>()
+                    .WithMany()
+                    .HasForeignKey(session => session.TenantId)
+                    .OnDelete(DeleteBehavior.Cascade);
             });
 
             // ---------------------------------------------------------------------------
@@ -329,7 +368,7 @@ namespace PhishGuard.Backend.Data
         }
 
 
-        public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+        private void StampCurrentTenant()
         {
             var currentTenantId = this.TenantIdAtual; 
             if (currentTenantId != Guid.Empty)
@@ -343,7 +382,32 @@ namespace PhishGuard.Backend.Data
                 }
             }
 
+        }
+
+        public override int SaveChanges()
+        {
+            StampCurrentTenant();
+            return base.SaveChanges();
+        }
+
+        public override int SaveChanges(bool acceptAllChangesOnSuccess)
+        {
+            StampCurrentTenant();
+            return base.SaveChanges(acceptAllChangesOnSuccess);
+        }
+
+        public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+        {
+            StampCurrentTenant();
             return base.SaveChangesAsync(cancellationToken);
+        }
+
+        public override Task<int> SaveChangesAsync(
+            bool acceptAllChangesOnSuccess,
+            CancellationToken cancellationToken = default)
+        {
+            StampCurrentTenant();
+            return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
         }
     }
 }

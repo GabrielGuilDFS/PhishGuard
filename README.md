@@ -118,9 +118,9 @@ cp .env.example .env      # Windows PowerShell:  Copy-Item .env.example .env
 > Docker, via user-secrets:
 > `dotnet user-secrets set "AppSettings:Token" "<chave-longa>" --project PhishGuard.Backend`.
 >
-> **Base da API (frontend):** default `http://localhost:5000/api`. Para sobrescrever
-> (ex.: atrás de túnel), crie `PhishGuard.Frontend/.env` a partir do `.env.example` de
-> lá e ajuste `VITE_API_BASE_URL`.
+> **Base da API (frontend):** default same-origin `/api`, encaminhado pelo proxy do
+> Vite para `http://localhost:5000` no desenvolvimento local. Para alterar o destino
+> interno, ajuste `VITE_API_PROXY_TARGET` no `.env` do frontend.
 
 ### Opção A — Stack completa via Docker (recomendado)
 ```bash

@@ -5,6 +5,7 @@ import { templatesPredefinidos } from './predefinedTemplates';
 import { landingTemplates } from './landingTemplates';
 import { feedbackTrainings } from './feedbackTrainings';
 import FeedbackTraining from '../components/FeedbackTraining';
+import { TRACKING_RETRY_STORAGE_KEY } from '../shared/trackingRetryQueue';
 
 // ============================================================================
 // Suíte do CENÁRIO "amzprime" (identidade própria, compliance de IP).
@@ -24,6 +25,7 @@ vi.mock('react-router-dom', async (importOriginal) => {
 const IDS = { email: 'amazon-notificacao-seguranca', landing: 'amazon-login', feedback: 'amzprime' } as const;
 const CAMP = 'camp-1';
 const TGT = 'tgt-1';
+const TRACKING_TOKEN = 'token-assinado';
 const CLICK = 'https://phishguard.example/api/tracking/click/camp-1/tgt-1';
 
 describe('amzprime — Template de E-mail', () => {
@@ -52,7 +54,7 @@ describe('amzprime — Página Simulada (Phishing)', () => {
   function landingHtml() {
     const l = landingTemplates.find((x) => x.id === IDS.landing);
     if (!l) throw new Error('landing amazon-login não encontrada');
-    return l.html.replaceAll('{{CAMPAIGN_ID}}', CAMP).replaceAll('{{TARGET_ID}}', TGT);
+    return l.html.replaceAll('{{CAMPAIGN_ID}}', CAMP).replaceAll('{{TARGET_ID}}', TGT).replaceAll('{{TRACKING_TOKEN}}', TRACKING_TOKEN);
   }
 
   it('renderiza o formulário de captura (nova senha + confirmação)', () => {
@@ -80,7 +82,7 @@ describe('amzprime — Página Simulada (Phishing)', () => {
 
       await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
       const [url, opts] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
-      expect(url).toBe(`/api/tracking/submit/${CAMP}/${TGT}`);
+      expect(url).toBe(`/api/tracking/submit/${CAMP}/${TGT}?k=${TRACKING_TOKEN}`);
       expect(opts.method).toBe('POST');
       const body = JSON.parse(opts.body as string);
       expect(body).toMatchObject({ camposPreenchidos: true, senhasCoincidem: true, tamanhoSenha: 'Senha123'.length });
@@ -88,7 +90,7 @@ describe('amzprime — Página Simulada (Phishing)', () => {
       expect(opts.body as string).not.toContain('Senha123');
 
       await waitFor(() =>
-        expect(loc.href).toBe(`/educational-feedback?template=amzprime&c=${CAMP}&t=${TGT}`),
+        expect(loc.href).toBe(`/educational-feedback?template=amzprime&c=${CAMP}&t=${TGT}&k=${TRACKING_TOKEN}`),
       );
     } finally {
       if (orig) Object.defineProperty(window, 'location', orig);
@@ -100,13 +102,17 @@ describe('amzprime — Página Simulada (Phishing)', () => {
 describe('amzprime — Tela Educacional (Just-in-Time)', () => {
   beforeEach(() => {
     navigateMock.mockClear();
+    localStorage.clear();
     vi.stubGlobal('fetch', vi.fn(() => Promise.resolve({ ok: true, json: async () => ({}) })));
   });
-  afterEach(() => vi.unstubAllGlobals());
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    localStorage.clear();
+  });
 
   function renderEdu() {
     render(
-      <MemoryRouter initialEntries={['/educational-feedback?c=camp-1&t=tgt-1']}>
+      <MemoryRouter initialEntries={[`/educational-feedback?c=${CAMP}&t=${TGT}&k=${TRACKING_TOKEN}`]}>
         <FeedbackTraining config={feedbackTrainings[IDS.feedback]} />
       </MemoryRouter>,
     );
@@ -131,10 +137,21 @@ describe('amzprime — Tela Educacional (Just-in-Time)', () => {
     fireEvent.click(screen.getByRole('button', { name: /Concluir Treinamento/i }));
     await waitFor(() =>
       expect(fetchMock).toHaveBeenCalledWith(
-        '/api/tracking/complete/camp-1/tgt-1',
+        `/api/tracking/complete/${CAMP}/${TGT}?k=${TRACKING_TOKEN}`,
         expect.objectContaining({ method: 'POST' }),
       ),
     );
+    await waitFor(() => expect(navigateMock).toHaveBeenCalledWith('/'));
+  });
+
+  it('confirma o aprendizado e agenda retry mesmo quando a telemetria responde 500', async () => {
+    vi.stubGlobal('fetch', vi.fn(() => Promise.resolve({ ok: false, status: 500 })));
+    renderEdu();
+
+    fireEvent.click(screen.getByRole('button', { name: /Concluir Treinamento/i }));
+
+    expect(await screen.findByRole('status')).toHaveTextContent(/concluído com sucesso/i);
+    expect(localStorage.getItem(TRACKING_RETRY_STORAGE_KEY)).toContain('camp-1');
     await waitFor(() => expect(navigateMock).toHaveBeenCalledWith('/'));
   });
 });

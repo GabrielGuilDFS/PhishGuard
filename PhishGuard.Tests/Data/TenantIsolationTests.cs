@@ -168,6 +168,22 @@ public class TenantIsolationTests
         Assert.NotEqual(tenantForjado, alvo.TenantId);
     }
 
+    [Fact]
+    public void SaveChangesSincrono_TambemCarimbaTenantIdDoProvider()
+    {
+        var tenantId = Guid.NewGuid();
+        using var h = new SqliteTenantHarness(tenantId);
+
+        h.Db.Tenants.Add(new Tenant { Id = tenantId, NomeEmpresa = "Empresa", Cnpj = Cnpj(), Ativo = true, CriadoEm = DateTime.UtcNow, Plano = PlanoTenant.Bronze });
+        h.Db.SaveChanges();
+
+        var target = new Target { Id = Guid.NewGuid(), Nome = "Alvo", Email = "alvo@empresa.com", Departamento = "TI", TenantId = Guid.NewGuid() };
+        h.Db.Targets.Add(target);
+        h.Db.SaveChanges();
+
+        Assert.Equal(tenantId, target.TenantId);
+    }
+
     // ------------------------------------------------------------------------------------
     // 4) FIDELIDADE RELACIONAL (o que o provedor InMemory NÃO pegava): sob SQLite as FKs
     //    são IMPOSTAS. Uma campanha que referencia um Template inexistente é rejeitada pelo
