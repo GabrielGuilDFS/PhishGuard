@@ -107,10 +107,14 @@ jobs:
       - name: Aguardar o app responder
         run: |
           for i in $(seq 1 60); do
-            curl -sf http://localhost:5173 >/dev/null && echo "app de pe" && exit 0
+            if curl -sf http://localhost:5000/health/ready >/dev/null \
+              && curl -sf http://localhost:5173 >/dev/null; then
+              echo "API pronta e frontend de pe"
+              exit 0
+            fi
             sleep 3
           done
-          echo "app nao respondeu a tempo" && exit 1
+          echo "API/frontend nao ficaram prontos a tempo" && exit 1
 
       - name: Rodar Playwright (ciclo de vida da campanha)
         working-directory: e2e

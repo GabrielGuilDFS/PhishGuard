@@ -167,7 +167,7 @@ export async function esperarEmailNoMailpit(request: APIRequestContext, destino:
 export function extrairLink(corpo: string, padrao: RegExp): string {
   const match = corpo.match(padrao);
   expect(match, `nenhum link casou ${padrao} no corpo do e-mail`).toBeTruthy();
-  return match![0];
+  return match![0].replaceAll('&amp;', '&');
 }
 
 /** Lê o funil do dashboard do tenant: cliques e submissões (par único por alvo). */
@@ -175,6 +175,28 @@ export async function getFunnel(request: APIRequestContext, s: TenantSession): P
   const r = await request.get(`${API_URL}/Dashboard/funnel`, { headers: s.authHeader });
   expect(r.ok(), `funnel falhou: ${r.status()}`).toBeTruthy();
   return r.json();
+}
+
+/** Aguarda o envio estar persistido antes de simular o clique do participante. */
+export async function esperarEnvioAuditado(request: APIRequestContext, s: TenantSession): Promise<void> {
+  await expect
+    .poll(
+      async () => {
+        const response = await request.get(`${API_URL}/Dashboard/overview?period=30d`, {
+          headers: s.authHeader,
+        });
+        if (!response.ok()) return 0;
+
+        const dashboard = (await response.json()) as { kpis?: { sent?: { total?: number } } };
+        return dashboard.kpis?.sent?.total ?? 0;
+      },
+      {
+        message: 'o envio chegou ao SMTP, mas ainda não foi confirmado no log da campanha',
+        timeout: 30_000,
+        intervals: [250, 500, 1000],
+      },
+    )
+    .toBeGreaterThan(0);
 }
 
 // ---------------------------------------------------------------------------
