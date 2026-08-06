@@ -257,11 +257,14 @@ builder.Services.AddHostedService<CampaignSchedulerWorker>();
 var app = builder.Build();
 
 
-if (app.Environment.IsDevelopment())
+// Documentação disponível em Development e Production. A rota absoluta mantém a
+// resolução correta do documento quando a API está atrás do proxy da Render.
+app.UseSwagger();
+app.UseSwaggerUI(options =>
 {
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
+    options.RoutePrefix = "swagger";
+    options.SwaggerEndpoint("/swagger/v1/swagger.json", "PhishGuard API v1");
+});
 
 
 // PRIMEIRO middleware: reescreve o IP de origem a partir do X-Forwarded-For ANTES de
