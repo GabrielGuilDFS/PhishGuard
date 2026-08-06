@@ -7,7 +7,7 @@ services:
     dockerfilePath: ./PhishGuard.Backend/Dockerfile
     dockerContext: .
     healthCheckPath: /health/ready
-    autoDeployTrigger: checksPass
+    autoDeployTrigger: commit
     envVars:
       - key: ASPNETCORE_ENVIRONMENT
         value: Production
