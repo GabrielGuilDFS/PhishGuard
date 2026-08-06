@@ -12,7 +12,7 @@
 // Cenarios tipicos:
 //   - Dev local (npm run dev):     /api (proxy Vite -> localhost:5000)
 //   - Docker/ngrok:                /api (proxy Vite -> backend:5000)
-//   - Render Static Site:          https://phishguard-backend.onrender.com/api
+//   - Render Static Site:          https://phishguard-backend-rcbr.onrender.com/api
 // ============================================================================
 export const API_BASE: string =
   import.meta.env.VITE_API_BASE_URL ?? '/api';

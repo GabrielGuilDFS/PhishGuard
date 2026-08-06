@@ -153,11 +153,13 @@ O arquivo `render.yaml` na raiz provisiona a arquitetura completa:
 
 - `phishguard-backend`: Web Service Docker (.NET 8), health check em `/health/ready`;
 - `phishguard-frontend`: Static Site Vite, com fallback de SPA para `index.html`;
-- `phishguard-db`: PostgreSQL conectado ao backend pela rede privada da Render.
+- `postgres`: PostgreSQL conectado ao backend pela rede privada da Render.
 
-O backend usa o plano `starter` porque mantém as chaves de Data Protection em disco
-persistente. Essas chaves protegem as credenciais SMTP salvas; usar uma instância sem
-disco faria as credenciais existentes ficarem indecifráveis após um novo deploy.
+O Blueprint está alinhado ao plano gratuito atualmente usado. Como esse plano não
+aceita disco persistente, as chaves de Data Protection são efêmeras: após um novo
+deploy, credenciais SMTP já cifradas precisarão ser informadas novamente. Para
+eliminar essa limitação, migre o backend para um plano com disco ou persista as chaves
+em um armazenamento externo.
 
 ### Primeiro deploy
 
@@ -181,7 +183,7 @@ usa caminhos relativos à raiz do monorepo.
 > deploy antigo, não a esta API ASP.NET.
 
 Os hostnames públicos usados no Blueprint são
-`phishguard-backend.onrender.com` e `phishguard-frontend.onrender.com`. Caso a Render
+`phishguard-backend-rcbr.onrender.com` e `phishguard-frontend.onrender.com`. Caso a Render
 atribua nomes diferentes, atualize em conjunto:
 
 - `AppSettings__PublicApiBaseUrl`;
