@@ -55,6 +55,7 @@ services:
       - "5000:5000"
     environment:
       ASPNETCORE_ENVIRONMENT: "Development"
+      ASPNETCORE_URLS: "http://0.0.0.0:5000"
       ConnectionStrings__DefaultConnection: "Host=db;Port=${POSTGRES_PORT:-5433};Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}"
       AppSettings__Token: "${AppSettings__Token}"
       AppSettings__PublicApiBaseUrl: "${AppSettings__PublicApiBaseUrl}"

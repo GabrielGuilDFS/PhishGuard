@@ -228,11 +228,12 @@ public class LoginController : ControllerBase
 
 	private void SetRefreshCookie(string refreshToken, DateTime expiresAtUtc)
 	{
+		var crossSite = _configuration.GetValue<bool>("AppSettings:CrossSiteRefreshCookie");
 		Response.Cookies.Append(REFRESH_COOKIE, refreshToken, new CookieOptions
 		{
 			HttpOnly = true,
-			Secure = Request.IsHttps,
-			SameSite = SameSiteMode.Strict,
+			Secure = crossSite || Request.IsHttps,
+			SameSite = crossSite ? SameSiteMode.None : SameSiteMode.Strict,
 			Path = "/api/auth",
 			Expires = new DateTimeOffset(expiresAtUtc, TimeSpan.Zero),
 			IsEssential = true
@@ -241,11 +242,12 @@ public class LoginController : ControllerBase
 
 	private void ClearRefreshCookie()
 	{
+		var crossSite = _configuration.GetValue<bool>("AppSettings:CrossSiteRefreshCookie");
 		Response.Cookies.Delete(REFRESH_COOKIE, new CookieOptions
 		{
 			HttpOnly = true,
-			Secure = Request.IsHttps,
-			SameSite = SameSiteMode.Strict,
+			Secure = crossSite || Request.IsHttps,
+			SameSite = crossSite ? SameSiteMode.None : SameSiteMode.Strict,
 			Path = "/api/auth"
 		});
 	}

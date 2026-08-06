@@ -8,6 +8,8 @@
 // BACK devolvia `redirectUrl = /educational-feedback?campaign=…` — nomes de
 // parâmetro incompatíveis que quebravam qualquer cliente que honrasse a resposta.
 //
+import { API_BASE } from '../config';
+
 // O backend tem um ESPELHO deste contrato em C#:
 //   PhishGuard.Backend/Contracts/TrackingContract.cs
 // Os dois lados são testados contra o MESMO formato (ver *.test.ts e os testes
@@ -24,8 +26,8 @@ export const TRACKING_ACTIONS = {
 
 export type TrackingAction = (typeof TRACKING_ACTIONS)[keyof typeof TRACKING_ACTIONS];
 
-/** Prefixo da API de rastreamento (relativo: o alvo acessa same-origin). */
-export const TRACKING_API_BASE = '/api/tracking';
+/** Prefixo do tracking: relativo em dev/Docker e absoluto no Static Site. */
+export const TRACKING_API_BASE = `${API_BASE}/tracking`;
 
 /** Monta a URL de um endpoint de rastreamento: `/api/tracking/<ação>/:c/:t`. */
 export function trackingEndpoint(

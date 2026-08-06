@@ -114,6 +114,17 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
     var trustedProxyAddresses = builder.Configuration
         .GetSection("AppSettings:TrustedProxies")
         .Get<string[]>() ?? [];
+    var trustPlatformProxy = builder.Configuration
+        .GetValue<bool>("AppSettings:TrustPlatformProxy");
+
+    if (trustPlatformProxy)
+    {
+        // Na Render, a instância só recebe tráfego pelo load balancer da plataforma,
+        // cujo IP não é estável. Isto permite processar X-Forwarded-Proto e manter
+        // redirects/cookies HTTPS corretos sem hardcode de endereços efêmeros.
+        options.KnownNetworks.Clear();
+        options.KnownProxies.Clear();
+    }
 
     foreach (var address in trustedProxyAddresses)
     {
@@ -123,7 +134,7 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
         options.KnownProxies.Add(proxyAddress);
     }
 
-    options.ForwardLimit = Math.Max(1, trustedProxyAddresses.Length);
+    options.ForwardLimit = 1;
 });
 
 // Rate-limiting anti-brute-force do login: janela fixa de 5 tentativas/minuto,
@@ -233,7 +244,8 @@ builder.Services.AddSingleton(serviceProvider => new DashboardReportingTime(
 builder.Services.AddDataProtection()
     .SetApplicationName("PhishGuard")
     .PersistKeysToFileSystem(new DirectoryInfo(
-        Path.Combine(builder.Environment.ContentRootPath, "DataProtection-Keys")));
+        builder.Configuration["DataProtection:KeysPath"]
+        ?? Path.Combine(builder.Environment.ContentRootPath, "DataProtection-Keys")));
 
 builder.Services.AddSingleton<ISmtpCredentialProtector, SmtpCredentialProtector>();
 

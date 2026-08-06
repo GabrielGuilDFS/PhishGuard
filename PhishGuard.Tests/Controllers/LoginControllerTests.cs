@@ -49,10 +49,12 @@ public class LoginControllerTests
         return (controller, email);
     }
 
-    private static async Task<(LoginController controller, AppDbContext context, string email)> CriarControllerComAdminEContextoAsync()
+    private static async Task<(LoginController controller, AppDbContext context, string email)> CriarControllerComAdminEContextoAsync(
+        bool crossSiteRefreshCookie = false)
     {
         var context = CriarContexto();
         var configuration = CriarConfiguracao();
+        configuration["AppSettings:CrossSiteRefreshCookie"] = crossSiteRefreshCookie.ToString();
 
         var tenant = new Tenant
         {
@@ -137,6 +139,24 @@ public class LoginControllerTests
         var setCookie = controller.Response.Headers.SetCookie.ToString();
         Assert.Contains("path=/api/auth", setCookie);
         Assert.DoesNotContain("secure", setCookie, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task LoginNaRender_EmiteCookieCrossSiteSeguroQuandoConfigurado()
+    {
+        var (controller, _, email) = await CriarControllerComAdminEContextoAsync(
+            crossSiteRefreshCookie: true);
+        controller.ControllerContext = new ControllerContext
+        {
+            HttpContext = new DefaultHttpContext { Request = { Scheme = "https" } }
+        };
+
+        await controller.Login(new LoginDto { Email = email, Password = SenhaValida });
+
+        var setCookie = controller.Response.Headers.SetCookie.ToString();
+        Assert.Contains("secure", setCookie, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("samesite=none", setCookie, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("path=/api/auth", setCookie, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

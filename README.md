@@ -146,6 +146,49 @@ docker compose up -d db
 cd PhishGuard.Backend && dotnet watch run     # API em http://localhost:5000 (Swagger em /swagger)
 cd PhishGuard.Frontend && npm install && npm run dev   # SPA em http://localhost:5173
 ```
+
+## ☁️ Deploy na Render
+
+O arquivo `render.yaml` na raiz provisiona a arquitetura completa:
+
+- `phishguard-backend`: Web Service Docker (.NET 8), health check em `/health/ready`;
+- `phishguard-frontend`: Static Site Vite, com fallback de SPA para `index.html`;
+- `phishguard-db`: PostgreSQL conectado ao backend pela rede privada da Render.
+
+O backend usa o plano `starter` porque mantém as chaves de Data Protection em disco
+persistente. Essas chaves protegem as credenciais SMTP salvas; usar uma instância sem
+disco faria as credenciais existentes ficarem indecifráveis após um novo deploy.
+
+### Primeiro deploy
+
+1. Faça push da branch `main` para o GitHub.
+2. Na Render, crie um **Blueprint** a partir deste repositório e mantenha o caminho
+   padrão `render.yaml`.
+3. Informe `AppSettings__Token` quando solicitado. Use um segredo aleatório com pelo
+   menos 64 caracteres; nunca reutilize senha de usuário ou do banco.
+4. Aguarde backend, banco e frontend ficarem disponíveis.
+5. Valide `/health/live`, `/health/ready`, `/swagger` e o acesso direto a
+   `/admin/dashboard` no frontend.
+
+> Se já existir um serviço Node/Express chamado `phishguard-backend`, exclua ou
+> renomeie esse serviço antes de aplicar o Blueprint. A Render não permite trocar o
+> runtime de um serviço existente de Node para Docker. A resposta
+> `PhishGuard backend is now online!` com header `X-Powered-By: Express` pertence ao
+> deploy antigo, não a esta API ASP.NET.
+
+Os hostnames públicos usados no Blueprint são
+`phishguard-backend.onrender.com` e `phishguard-frontend.onrender.com`. Caso a Render
+atribua nomes diferentes, atualize em conjunto:
+
+- `AppSettings__PublicApiBaseUrl`;
+- `AppSettings__PublicAppBaseUrl`;
+- `AppSettings__AllowedCorsOrigins__0`;
+- `VITE_API_BASE_URL`;
+- a origem permitida em `connect-src` no header CSP do Static Site.
+
+Depois de alterar `VITE_API_BASE_URL`, faça novo deploy do frontend: variáveis `VITE_`
+são incorporadas ao bundle durante o build.
+
 ### 🔮 Trabalhos Futuros (Roadmap)
 
 * IA Generativa: Implementação de IA para clonagem automática de interfaces de login a partir de URLs.

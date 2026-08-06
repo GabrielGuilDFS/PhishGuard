@@ -2,17 +2,14 @@
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
 
-# 1. Copiar o .csproj indicando a subpasta
-COPY PhishGuard.Backend/PhishGuard.Backend.csproj PhishGuard.Backend/
+# Copia primeiro o projeto para aproveitar o cache de restore.
+COPY PhishGuard.Backend.csproj ./
 
-# 2. Restaurar dependências apontando para o arquivo dentro da subpasta
-RUN dotnet restore "PhishGuard.Backend/PhishGuard.Backend.csproj"
+RUN dotnet restore "PhishGuard.Backend.csproj"
 
-# 3. Copiar todo o código-fonte
-COPY PhishGuard.Backend/ PhishGuard.Backend/
+# O contexto é a pasta PhishGuard.Backend em Compose e Render.
+COPY . .
 
-# 4. Entrar na pasta do projeto e compilar
-WORKDIR "/src/PhishGuard.Backend"
 RUN dotnet build "PhishGuard.Backend.csproj" -c Release -o /app/build
 
 FROM build AS publish
@@ -21,5 +18,7 @@ RUN dotnet publish "PhishGuard.Backend.csproj" -c Release -o /app/publish /p:Use
 # Estágio de Runtime
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS final
 WORKDIR /app
+ENV ASPNETCORE_URLS=http://0.0.0.0:10000
+EXPOSE 10000
 COPY --from=publish /app/publish .
 ENTRYPOINT ["dotnet", "PhishGuard.Backend.dll"]

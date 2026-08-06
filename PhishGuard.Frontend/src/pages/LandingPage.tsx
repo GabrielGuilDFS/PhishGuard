@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { landingTemplates } from '../data/landingTemplates';
+import { API_BASE } from '../config';
 import {
     TRACKING_ACTIONS,
     educationalFeedbackUrl,
@@ -31,9 +32,8 @@ export default function LandingPage() {
         if (!id) return;
 
         // Busca o HTML da página falsa cadastrada no banco de dados.
-        // Caminho RELATIVO (/api): mesmo domínio da página → o Vite faz reverse-proxy
-        // para o backend. Sem CORS e sem depender de uma URL de API separada.
-        fetch(`/api/PhishingPages/${id}`, {
+        // Em dev usa /api pelo proxy Vite; no Static Site usa a URL pública da API.
+        fetch(`${API_BASE}/PhishingPages/${id}`, {
             // Pula a página de aviso do ngrok (free/estático) para o fetch receber JSON,
             // não o HTML interstitial. Inócuo fora do túnel.
             headers: { 'ngrok-skip-browser-warning': 'true' },
