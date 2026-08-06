@@ -26,6 +26,12 @@ namespace PhishGuard.Backend.Models
         public const string Submissao = "Submissão de Dados";
 
         /// <summary>
+        /// Registrado quando a Tela Educacional de Feedback é efetivamente exibida.
+        /// É distinto da conclusão para permitir medir abandono do treinamento.
+        /// </summary>
+        public const string PaginaEducacionalVisualizada = "Visualização da Página Educacional";
+
+        /// <summary>
         /// Registrado quando o alvo finaliza a Tela Educacional de Feedback
         /// (Just-in-Time Training) clicando em "Concluir Treinamento". Serve de
         /// trilha de AUDITORIA de que o módulo de conscientização foi consumido.

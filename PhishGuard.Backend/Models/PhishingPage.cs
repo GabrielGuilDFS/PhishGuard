@@ -13,10 +13,10 @@ namespace PhishGuard.Backend.Models
 
         [Required]
         [MaxLength(100)]
-        public string Nome { get; set; } 
+        public string Nome { get; set; } = string.Empty;
 
         [Required]
-        public string HtmlCaptura { get; set; } 
+        public string HtmlCaptura { get; set; } = string.Empty;
 
         public DateTime CriadoEm { get; set; }
     }

@@ -26,6 +26,7 @@ vi.mock('react-router-dom', async (importOriginal) => {
 const IDS = { email: 'microcorp-expiracao-senha', landing: 'microcorp-login', feedback: 'microsft365' } as const;
 const CAMP = 'camp-1';
 const TGT = 'tgt-1';
+const TRACKING_TOKEN = 'token-assinado';
 const CLICK = 'https://phishguard.example/api/tracking/click/camp-1/tgt-1';
 
 describe('Microsft 365 — Template de E-mail', () => {
@@ -69,7 +70,7 @@ describe('Microsft 365 — Página Simulada (Phishing)', () => {
   function landingHtml() {
     const l = landingTemplates.find((x) => x.id === IDS.landing);
     if (!l) throw new Error('landing microcorp-login não encontrada');
-    return l.html.replaceAll('{{CAMPAIGN_ID}}', CAMP).replaceAll('{{TARGET_ID}}', TGT);
+    return l.html.replaceAll('{{CAMPAIGN_ID}}', CAMP).replaceAll('{{TARGET_ID}}', TGT).replaceAll('{{TRACKING_TOKEN}}', TRACKING_TOKEN);
   }
 
   it('renderiza o formulário de captura (e-mail + senha)', () => {
@@ -97,7 +98,7 @@ describe('Microsft 365 — Página Simulada (Phishing)', () => {
 
       await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
       const [url, opts] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
-      expect(url).toBe(`/api/tracking/submit/${CAMP}/${TGT}`);
+      expect(url).toBe(`/api/tracking/submit/${CAMP}/${TGT}?k=${TRACKING_TOKEN}`);
       expect(opts.method).toBe('POST');
       const body = JSON.parse(opts.body as string);
       expect(body).toMatchObject({ camposPreenchidos: true, tamanhoSenha: 'corp1234'.length });
@@ -106,7 +107,7 @@ describe('Microsft 365 — Página Simulada (Phishing)', () => {
       expect(opts.body as string).not.toContain('corp1234');
 
       await waitFor(() =>
-        expect(loc.href).toBe(`/educational-feedback?template=microsft365&c=${CAMP}&t=${TGT}`),
+        expect(loc.href).toBe(`/educational-feedback?template=microsft365&c=${CAMP}&t=${TGT}&k=${TRACKING_TOKEN}`),
       );
     } finally {
       if (orig) Object.defineProperty(window, 'location', orig);
@@ -124,7 +125,7 @@ describe('Microsft 365 — Tela Educacional (Just-in-Time)', () => {
 
   function renderEdu() {
     render(
-      <MemoryRouter initialEntries={['/educational-feedback?c=camp-1&t=tgt-1']}>
+      <MemoryRouter initialEntries={[`/educational-feedback?c=${CAMP}&t=${TGT}&k=${TRACKING_TOKEN}`]}>
         <FeedbackTraining config={feedbackTrainings[IDS.feedback]} />
       </MemoryRouter>,
     );
@@ -148,7 +149,7 @@ describe('Microsft 365 — Tela Educacional (Just-in-Time)', () => {
     fireEvent.click(screen.getByRole('button', { name: /Concluir Treinamento/i }));
     await waitFor(() =>
       expect(fetchMock).toHaveBeenCalledWith(
-        '/api/tracking/complete/camp-1/tgt-1',
+        `/api/tracking/complete/${CAMP}/${TGT}?k=${TRACKING_TOKEN}`,
         expect.objectContaining({ method: 'POST' }),
       ),
     );

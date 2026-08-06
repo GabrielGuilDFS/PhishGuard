@@ -13,22 +13,22 @@ namespace PhishGuard.Backend.Models
 
         [Required]
         [MaxLength(100)]
-        public string Nome { get; set; } 
+        public string Nome { get; set; } = string.Empty;
 
         [Required]
         [MaxLength(150)]
-        public string Assunto { get; set; } 
+        public string Assunto { get; set; } = string.Empty;
 
         [Required]
         [MaxLength(100)]
-        public string RemetenteNome { get; set; } 
+        public string RemetenteNome { get; set; } = string.Empty;
 
         [Required]
         [MaxLength(150)]
-        public string RemetenteEmail { get; set; }
+        public string RemetenteEmail { get; set; } = string.Empty;
 
         [Required]
-        public string CorpoHtml { get; set; } 
+        public string CorpoHtml { get; set; } = string.Empty;
 
         public DateTime CriadoEm { get; set; }
     }

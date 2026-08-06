@@ -30,6 +30,9 @@ public class IgnoreQueryFiltersGuardTests
         "Controllers/LoginController.cs",
         "Controllers/RegisterController.cs",
         "Controllers/PhishingPagesController.cs",
+        // OnTokenValidated roda antes de HttpContext.User; a implementacao reescopa
+        // sessao, administrador e tenant pelos IDs assinados no JWT.
+        "Security/AuthSessionValidator.cs",
     };
 
     // Controllers de administração (escopados ao tenant) que JAMAIS podem furar o filtro.

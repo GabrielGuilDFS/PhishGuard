@@ -15,6 +15,7 @@ using PhishGuard.Backend.Content;
 using PhishGuard.Backend.Data;
 using PhishGuard.Backend.Models;
 using PhishGuard.Backend.Utilities;
+using PhishGuard.Backend.Security;
 
 namespace PhishGuard.Backend.Services
 {
@@ -35,6 +36,7 @@ namespace PhishGuard.Backend.Services
         private readonly ILogger<CampaignDispatchService> _logger;
         private readonly ISmtpCredentialProtector _senhaProtector;
         private readonly ISmtpClientFactory _smtpClientFactory;
+        private readonly ITrackingTokenService _trackingTokenService;
 
         // Seams de tempo (injetáveis) para manter o comportamento de PRODUÇÃO idêntico e,
         // ao mesmo tempo, permitir que os testes zerem esperas: o backoff do retry e a
@@ -64,6 +66,7 @@ namespace PhishGuard.Backend.Services
             ILogger<CampaignDispatchService> logger,
             ISmtpCredentialProtector senhaProtector,
             ISmtpClientFactory smtpClientFactory,
+            ITrackingTokenService trackingTokenService,
             IConfiguration configuration)
             : this(context, logger, senhaProtector, smtpClientFactory,
                    BackoffExponencialComJitter, ResolverThrottle(configuration))
@@ -72,6 +75,7 @@ namespace PhishGuard.Backend.Services
             if (string.IsNullOrWhiteSpace(apiBase))
                 apiBase = "http://localhost:5000";
             _baseTrackingUrl = $"{apiBase}/api/tracking";
+            _trackingTokenService = trackingTokenService;
             _secureSocketOptions = ResolverSecureSocket(configuration);
             _dominiosPermitidos = ResolverDominiosPermitidos(configuration);
         }
@@ -100,6 +104,10 @@ namespace PhishGuard.Backend.Services
             _logger = logger;
             _senhaProtector = senhaProtector;
             _smtpClientFactory = smtpClientFactory;
+            _trackingTokenService = new TrackingTokenService(
+                TimeProvider.System,
+                "segredo-de-testes-para-tracking-com-pelo-menos-sessenta-e-quatro-bytes-123456789",
+                TimeSpan.FromDays(90));
             _backoffProvider = backoffProvider;
             _throttleEntreEnvios = throttleEntreEnvios;
             // Defaults para o caminho de testes (ctor interno). O ctor público de produção
@@ -268,8 +276,9 @@ namespace PhishGuard.Backend.Services
                     message.To.Add(new MailboxAddress(target.Nome, target.Email));
                     message.Subject = campaign.Template.Assunto;
 
-                    var linkClique = $"{_baseTrackingUrl}/click/{campaign.Id}/{target.Id}";
-                    var linkPixel = $"{_baseTrackingUrl}/open/{campaign.Id}/{target.Id}";
+                    var trackingToken = Uri.EscapeDataString(_trackingTokenService.Create(campaign.Id, target.Id));
+                    var linkClique = $"{_baseTrackingUrl}/click/{campaign.Id}/{target.Id}?k={trackingToken}";
+                    var linkPixel = $"{_baseTrackingUrl}/open/{campaign.Id}/{target.Id}?k={trackingToken}";
 
                     // TIMEZONE: todos os horários dos e-mails são carimbados no fuso de Brasília
                     // (America/Sao_Paulo, UTC-3) a partir de UtcNow — ver HorarioBrasilia. Sem
@@ -293,7 +302,11 @@ namespace PhishGuard.Backend.Services
                         .Replace("{{LINK}}", linkClique)
                         .Replace("{{DATA_EXPIRACAO}}", dataExpiracao)
                         .Replace("{{DATA_ACESSO}}", dataAcesso);
-                    corpoPersonalizado += $"<img src='{linkPixel}' width='1' height='1' style='display:none;' />";
+                    // PIXEL DE ABERTURA: NÃO use display:none/visibility:hidden. Muitos clientes
+                    // deixam de baixar imagens removidas do layout e, nesse caso, o endpoint nunca
+                    // é chamado. O pixel transparente continua imperceptível e acessível, mas é um
+                    // elemento renderizável de 1x1 que o cliente pode requisitar.
+                    corpoPersonalizado += $"<img src=\"{linkPixel}\" width=\"1\" height=\"1\" style=\"display:block !important; width:1px !important; height:1px !important; max-width:1px !important; max-height:1px !important; border:0 !important; margin:0 !important; padding:0 !important; opacity:0.01 !important; overflow:hidden !important;\" alt=\"\" aria-hidden=\"true\" />";
 
                     // LOGOS INLINE (CID): o Gmail não renderiza SVG/data-URI, mas exibe
                     // anexos inline por padrão. Para cada token de logo referenciado por

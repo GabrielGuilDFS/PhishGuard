@@ -1,8 +1,8 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter, Outlet, useLocation } from 'react-router-dom';
 import AppRoutes from './AppRoutes';
-import { setToken } from '../auth/session';
+import { clearSession, setToken } from '../auth/session';
 import { jwtDeTeste } from '../test/jwt';
 
 const TENANT = '11111111-1111-1111-1111-111111111111';
@@ -40,8 +40,15 @@ function abrirEm(caminho: string) {
 }
 
 beforeEach(() => {
+  clearSession();
   localStorage.clear();
   sessionStorage.clear();
+  vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(null, { status: 401 }));
+});
+
+afterEach(() => {
+  clearSession();
+  vi.restoreAllMocks();
 });
 
 describe('AppRoutes — acesso direto e fallbacks', () => {

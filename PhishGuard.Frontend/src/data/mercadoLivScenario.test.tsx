@@ -33,6 +33,9 @@ const IDS = {
   landing: 'mercadoliv-login',
   feedback: 'mercadoliv',
 } as const;
+const CAMP = 'camp-1';
+const TGT = 'tgt-1';
+const TRACKING_TOKEN = 'token-assinado';
 
 // ----------------------------------------------------------------------------
 // 1) TEMPLATE DE E-MAIL
@@ -99,14 +102,11 @@ describe('Mercado Liv — Template de E-mail', () => {
 // 2) PÁGINA SIMULADA (PHISHING / FAKE PAGE)
 // ----------------------------------------------------------------------------
 describe('Mercado Liv — Página Simulada (Phishing)', () => {
-  const CAMP = 'camp-1';
-  const TGT = 'tgt-1';
-
   // LandingPage.tsx substitui {{CAMPAIGN_ID}}/{{TARGET_ID}} antes de injetar o HTML.
   function landingHtml() {
     const l = landingTemplates.find((x) => x.id === IDS.landing);
     if (!l) throw new Error('landing mercadoliv-login não encontrada');
-    return l.html.replaceAll('{{CAMPAIGN_ID}}', CAMP).replaceAll('{{TARGET_ID}}', TGT);
+    return l.html.replaceAll('{{CAMPAIGN_ID}}', CAMP).replaceAll('{{TARGET_ID}}', TGT).replaceAll('{{TRACKING_TOKEN}}', TRACKING_TOKEN);
   }
 
   it('renderiza o formulário de captura de credenciais', () => {
@@ -145,7 +145,7 @@ describe('Mercado Liv — Página Simulada (Phishing)', () => {
       // Disparo da telemetria de comprometimento com os argumentos corretos.
       await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
       const [url, opts] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
-      expect(url).toBe(`/api/tracking/submit/${CAMP}/${TGT}`);
+      expect(url).toBe(`/api/tracking/submit/${CAMP}/${TGT}?k=${TRACKING_TOKEN}`);
       expect(opts.method).toBe('POST');
       const body = JSON.parse(opts.body as string);
       expect(body).toMatchObject({ camposPreenchidos: true, tamanhoSenha: 'senha123'.length });
@@ -156,7 +156,7 @@ describe('Mercado Liv — Página Simulada (Phishing)', () => {
 
       // Redireciona para a Tela Educacional do cenário, preservando c/t.
       await waitFor(() =>
-        expect(loc.href).toBe(`/educational-feedback?template=mercadoliv&c=${CAMP}&t=${TGT}`),
+        expect(loc.href).toBe(`/educational-feedback?template=mercadoliv&c=${CAMP}&t=${TGT}&k=${TRACKING_TOKEN}`),
       );
     } finally {
       if (originalLocation) Object.defineProperty(window, 'location', originalLocation);
@@ -179,7 +179,7 @@ describe('Mercado Liv — Tela Educacional (Just-in-Time)', () => {
 
   function renderEdu() {
     render(
-      <MemoryRouter initialEntries={['/educational-feedback?c=camp-1&t=tgt-1']}>
+      <MemoryRouter initialEntries={[`/educational-feedback?c=${CAMP}&t=${TGT}&k=${TRACKING_TOKEN}`]}>
         <FeedbackTraining config={feedbackTrainings[IDS.feedback]} />
       </MemoryRouter>,
     );
@@ -215,7 +215,7 @@ describe('Mercado Liv — Tela Educacional (Just-in-Time)', () => {
 
     await waitFor(() =>
       expect(fetchMock).toHaveBeenCalledWith(
-        '/api/tracking/complete/camp-1/tgt-1',
+        `/api/tracking/complete/${CAMP}/${TGT}?k=${TRACKING_TOKEN}`,
         expect.objectContaining({ method: 'POST' }),
       ),
     );

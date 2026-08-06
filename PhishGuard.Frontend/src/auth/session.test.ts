@@ -1,11 +1,12 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-// Teste co-located (padrão de espelhamento do frontend).
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   TOKEN_KEY,
-  getToken,
-  setToken,
+  authFetch,
   clearSession,
   decodeJwtPayload,
+  getToken,
+  refreshSession,
+  setToken,
   validateSession,
 } from './session';
 import { jwtDeTeste } from '../test/jwt';
@@ -15,103 +16,96 @@ const DAQUI_1_DIA = Math.floor(Date.now() / 1000) + 86400;
 const ONTEM = Math.floor(Date.now() / 1000) - 86400;
 
 beforeEach(() => {
+  clearSession();
   localStorage.clear();
   sessionStorage.clear();
 });
 
 afterEach(() => {
-  localStorage.clear();
-  sessionStorage.clear();
+  clearSession();
   vi.restoreAllMocks();
 });
 
-describe('clearSession — destruição completa da sessão residual', () => {
-  it('expurga o token do localStorage e do sessionStorage', () => {
-    localStorage.setItem(TOKEN_KEY, 'token-da-conta-antiga');
-    sessionStorage.setItem(TOKEN_KEY, 'residuo-em-session-storage');
+describe('armazenamento seguro da sessão', () => {
+  it('remove tokens legados sem apagar preferências de UI', () => {
+    localStorage.setItem(TOKEN_KEY, 'token-antigo');
+    sessionStorage.setItem(TOKEN_KEY, 'residuo');
+    localStorage.setItem('phishguard_theme_mode', 'dark');
 
     clearSession();
 
     expect(localStorage.getItem(TOKEN_KEY)).toBeNull();
     expect(sessionStorage.getItem(TOKEN_KEY)).toBeNull();
-  });
-
-  it('expira os cookies do domínio (best-effort)', () => {
-    document.cookie = 'phishguard_legacy=abc; path=/';
-    clearSession();
-    expect(document.cookie).not.toContain('phishguard_legacy=abc');
-  });
-
-  it('preserva preferências de UI que não identificam o usuário (ex.: tema)', () => {
-    localStorage.setItem(TOKEN_KEY, 'token-da-conta-antiga');
-    localStorage.setItem('phishguard_theme_mode', 'dark');
-
-    clearSession();
-
     expect(localStorage.getItem('phishguard_theme_mode')).toBe('dark');
   });
-});
 
-describe('setToken — novo login nunca herda resíduo', () => {
-  it('purga a sessão anterior antes de gravar o novo token', () => {
-    sessionStorage.setItem(TOKEN_KEY, 'residuo-antigo');
-    localStorage.setItem(TOKEN_KEY, 'token-da-conta-antiga');
+  it('mantém o access token somente em memória', () => {
+    setToken('token-novo');
 
-    setToken('token-da-conta-nova');
-
-    expect(getToken()).toBe('token-da-conta-nova');
+    expect(getToken()).toBe('token-novo');
+    expect(localStorage.getItem(TOKEN_KEY)).toBeNull();
     expect(sessionStorage.getItem(TOKEN_KEY)).toBeNull();
   });
 });
 
-describe('decodeJwtPayload — leitura tolerante a lixo', () => {
-  it('decodifica um payload base64url válido', () => {
+describe('decodeJwtPayload e validateSession', () => {
+  it('aprova tenant, sessão e expiração válidos', () => {
     const token = jwtDeTeste({ tenant_id: TENANT_A, exp: DAQUI_1_DIA });
-    expect(decodeJwtPayload(token)).toMatchObject({ tenant_id: TENANT_A });
-  });
-
-  it.each([
-    ['string vazia', ''],
-    ['sem os 3 segmentos', 'abc.def'],
-    ['payload que não é base64', 'a.###não-base64###.c'],
-    ['payload que não é JSON', `a.${btoa('não é json')}.c`],
-  ])('retorna null para token malformado (%s), sem lançar', (_caso, token) => {
-    expect(decodeJwtPayload(token)).toBeNull();
-  });
-});
-
-describe('validateSession — barreira de integridade do PrivateRoute', () => {
-  it('aprova um token com tenant_id válido e exp no futuro, expondo o escopo', () => {
-    setToken(jwtDeTeste({ tenant_id: TENANT_A, exp: DAQUI_1_DIA }));
+    expect(decodeJwtPayload(token)).toMatchObject({ tenant_id: TENANT_A, sid: 'sessao-de-teste' });
+    setToken(token);
     expect(validateSession()).toEqual({ valida: true, tenantId: TENANT_A });
   });
 
-  it('reprova quando não há token', () => {
+  it.each([
+    ['sem token', null],
+    ['token ilegível', 'lixo'],
+    ['sem tenant', jwtDeTeste({ exp: DAQUI_1_DIA })],
+    ['tenant vazio', jwtDeTeste({ tenant_id: '00000000-0000-0000-0000-000000000000', exp: DAQUI_1_DIA })],
+    ['expirado', jwtDeTeste({ tenant_id: TENANT_A, exp: ONTEM })],
+    ['sem expiração', jwtDeTeste({ tenant_id: TENANT_A })],
+    ['sem sessão', jwtDeTeste({ sid: '', tenant_id: TENANT_A, exp: DAQUI_1_DIA })],
+  ])('reprova %s', (_cenario, token) => {
+    if (token) setToken(token);
     expect(validateSession().valida).toBe(false);
   });
 
-  it('reprova token ilegível', () => {
-    localStorage.setItem(TOKEN_KEY, 'lixo-que-não-é-jwt');
-    expect(validateSession().valida).toBe(false);
+  it.each(['', 'abc.def', 'a.###nao-base64###.c', `a.${btoa('nao-json')}.c`])(
+    'decodifica lixo como null sem lançar (%s)',
+    (token) => expect(decodeJwtPayload(token)).toBeNull(),
+  );
+});
+
+describe('refreshSession e authFetch', () => {
+  it('restaura via cookie HttpOnly sem persistir o bearer', async () => {
+    const token = jwtDeTeste({ tenant_id: TENANT_A, exp: DAQUI_1_DIA });
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(new Response(
+      JSON.stringify({ accessToken: token, expiresAtUtc: new Date().toISOString() }),
+      { status: 200, headers: { 'Content-Type': 'application/json' } },
+    ));
+
+    expect(await refreshSession()).toBe(token);
+    expect(getToken()).toBe(token);
+    expect(localStorage.getItem(TOKEN_KEY)).toBeNull();
+    expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('/Auth/refresh'), {
+      method: 'POST',
+      credentials: 'include',
+    });
   });
 
-  it('reprova token SEM claim tenant_id (sem escopo de dados, sem painel)', () => {
-    setToken(jwtDeTeste({ exp: DAQUI_1_DIA }));
-    expect(validateSession().valida).toBe(false);
-  });
+  it('renova após 401 e repete a chamada com o novo bearer', async () => {
+    const antigo = jwtDeTeste({ tenant_id: TENANT_A, exp: DAQUI_1_DIA });
+    const novo = jwtDeTeste({ tenant_id: TENANT_A, exp: DAQUI_1_DIA + 60 });
+    setToken(antigo);
+    const fetchMock = vi.spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(new Response(null, { status: 401 }))
+      .mockResolvedValueOnce(new Response(
+        JSON.stringify({ accessToken: novo, expiresAtUtc: new Date().toISOString() }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      ))
+      .mockResolvedValueOnce(new Response('{}', { status: 200 }));
 
-  it('reprova tenant_id com Guid vazio (token forjado/corrompido)', () => {
-    setToken(jwtDeTeste({ tenant_id: '00000000-0000-0000-0000-000000000000', exp: DAQUI_1_DIA }));
-    expect(validateSession().valida).toBe(false);
-  });
-
-  it('reprova token expirado', () => {
-    setToken(jwtDeTeste({ tenant_id: TENANT_A, exp: ONTEM }));
-    expect(validateSession().valida).toBe(false);
-  });
-
-  it('reprova token sem exp (o backend sempre emite com expiração)', () => {
-    setToken(jwtDeTeste({ tenant_id: TENANT_A }));
-    expect(validateSession().valida).toBe(false);
+    expect((await authFetch('/api/protegida')).status).toBe(200);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(new Headers(fetchMock.mock.calls[2][1]?.headers).get('Authorization')).toBe(`Bearer ${novo}`);
   });
 });

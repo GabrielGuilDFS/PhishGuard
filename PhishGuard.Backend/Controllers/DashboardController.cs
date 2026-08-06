@@ -1,14 +1,19 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using PhishGuard.Backend.Data;
 using PhishGuard.Backend.DTOs;
+using PhishGuard.Backend.DTOs.Dashboard;
 using PhishGuard.Backend.Models;
+using PhishGuard.Backend.Services;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Security.Claims;
 using System.Threading.Tasks;
+using System.Threading;
 
 namespace PhishGuard.Backend.Controllers
 {
@@ -19,11 +24,140 @@ namespace PhishGuard.Backend.Controllers
     {
         private readonly AppDbContext _context;
         private readonly ITenantProvider _tenantProvider;
+        private readonly IDashboardOverviewService _overviewService;
+        private readonly IDashboardExportService _exportService;
+        private readonly DashboardReportingTime _reportingTime;
 
-        public DashboardController(AppDbContext context, ITenantProvider tenantProvider)
+        public DashboardController(
+            AppDbContext context,
+            ITenantProvider tenantProvider,
+            IDashboardOverviewService overviewService,
+            IDashboardExportService exportService,
+            DashboardReportingTime reportingTime)
         {
             _context = context;
             _tenantProvider = tenantProvider;
+            _overviewService = overviewService;
+            _exportService = exportService;
+            _reportingTime = reportingTime;
+        }
+
+        // Tela e exportação usam este mesmo serviço para impedir divergência de
+        // filtros, coortes e isolamento multi-tenant.
+        [HttpGet("overview")]
+        public async Task<ActionResult<DashboardOverviewResponse>> GetOverview(
+            [FromQuery] string period = "30d",
+            [FromQuery] string? department = null,
+            CancellationToken cancellationToken = default)
+        {
+            var tenantId = _tenantProvider.GetTenantId();
+            if (tenantId == Guid.Empty)
+                return Unauthorized();
+
+            try
+            {
+                return Ok(await _overviewService.GetOverviewAsync(
+                    tenantId,
+                    period,
+                    department,
+                    cancellationToken));
+            }
+            catch (DashboardQueryException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
+        [HttpGet("export")]
+        [EnableRateLimiting("dashboard-export")]
+        [Produces("application/pdf", "text/csv")]
+        public async Task<IActionResult> Export(
+            [FromQuery] string format = "pdf",
+            [FromQuery] string period = "30d",
+            [FromQuery] string? department = null,
+            [FromQuery] string dataset = "campaigns",
+            CancellationToken cancellationToken = default)
+        {
+            var tenantId = _tenantProvider.GetTenantId();
+            if (tenantId == Guid.Empty)
+                return Unauthorized();
+
+            if (!Enum.TryParse<DashboardExportFormat>(format, true, out var exportFormat))
+                return BadRequest(new { message = "Formato inválido. Use pdf ou csv." });
+
+            if (!Enum.TryParse<DashboardCsvDataset>(dataset, true, out var csvDataset))
+                return BadRequest(new { message = "Dataset inválido. Use campaigns, trend ou summary." });
+
+            var administratorIdValue = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (!Guid.TryParse(administratorIdValue, out var administratorId))
+                return Unauthorized();
+
+            var reportIdentity = await (
+                from administrator in _context.Administradores.AsNoTracking()
+                join tenant in _context.Tenants.AsNoTracking()
+                    on administrator.TenantId equals tenant.Id
+                where administrator.Id == administratorId
+                    && administrator.TenantId == tenantId
+                    && tenant.Id == tenantId
+                select new DashboardReportIdentityDto
+                {
+                    CompanyName = tenant.NomeEmpresa,
+                    Cnpj = tenant.Cnpj,
+                    AdministratorName = administrator.Nome
+                })
+                .SingleOrDefaultAsync(cancellationToken);
+
+            if (reportIdentity is null)
+                return Forbid();
+
+            try
+            {
+                var dashboard = await _overviewService.GetOverviewAsync(
+                    tenantId,
+                    period,
+                    department,
+                    cancellationToken);
+                var canonicalDepartment = string.IsNullOrWhiteSpace(department)
+                    || department.Trim().Equals("todos", StringComparison.OrdinalIgnoreCase)
+                    ? "Todos"
+                    : dashboard.AvailableDepartments.FirstOrDefault(item =>
+                        item.Equals(department.Trim(), StringComparison.OrdinalIgnoreCase))
+                        ?? department.Trim();
+
+                var file = _exportService.Generate(
+                    exportFormat,
+                    dashboard,
+                    new DashboardReportContext
+                    {
+                        GeneratedAt = _reportingTime.LocalNow,
+                        DepartmentLabel = canonicalDepartment,
+                        Identity = reportIdentity
+                    },
+                    csvDataset);
+
+                Response.Headers.CacheControl = "private, no-store";
+                Response.Headers.Pragma = "no-cache";
+                Response.Headers.XContentTypeOptions = "nosniff";
+                SetDownloadFileName(file.FileName);
+                return File(file.Content, file.ContentType);
+            }
+            catch (DashboardQueryException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
+        private void SetDownloadFileName(string fileName)
+        {
+            var asciiFallback = new string(fileName
+                .Select(character => character <= 127
+                    && character is not '\r' and not '\n'
+                    && character != '"'
+                        ? character
+                        : '-')
+                .ToArray());
+            Response.Headers.ContentDisposition =
+                $"attachment; filename=\"{asciiFallback}\"; filename*=UTF-8''{Uri.EscapeDataString(fileName)}";
         }
 
         // GET /api/Dashboard/metrics

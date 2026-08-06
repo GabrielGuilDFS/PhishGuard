@@ -40,6 +40,7 @@ export default function Login() {
     try {
       const response = await fetch(`${API_BASE}/Auth/login`, {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password })
       });
@@ -48,10 +49,10 @@ export default function Login() {
         throw new Error('Email ou senha inválidos!');
       }
 
-      const token = await response.text();
+      const payload = await response.json() as { accessToken: string };
       // setToken purga a sessão anterior ANTES de gravar: o novo login jamais
       // convive com resíduos (storage/cookies) do usuário anterior do navegador.
-      setToken(token);
+      setToken(payload.accessToken);
 
       showNotify("Login realizado com sucesso!", "success");
 
