@@ -268,9 +268,17 @@ builder.Services.AddHostedService<CampaignSchedulerWorker>();
 
 var app = builder.Build();
 
+// Swagger fica no topo e sem condicional de ambiente: /swagger e o documento JSON
+// são tratados antes de proxy headers, redirects, CORS, autenticação e endpoints.
+app.UseSwagger();
+app.UseSwaggerUI(c =>
+{
+    c.SwaggerEndpoint("/swagger/v1/swagger.json", "PhishGuard API v1");
+    c.RoutePrefix = "swagger";
+});
 
-// PRIMEIRO middleware: reescreve o IP de origem a partir do X-Forwarded-For ANTES de
-// qualquer coisa que dependa dele (rate-limiter, logs). Ordem é crítica.
+// Reescreve o IP de origem antes dos middlewares que dependem dele
+// (rate-limiter e autenticação). O Swagger já foi tratado acima.
 app.UseForwardedHeaders();
 
 if (!app.Environment.IsDevelopment())
@@ -296,16 +304,6 @@ app.UseCors("AllowReactApp");
 
 app.UseAuthentication();
 app.UseRateLimiter();
-
-// Deve permanecer antes da autorização e de qualquer mapeamento de endpoints para
-// que /swagger e /swagger/v1/swagger.json sejam tratados pelos middlewares próprios.
-app.UseSwagger();
-app.UseSwaggerUI(c =>
-{
-    c.SwaggerEndpoint("/swagger/v1/swagger.json", "PhishGuard API v1");
-    c.RoutePrefix = "swagger";
-});
-
 app.UseAuthorization();
 
 app.MapControllers();
