@@ -1,4 +1,4 @@
-import { API_BASE } from '../config';
+import { AUTH_API_BASE } from '../config';
 
 /** Chave legada, mantida apenas para remover tokens persistidos por versões anteriores. */
 export const TOKEN_KEY = 'phishguard_token';
@@ -69,7 +69,7 @@ export function validateSession(): SessaoValidada {
 export function refreshSession(): Promise<string | null> {
   if (refreshInFlight) return refreshInFlight;
 
-  refreshInFlight = fetch(`${API_BASE}/Auth/refresh`, {
+  refreshInFlight = fetch(`${AUTH_API_BASE}/refresh`, {
     method: 'POST',
     credentials: 'include',
   })
@@ -100,7 +100,7 @@ export async function restoreSession(): Promise<boolean> {
 
 export async function logoutSession(): Promise<void> {
   try {
-    await fetch(`${API_BASE}/Auth/logout`, {
+    await fetch(`${AUTH_API_BASE}/logout`, {
       method: 'POST',
       credentials: 'include',
     });

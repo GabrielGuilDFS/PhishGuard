@@ -48,8 +48,8 @@ export async function registrarELogar(request: APIRequestContext): Promise<Tenan
 
   const login = await request.post(`${API_URL}/auth/login`, { data: { email, password: senha } });
   expect(login.ok(), `login falhou: ${login.status()} ${await login.text()}`).toBeTruthy();
-  // O LoginController devolve o JWT como string crua (Ok(token)).
-  const token = (await login.text()).replace(/^"|"$/g, '').trim();
+  const auth = (await login.json()) as { accessToken: string };
+  const token = auth.accessToken?.trim() ?? '';
   expect(token.length, 'token vazio').toBeGreaterThan(0);
 
   return { email, senha, token, authHeader: { Authorization: `Bearer ${token}` } };

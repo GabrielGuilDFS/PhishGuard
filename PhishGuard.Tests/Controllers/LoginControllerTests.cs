@@ -116,10 +116,27 @@ public class LoginControllerTests
         Assert.Contains("httponly", setCookie, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("secure", setCookie, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("samesite=strict", setCookie, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("path=/api/auth", setCookie, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("path=/api/auth", setCookie);
+        Assert.DoesNotContain("path=/api/Auth", setCookie);
         var rawRefreshToken = setCookie.Split(';')[0].Split('=', 2)[1];
         Assert.NotEqual(rawRefreshToken, session.RefreshTokenHash);
         Assert.InRange(jwt.ValidTo, DateTime.UtcNow.AddMinutes(59), DateTime.UtcNow.AddMinutes(61));
+    }
+
+    [Fact]
+    public async Task LoginEmHttpLocal_NaoForcaCookieSecurePorUrlPublica()
+    {
+        var (controller, _, email) = await CriarControllerComAdminEContextoAsync();
+        controller.ControllerContext = new ControllerContext
+        {
+            HttpContext = new DefaultHttpContext { Request = { Scheme = "http" } }
+        };
+
+        await controller.Login(new LoginDto { Email = email, Password = SenhaValida });
+
+        var setCookie = controller.Response.Headers.SetCookie.ToString();
+        Assert.Contains("path=/api/auth", setCookie);
+        Assert.DoesNotContain("secure", setCookie, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

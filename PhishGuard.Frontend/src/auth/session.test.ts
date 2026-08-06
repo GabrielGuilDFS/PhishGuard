@@ -86,7 +86,7 @@ describe('refreshSession e authFetch', () => {
     expect(await refreshSession()).toBe(token);
     expect(getToken()).toBe(token);
     expect(localStorage.getItem(TOKEN_KEY)).toBeNull();
-    expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('/Auth/refresh'), {
+    expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('/auth/refresh'), {
       method: 'POST',
       credentials: 'include',
     });

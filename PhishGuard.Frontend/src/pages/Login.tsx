@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { API_BASE } from '../config';
+import { AUTH_API_BASE } from '../config';
 import {
   Box,
   Button,
@@ -38,7 +38,7 @@ export default function Login() {
     setErro('');
 
     try {
-      const response = await fetch(`${API_BASE}/Auth/login`, {
+      const response = await fetch(`${AUTH_API_BASE}/login`, {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },

@@ -15,3 +15,6 @@
 // ============================================================================
 export const API_BASE: string =
   import.meta.env.VITE_API_BASE_URL ?? '/api';
+
+/** Rotas de autenticação canônicas; o Path do refresh cookie é case-sensitive. */
+export const AUTH_API_BASE = `${API_BASE}/auth`;

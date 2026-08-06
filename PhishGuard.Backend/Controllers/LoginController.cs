@@ -30,18 +30,12 @@ public class LoginController : ControllerBase
 	private readonly AppDbContext _context;
 	private readonly IConfiguration _configuration;
 	private readonly TimeProvider _timeProvider;
-	private readonly bool _forceSecureRefreshCookie;
 
 	public LoginController(AppDbContext context, IConfiguration configuration, TimeProvider timeProvider)
 	{
 		_context = context;
 		_configuration = configuration;
 		_timeProvider = timeProvider;
-		_forceSecureRefreshCookie = Uri.TryCreate(
-			configuration["AppSettings:PublicAppBaseUrl"],
-			UriKind.Absolute,
-			out var publicAppUri)
-			&& publicAppUri.Scheme == Uri.UriSchemeHttps;
 	}
 
 	[AllowAnonymous]
@@ -237,7 +231,7 @@ public class LoginController : ControllerBase
 		Response.Cookies.Append(REFRESH_COOKIE, refreshToken, new CookieOptions
 		{
 			HttpOnly = true,
-			Secure = Request.IsHttps || _forceSecureRefreshCookie,
+			Secure = Request.IsHttps,
 			SameSite = SameSiteMode.Strict,
 			Path = "/api/auth",
 			Expires = new DateTimeOffset(expiresAtUtc, TimeSpan.Zero),
@@ -250,7 +244,7 @@ public class LoginController : ControllerBase
 		Response.Cookies.Delete(REFRESH_COOKIE, new CookieOptions
 		{
 			HttpOnly = true,
-			Secure = Request.IsHttps || _forceSecureRefreshCookie,
+			Secure = Request.IsHttps,
 			SameSite = SameSiteMode.Strict,
 			Path = "/api/auth"
 		});
