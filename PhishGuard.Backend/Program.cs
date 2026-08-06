@@ -110,8 +110,19 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {
     options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
-    options.KnownNetworks.Clear();
-    options.KnownProxies.Clear();
+    var trustedProxyAddresses = builder.Configuration
+        .GetSection("AppSettings:TrustedProxies")
+        .Get<string[]>() ?? [];
+
+    foreach (var address in trustedProxyAddresses)
+    {
+        if (!IPAddress.TryParse(address, out var proxyAddress))
+            throw new InvalidOperationException($"IP de proxy confiável inválido: '{address}'.");
+
+        options.KnownProxies.Add(proxyAddress);
+    }
+
+    options.ForwardLimit = Math.Max(1, trustedProxyAddresses.Length);
 });
 
 // Rate-limiting anti-brute-force do login: janela fixa de 5 tentativas/minuto,
@@ -280,25 +291,33 @@ app.UseAuthorization();
 
 app.MapControllers();
 
-// --- CÓDIGO DE AUTOMIGRAÇÃO PARA O DOCKER ---
+app.MapGet("/health/live", () => Results.Ok(new { status = "healthy" }))
+    .AllowAnonymous();
+
+app.MapGet("/health/ready", async (AppDbContext context, CancellationToken cancellationToken) =>
+    await context.Database.CanConnectAsync(cancellationToken)
+        ? Results.Ok(new { status = "ready" })
+        : Results.Json(new { status = "unavailable" }, statusCode: StatusCodes.Status503ServiceUnavailable))
+    .AllowAnonymous();
+
+// Migrações são requisito de prontidão. Uma falha encerra o processo para impedir
+// que a API anuncie saúde enquanto opera sobre um schema incompatível.
 using (var scope = app.Services.CreateScope())
 {
-    var services = scope.ServiceProvider;
-    try
+    var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    var startupLogger = scope.ServiceProvider
+        .GetRequiredService<ILoggerFactory>()
+        .CreateLogger("DatabaseStartup");
+
+    var pendingMigrations = (await context.Database.GetPendingMigrationsAsync()).ToArray();
+    if (pendingMigrations.Length > 0)
     {
-        var context = services.GetRequiredService<AppDbContext>();
-        if (context.Database.GetPendingMigrations().Any())
-        {
-            Console.WriteLine("--> Aplicando migrações pendentes no banco de dados do Docker...");
-            context.Database.Migrate();
-            Console.WriteLine("--> Migrações aplicadas com sucesso!");
-        }
-    }
-    catch (Exception ex)
-    {
-        Console.WriteLine($"--> Erro ao aplicar migrações na inicialização: {ex.Message}");
+        startupLogger.LogInformation(
+            "Aplicando {MigrationCount} migração(ões) pendente(s).",
+            pendingMigrations.Length);
+        await context.Database.MigrateAsync();
+        startupLogger.LogInformation("Migrações aplicadas com sucesso.");
     }
 }
-// --------------------------------------------
 
 app.Run();

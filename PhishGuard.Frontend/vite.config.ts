@@ -2,6 +2,8 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react-swc'
 import tailwindcss from '@tailwindcss/vite'
 
+const apiProxyTarget = process.env.VITE_API_PROXY_TARGET ?? 'http://localhost:5000'
+
 const securityHeaders = {
   'Content-Security-Policy': [
     "default-src 'self'",
@@ -54,8 +56,9 @@ export default defineConfig({
     // landing/página falsa fala com a API pelo MESMO domínio público (same-origin).
     proxy: {
       '/api': {
-        target: 'http://backend:5000',
+        target: apiProxyTarget,
         changeOrigin: true,
+        xfwd: true,
       },
     },
   },

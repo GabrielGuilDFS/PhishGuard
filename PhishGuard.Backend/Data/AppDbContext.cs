@@ -368,7 +368,7 @@ namespace PhishGuard.Backend.Data
         }
 
 
-        public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+        private void StampCurrentTenant()
         {
             var currentTenantId = this.TenantIdAtual; 
             if (currentTenantId != Guid.Empty)
@@ -382,7 +382,32 @@ namespace PhishGuard.Backend.Data
                 }
             }
 
+        }
+
+        public override int SaveChanges()
+        {
+            StampCurrentTenant();
+            return base.SaveChanges();
+        }
+
+        public override int SaveChanges(bool acceptAllChangesOnSuccess)
+        {
+            StampCurrentTenant();
+            return base.SaveChanges(acceptAllChangesOnSuccess);
+        }
+
+        public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+        {
+            StampCurrentTenant();
             return base.SaveChangesAsync(cancellationToken);
+        }
+
+        public override Task<int> SaveChangesAsync(
+            bool acceptAllChangesOnSuccess,
+            CancellationToken cancellationToken = default)
+        {
+            StampCurrentTenant();
+            return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
         }
     }
 }

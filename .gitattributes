@@ -2,6 +2,23 @@
 # Por padrao o Git normaliza para LF no repositorio e converte no checkout.
 * text=auto
 
+# Codigo e configuracao compartilhados ficam em LF em qualquer sistema.
+*.cs text eol=lf
+*.csproj text eol=lf
+*.ts text eol=lf
+*.tsx text eol=lf
+*.js text eol=lf
+*.jsx text eol=lf
+*.json text eol=lf
+*.css text eol=lf
+*.html text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.md text eol=lf
+Dockerfile text eol=lf
+.env.example text eol=lf
+.gitattributes text eol=lf
+
 # Shell scripts DEVEM ter LF, senao quebram no Linux/macOS ("bad interpreter").
 *.sh text eol=lf
 
