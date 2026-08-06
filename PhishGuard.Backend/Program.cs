@@ -257,16 +257,6 @@ builder.Services.AddHostedService<CampaignSchedulerWorker>();
 var app = builder.Build();
 
 
-// Documentação disponível em Development e Production. A rota absoluta mantém a
-// resolução correta do documento quando a API está atrás do proxy da Render.
-app.UseSwagger();
-app.UseSwaggerUI(options =>
-{
-    options.RoutePrefix = "swagger";
-    options.SwaggerEndpoint("/swagger/v1/swagger.json", "PhishGuard API v1");
-});
-
-
 // PRIMEIRO middleware: reescreve o IP de origem a partir do X-Forwarded-For ANTES de
 // qualquer coisa que dependa dele (rate-limiter, logs). Ordem é crítica.
 app.UseForwardedHeaders();
@@ -282,7 +272,10 @@ app.Use(async (context, next) =>
     context.Response.Headers.XContentTypeOptions = "nosniff";
     context.Response.Headers.XFrameOptions = "DENY";
     context.Response.Headers["Referrer-Policy"] = "no-referrer";
-    context.Response.Headers.ContentSecurityPolicy = "default-src 'none'; frame-ancestors 'none'; base-uri 'none'";
+    // A UI do Swagger carrega scripts e estilos próprios. O CSP estrito continua
+    // aplicado a todas as rotas da API, sem impedir a documentação em /swagger.
+    if (!context.Request.Path.StartsWithSegments("/swagger"))
+        context.Response.Headers.ContentSecurityPolicy = "default-src 'none'; frame-ancestors 'none'; base-uri 'none'";
     context.Response.Headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=(), payment=()";
     await next();
 });
@@ -291,6 +284,16 @@ app.UseCors("AllowReactApp");
 
 app.UseAuthentication();
 app.UseRateLimiter();
+
+// Deve permanecer antes da autorização e de qualquer mapeamento de endpoints para
+// que /swagger e /swagger/v1/swagger.json sejam tratados pelos middlewares próprios.
+app.UseSwagger();
+app.UseSwaggerUI(c =>
+{
+    c.SwaggerEndpoint("/swagger/v1/swagger.json", "PhishGuard API v1");
+    c.RoutePrefix = "swagger";
+});
+
 app.UseAuthorization();
 
 app.MapControllers();
