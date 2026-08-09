@@ -76,6 +76,9 @@ public static class SmtpOperationalPolicy
     public static bool IsTransportEnabled(IConfiguration configuration) =>
         configuration.GetValue<bool?>("AppSettings:SmtpTransportEnabled") ?? true;
 
+    public static bool IsTransportAvailable(SmtpConfig? config, IConfiguration configuration) =>
+        config?.ProviderType == EmailProviderType.ProviderApi || IsTransportEnabled(configuration);
+
     public static string? GetTransportDisabledReason(IConfiguration configuration) =>
         IsTransportEnabled(configuration)
             ? null
@@ -88,7 +91,7 @@ public static class SmtpOperationalPolicy
         string? credentialErrorCode = null)
     {
         var providerType = config?.ProviderType ?? EmailProviderType.Smtp;
-        var transportEnabled = providerType == EmailProviderType.ProviderApi || IsTransportEnabled(configuration);
+        var transportEnabled = IsTransportAvailable(config, configuration);
 
         return new SmtpStatusDto
         {

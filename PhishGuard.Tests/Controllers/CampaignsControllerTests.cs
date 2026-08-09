@@ -1,9 +1,11 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using PhishGuard.Backend.Controllers;
 using PhishGuard.Backend.DTOs;
 using PhishGuard.Backend.Models;
 using PhishGuard.Backend.Services;
+using PhishGuard.Backend.Services.Delivery;
 using PhishGuard.Tests.TestDoubles;
 using System;
 using System.Collections.Generic;
@@ -182,6 +184,106 @@ public class CampaignsControllerTests : CampaignTestBase
 
         var persistida = await context.Campaigns.IgnoreQueryFilters().FirstAsync(c => c.Id == campanha.Id);
         Assert.Equal(CampaignStatus.Processando, persistida.Status);
+    }
+
+    [Fact]
+    public async Task Ativar_ComMailtrapSandbox_PermiteApiHttpsQuandoSmtpEstaDesabilitado()
+    {
+        var (context, tenantProvider) = CriarContexto();
+        var tenant = new Tenant { Id = Guid.NewGuid(), NomeEmpresa = "Empresa", Cnpj = "11111111000191", Ativo = true, CriadoEm = DateTime.UtcNow, Plano = PlanoTenant.Bronze };
+        context.Tenants.Add(tenant);
+        await context.SaveChangesAsync();
+        var campanha = await SemearCampanhaRascunhoAsync(
+            context,
+            tenantProvider,
+            tenant.Id,
+            DateTime.UtcNow.AddMinutes(-5));
+        var deliveryConfig = await context.SmtpConfigs.IgnoreQueryFilters()
+            .SingleAsync(config => config.TenantId == tenant.Id);
+        deliveryConfig.ProviderType = EmailProviderType.ProviderApi;
+        deliveryConfig.ApiProvider = ApiProviderName.MailtrapSandbox;
+        deliveryConfig.ApiAccountIdentifier = "4475065";
+        deliveryConfig.EncryptedApiKey = "token-api-protegido";
+        deliveryConfig.SenderEmail = "remetente.simulado@phishguard.test";
+        await context.SaveChangesAsync();
+
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["AppSettings:SmtpTransportEnabled"] = "false",
+                ["AppSettings:SmtpTransportDisabledReason"] = "SMTP bloqueado no Render."
+            })
+            .Build();
+        var controller = new CampaignsController(context, tenantProvider, configuration);
+
+        var resultado = await controller.AtivarCampanha(campanha.Id);
+
+        Assert.IsType<AcceptedResult>(resultado);
+        var persistida = await context.Campaigns.IgnoreQueryFilters()
+            .SingleAsync(item => item.Id == campanha.Id);
+        Assert.Equal(CampaignStatus.Processando, persistida.Status);
+    }
+
+    [Fact]
+    public async Task Ativar_ComSmtp_ContinuaBloqueadoQuandoTransporteEstaDesabilitado()
+    {
+        var (context, tenantProvider) = CriarContexto();
+        var tenant = new Tenant { Id = Guid.NewGuid(), NomeEmpresa = "Empresa", Cnpj = "11111111000191", Ativo = true, CriadoEm = DateTime.UtcNow, Plano = PlanoTenant.Bronze };
+        context.Tenants.Add(tenant);
+        await context.SaveChangesAsync();
+        var campanha = await SemearCampanhaRascunhoAsync(
+            context,
+            tenantProvider,
+            tenant.Id,
+            DateTime.UtcNow.AddMinutes(-5));
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["AppSettings:SmtpTransportEnabled"] = "false"
+            })
+            .Build();
+        var controller = new CampaignsController(context, tenantProvider, configuration);
+
+        var resultado = await controller.AtivarCampanha(campanha.Id);
+
+        Assert.IsType<ConflictObjectResult>(resultado);
+        Assert.Equal(CampaignStatus.Rascunho, campanha.Status);
+    }
+
+    [Fact]
+    public async Task RetryDispatch_ComMailtrapSandbox_PermiteApiHttpsQuandoSmtpEstaDesabilitado()
+    {
+        var (context, tenantProvider) = CriarContexto();
+        var tenant = new Tenant { Id = Guid.NewGuid(), NomeEmpresa = "Empresa", Cnpj = "11111111000191", Ativo = true, CriadoEm = DateTime.UtcNow, Plano = PlanoTenant.Bronze };
+        context.Tenants.Add(tenant);
+        await context.SaveChangesAsync();
+        var campanha = await SemearCampanhaRascunhoAsync(
+            context,
+            tenantProvider,
+            tenant.Id,
+            DateTime.UtcNow.AddMinutes(-5));
+        campanha.Status = CampaignStatus.FalhaNoDisparo;
+        var deliveryConfig = await context.SmtpConfigs.IgnoreQueryFilters()
+            .SingleAsync(config => config.TenantId == tenant.Id);
+        deliveryConfig.ProviderType = EmailProviderType.ProviderApi;
+        deliveryConfig.ApiProvider = ApiProviderName.MailtrapSandbox;
+        deliveryConfig.ApiAccountIdentifier = "4475065";
+        deliveryConfig.EncryptedApiKey = "token-api-protegido";
+        deliveryConfig.SenderEmail = "remetente.simulado@phishguard.test";
+        await context.SaveChangesAsync();
+
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["AppSettings:SmtpTransportEnabled"] = "false"
+            })
+            .Build();
+        var controller = new CampaignsController(context, tenantProvider, configuration);
+
+        var resultado = await controller.RetryDispatch(campanha.Id);
+
+        Assert.IsType<AcceptedResult>(resultado);
+        Assert.Equal(CampaignStatus.Processando, campanha.Status);
     }
 
     [Fact]

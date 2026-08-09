@@ -22,6 +22,7 @@ namespace PhishGuard.Backend.Controllers
         private readonly ITenantProvider _tenantProvider;
         private readonly IConfiguration _configuration;
         private readonly ISmtpCredentialProtector? _smtpCredentialProtector;
+        private readonly ILogger<CampaignsController>? _logger;
 
         // O disparo de e-mails NÃO é responsabilidade deste controller: ele apenas
         // transiciona o estado da campanha. O envio assíncrono fica a cargo do
@@ -30,12 +31,14 @@ namespace PhishGuard.Backend.Controllers
             AppDbContext context,
             ITenantProvider tenantProvider,
             IConfiguration? configuration = null,
-            ISmtpCredentialProtector? smtpCredentialProtector = null)
+            ISmtpCredentialProtector? smtpCredentialProtector = null,
+            ILogger<CampaignsController>? logger = null)
         {
             _context = context;
             _tenantProvider = tenantProvider;
             _configuration = configuration ?? new ConfigurationBuilder().Build();
             _smtpCredentialProtector = smtpCredentialProtector;
+            _logger = logger;
         }
 
         [HttpGet]
@@ -183,8 +186,15 @@ namespace PhishGuard.Backend.Controllers
                 });
             }
 
-            if (!SmtpOperationalPolicy.IsTransportEnabled(_configuration))
+            // A flag de infraestrutura desabilita apenas conexões SMTP (portas de saída
+            // bloqueadas no Render). Provedores por API HTTPS, como Mailtrap Sandbox,
+            // permanecem disponíveis e não podem ser barrados por essa política.
+            if (!SmtpOperationalPolicy.IsTransportAvailable(smtpConfig, _configuration))
             {
+                _logger?.LogWarning(
+                    "Ativação da campanha {CampaignId} bloqueada: transporte SMTP indisponível para o tenant {TenantId}.",
+                    campaign.Id,
+                    tenantId);
                 return Conflict(new
                 {
                     code = SmtpOperationalPolicy.TransportUnavailableCode,
@@ -203,6 +213,12 @@ namespace PhishGuard.Backend.Controllers
             {
                 campaign.Status = CampaignStatus.Agendada;
                 await _context.SaveChangesAsync();
+                _logger?.LogInformation(
+                    "Campanha {CampaignId} agendada pelo tenant {TenantId} usando {ProviderType}/{ApiProvider}.",
+                    campaign.Id,
+                    tenantId,
+                    smtpConfig!.ProviderType,
+                    smtpConfig.ApiProvider);
                 return Ok(new { message = "Campanha agendada. O disparo ocorrerá no horário de início.", status = campaign.Status });
             }
 
@@ -211,6 +227,13 @@ namespace PhishGuard.Backend.Controllers
             // fica bloqueada por minutos nem segura a conexão do banco durante o disparo.
             campaign.Status = CampaignStatus.Processando;
             await _context.SaveChangesAsync();
+
+            _logger?.LogInformation(
+                "Campanha {CampaignId} enfileirada pelo tenant {TenantId} usando {ProviderType}/{ApiProvider}.",
+                campaign.Id,
+                tenantId,
+                smtpConfig!.ProviderType,
+                smtpConfig.ApiProvider);
 
             return Accepted(new
             {
@@ -233,13 +256,13 @@ namespace PhishGuard.Backend.Controllers
 
             var smtpConfig = await _context.SmtpConfigs.FirstOrDefaultAsync(s => s.TenantId == tenantId);
             if (!SmtpOperationalPolicy.IsConfigured(smtpConfig))
-                return Conflict(new { code = SmtpOperationalPolicy.NotConfiguredCode, message = "Configure e salve o SMTP antes de tentar novamente.", settingsPath = "/admin/settings?tab=smtp" });
+                return Conflict(new { code = SmtpOperationalPolicy.NotConfiguredCode, message = "Configure e salve a entrega de e-mail antes de tentar novamente.", settingsPath = "/admin/settings?tab=smtp" });
             var credentialError = _smtpCredentialProtector is null
                 ? null
                 : SmtpOperationalPolicy.ValidateCredential(smtpConfig, _smtpCredentialProtector);
             if (credentialError is not null)
                 return Conflict(new { code = credentialError, message = "A senha SMTP salva não pode ser utilizada. Informe a senha novamente e salve a configuração.", settingsPath = "/admin/settings?tab=smtp" });
-            if (!SmtpOperationalPolicy.IsTransportEnabled(_configuration))
+            if (!SmtpOperationalPolicy.IsTransportAvailable(smtpConfig, _configuration))
                 return Conflict(new { code = SmtpOperationalPolicy.TransportUnavailableCode, message = SmtpOperationalPolicy.GetTransportDisabledReason(_configuration), settingsPath = "/admin/settings?tab=smtp" });
 
             campaign.Status = campaign.DataInicio > DateTime.UtcNow
@@ -249,6 +272,13 @@ namespace PhishGuard.Backend.Controllers
             campaign.DispatchErrorMessage = null;
             campaign.DispatchFailedAtUtc = null;
             await _context.SaveChangesAsync();
+
+            _logger?.LogInformation(
+                "Campanha {CampaignId} reenfileirada pelo tenant {TenantId} usando {ProviderType}/{ApiProvider}.",
+                campaign.Id,
+                tenantId,
+                smtpConfig!.ProviderType,
+                smtpConfig.ApiProvider);
 
             return Accepted(new { message = "Campanha reenfileirada para disparo.", status = campaign.Status });
         }

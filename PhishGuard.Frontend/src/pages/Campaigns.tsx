@@ -80,11 +80,12 @@ const extrairMensagemDeErro = async (res: Response): Promise<string> => {
     }
 };
 
-// Traduz erros crus (ex.: exceções de SMTP) em mensagens amigáveis e acionáveis.
+// Traduz erros crus de transporte em mensagens amigáveis sem presumir SMTP: o tenant
+// também pode estar usando uma API HTTPS (Mailtrap, SES, Brevo etc.).
 const mensagemAmigavel = (erro: string): string => {
     const e = (erro || '').toLowerCase();
     if (/smtp|conex|connect|socket|autentic|\bauth|mailkit|\bhost\b|servidor de e-?mail|timeout/.test(e)) {
-        return 'Falha na conexão com o servidor de e-mail. Verifique suas configurações de SMTP em Configurações.';
+        return 'Falha no serviço de entrega de e-mail. Verifique o provedor configurado em Configurações.';
     }
     return erro || 'Ocorreu um erro inesperado. Tente novamente.';
 };
