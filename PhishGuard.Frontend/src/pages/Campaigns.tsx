@@ -253,7 +253,7 @@ export default function Campaigns() {
 
     const fetchSmtpStatus = async () => {
         try {
-            const res = await authFetch(`${API_BASE}/SmtpConfig/status`, { headers });
+            const res = await authFetch(`${API_BASE}/email-delivery/status`, { headers });
             if (res.ok) setSmtpStatus(await res.json() as SmtpStatus);
         } catch {
             setSmtpStatus(null);
@@ -550,8 +550,8 @@ export default function Campaigns() {
     const filtered = campaigns.filter(c => c.nomeCampanha.toLowerCase().includes(searchTerm.toLowerCase()));
     const smtpBlockingMessage = smtpStatus?.transporteIndisponivelMotivo
         ?? (smtpStatus?.ultimoErroCodigo === 'SMTP_CREDENTIAL_UNREADABLE'
-            ? 'A senha SMTP salva não pode ser decifrada após o deploy. Informe-a novamente e salve a configuração.'
-            : 'O servidor SMTP ainda não foi configurado. Configure e salve o SMTP antes de ativar uma campanha.');
+            ? 'A credencial de entrega salva não pode ser decifrada após o deploy. Informe-a novamente e salve a configuração.'
+            : 'A entrega de e-mail ainda não foi configurada. Configure SMTP ou uma API HTTPS antes de ativar uma campanha.');
 
     const handleActivateCampaign = async (id: string) => {
         if (!smtpStatus?.configurado || !smtpStatus.transporteDisponivel) {
@@ -684,7 +684,7 @@ export default function Campaigns() {
             {smtpStatus && (!smtpStatus.configurado || !smtpStatus.transporteDisponivel) && (
                 <Alert
                     severity="error"
-                    action={<Button color="inherit" size="small" href="/admin/settings?tab=smtp">Configurar SMTP</Button>}
+                    action={<Button color="inherit" size="small" href="/admin/settings?tab=smtp">Configurar entrega</Button>}
                     sx={{ mb: 2 }}
                 >
                     {smtpBlockingMessage}

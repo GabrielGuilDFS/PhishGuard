@@ -15,6 +15,7 @@ using BCrypt.Net;
 using PhishGuard.Backend.DTOs;
 using PhishGuard.Backend.Security;
 using PhishGuard.Backend.Services;
+using PhishGuard.Backend.Services.Delivery;
 using PhishGuard.Backend.BackgroundServices;
 
 // O cenário acadêmico/startup inicial é elegível para a licença Community.
@@ -256,7 +257,9 @@ builder.Services.AddDataProtection()
     .SetApplicationName("PhishGuard")
     .PersistKeysToDbContext<AppDbContext>();
 
-builder.Services.AddSingleton<ISmtpCredentialProtector, SmtpCredentialProtector>();
+builder.Services.AddSingleton<EmailSecretProtector>();
+builder.Services.AddSingleton<IEmailSecretProtector>(sp => sp.GetRequiredService<EmailSecretProtector>());
+builder.Services.AddSingleton<ISmtpCredentialProtector>(sp => sp.GetRequiredService<EmailSecretProtector>());
 
 // Sanitização anti-XSS do HTML de templates/landings (allow-list). Stateless e com
 // configuração imutável de allow-list → Singleton (evita reconstruir o HtmlSanitizer
@@ -268,8 +271,23 @@ builder.Services.AddSingleton<IHtmlSanitizationService, HtmlSanitizationService>
 // nos testes de resiliência do disparo.
 builder.Services.AddSingleton<ISmtpClientFactory, MailKitSmtpClientFactory>();
 
-// Serviço de disparo (reutilizado pelo botão manual e pelo worker de agendamento)
-// e worker em segundo plano que dispara campanhas quando a DataInicio é atingida.
+// Serviços de composição e transporte de e-mail multi-provedor (SMTP & Provider API)
+builder.Services.AddSingleton<IEmailMessageComposer>(sp =>
+{
+    var trackingTokenService = sp.GetRequiredService<ITrackingTokenService>();
+    var configuration = sp.GetRequiredService<IConfiguration>();
+    var apiBase = configuration["AppSettings:PublicApiBaseUrl"] ?? "http://localhost:5000";
+    return new EmailMessageComposer(trackingTokenService, apiBase);
+});
+builder.Services.AddSingleton<IEmailSender, SmtpEmailSender>();
+builder.Services.AddHttpClient<ProviderApiEmailSender>(client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(20);
+});
+builder.Services.AddTransient<IEmailSender>(sp => sp.GetRequiredService<ProviderApiEmailSender>());
+builder.Services.AddScoped<IEmailSenderResolver, EmailSenderResolver>();
+
+// Controllers e serviços de aplicação
 builder.Services.AddScoped<ICampaignDispatchService, CampaignDispatchService>();
 builder.Services.AddScoped<IDashboardOverviewService, DashboardOverviewService>();
 builder.Services.AddSingleton<IDashboardExportService, DashboardExportService>();

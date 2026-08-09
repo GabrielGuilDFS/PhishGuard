@@ -1,470 +1,444 @@
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using MailKit.Security;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
-using MimeKit;
-using Polly;
-using Polly.Retry;
-using PhishGuard.Backend.Content;
+using Microsoft.Extensions.Logging.Abstractions;
 using PhishGuard.Backend.Data;
 using PhishGuard.Backend.Models;
-using PhishGuard.Backend.Utilities;
 using PhishGuard.Backend.Security;
+using PhishGuard.Backend.Services.Delivery;
 
 namespace PhishGuard.Backend.Services
 {
     public interface ICampaignDispatchService
     {
-        /// <summary>
-        /// Realiza o disparo em lote dos e-mails de uma campanha e move seu status
-        /// para "Em Andamento". O SMTP é resolvido pelo TenantId da PRÓPRIA campanha
-        /// (não pelo ITenantProvider), para funcionar tanto no contexto de requisição
-        /// quanto no worker de agendamento em segundo plano (sem HttpContext).
-        /// </summary>
         Task DispatchAsync(Campaign campaign, CancellationToken cancellationToken = default);
     }
 
     public class CampaignDispatchService : ICampaignDispatchService
     {
+        private static readonly TimeSpan DeliveryLease = TimeSpan.FromMinutes(5);
+
+        private sealed class LegacySecretProtectorAdapter : IEmailSecretProtector
+        {
+            private readonly ISmtpCredentialProtector _inner;
+
+            public LegacySecretProtectorAdapter(ISmtpCredentialProtector inner) => _inner = inner;
+
+            public string Protect(string? plaintext) => _inner.Protect(plaintext);
+            public string Unprotect(string? stored) => _inner.Unprotect(stored);
+            public string ProtectSecret(Guid tenantId, EmailProviderType providerType, EmailSecretType secretType, string? plaintext)
+                => _inner.Protect(plaintext);
+            public string UnprotectSecret(Guid tenantId, EmailProviderType providerType, EmailSecretType secretType, string? stored)
+                => _inner.Unprotect(stored);
+        }
+
         private readonly AppDbContext _context;
         private readonly ILogger<CampaignDispatchService> _logger;
-        private readonly ISmtpCredentialProtector _senhaProtector;
-        private readonly ISmtpClientFactory _smtpClientFactory;
-        private readonly ITrackingTokenService _trackingTokenService;
-
-        // Seams de tempo (injetáveis) para manter o comportamento de PRODUÇÃO idêntico e,
-        // ao mesmo tempo, permitir que os testes zerem esperas: o backoff do retry e a
-        // pausa de throttle entre envios. Em produção o ctor público injeta os defaults.
-        private readonly Func<int, TimeSpan> _backoffProvider;
-        private readonly TimeSpan _throttleEntreEnvios;
-
-        // URL PÚBLICA base do endpoint de rastreamento, gravada nos links dos e-mails.
-        // Resolvida da configuração (AppSettings:PublicApiBaseUrl); default localhost p/ dev.
-        // Precisa ser um endereço acessível PELO ALVO — senão o clique nunca chega ao backend.
-        private readonly string _baseTrackingUrl;
-
-        // Modo de segurança do socket SMTP. Default de PRODUÇÃO: StartTls (upgrade TLS na
-        // 587). Configurável (AppSettings:SmtpSecureSocketOptions) só para HOMOLOGAÇÃO —
-        // ex.: "StartTlsWhenAvailable" para falar com o Mailpit (SMTP em texto puro na 1025),
-        // sem afetar o disparo real (Gmail continua anunciando STARTTLS e sendo criptografado).
-        private readonly SecureSocketOptions _secureSocketOptions;
-
-        // ALLOWLIST DE DESTINO (§2.1d): quando NÃO vazia, o disparo só envia para e-mails
-        // cujo domínio esteja na lista (AppSettings:OutboundEmailAllowedDomains). Rede de
-        // segurança de HOMOLOGAÇÃO: garante que nenhum e-mail de teste escape para uma caixa
-        // real, MESMO que o SMTP seja trocado por engano. Vazia (produção) = sem restrição.
-        private readonly IReadOnlyCollection<string> _dominiosPermitidos;
+        private readonly IEmailMessageComposer _composer;
+        private readonly IEmailSenderResolver _senderResolver;
+        private readonly TimeSpan _throttleBetweenSends;
+        private readonly IReadOnlyCollection<string> _allowedDomains;
         private readonly bool _smtpTransportEnabled;
         private readonly string? _smtpTransportDisabledReason;
-        private readonly TimeSpan _smtpOperationTimeout;
 
         public CampaignDispatchService(
             AppDbContext context,
             ILogger<CampaignDispatchService> logger,
-            ISmtpCredentialProtector senhaProtector,
+            ISmtpCredentialProtector credentialProtector,
+            ISmtpClientFactory smtpClientFactory,
+            ITrackingTokenService trackingTokenService,
+            IEmailMessageComposer composer,
+            IEmailSenderResolver senderResolver,
+            IConfiguration configuration)
+            : this(
+                context,
+                logger,
+                composer,
+                senderResolver,
+                ResolverThrottle(configuration),
+                ResolverDominiosPermitidos(configuration),
+                SmtpOperationalPolicy.IsTransportEnabled(configuration),
+                SmtpOperationalPolicy.GetTransportDisabledReason(configuration))
+        {
+        }
+
+        // Compatibilidade para os testes e consumidores que ainda constroem o serviço com
+        // as abstrações SMTP antigas. O caminho de produção usa o construtor acima via DI.
+        public CampaignDispatchService(
+            AppDbContext context,
+            ILogger<CampaignDispatchService> logger,
+            ISmtpCredentialProtector credentialProtector,
             ISmtpClientFactory smtpClientFactory,
             ITrackingTokenService trackingTokenService,
             IConfiguration configuration)
-            : this(context, logger, senhaProtector, smtpClientFactory,
-                   BackoffExponencialComJitter, ResolverThrottle(configuration))
         {
-            var apiBase = configuration["AppSettings:PublicApiBaseUrl"]?.TrimEnd('/');
-            if (string.IsNullOrWhiteSpace(apiBase))
-                apiBase = "http://localhost:5000";
-            _baseTrackingUrl = $"{apiBase}/api/tracking";
-            _trackingTokenService = trackingTokenService;
-            _secureSocketOptions = ResolverSecureSocket(configuration);
-            _dominiosPermitidos = ResolverDominiosPermitidos(configuration);
+            var contextual = credentialProtector as IEmailSecretProtector
+                ?? new LegacySecretProtectorAdapter(credentialProtector);
+            var composer = new EmailMessageComposer(
+                trackingTokenService,
+                configuration["AppSettings:PublicApiBaseUrl"] ?? "http://localhost:5000");
+            var resolver = new EmailSenderResolver(new IEmailSender[]
+            {
+                new SmtpEmailSender(
+                    smtpClientFactory,
+                    credentialProtector,
+                    configuration,
+                    NullLogger<SmtpEmailSender>.Instance),
+                new ProviderApiEmailSender(
+                    new System.Net.Http.HttpClient { Timeout = TimeSpan.FromSeconds(20) },
+                    contextual,
+                    NullLogger<ProviderApiEmailSender>.Instance)
+            });
+
+            _context = context;
+            _logger = logger;
+            _composer = composer;
+            _senderResolver = resolver;
+            _throttleBetweenSends = ResolverThrottle(configuration);
+            _allowedDomains = ResolverDominiosPermitidos(configuration);
             _smtpTransportEnabled = SmtpOperationalPolicy.IsTransportEnabled(configuration);
             _smtpTransportDisabledReason = SmtpOperationalPolicy.GetTransportDisabledReason(configuration);
-            var timeoutSeconds = configuration.GetValue<int?>("AppSettings:SmtpOperationTimeoutSeconds") ?? 15;
-            _smtpOperationTimeout = TimeSpan.FromSeconds(Math.Clamp(timeoutSeconds, 5, 60));
         }
 
-        // Pausa entre envios (anti-spam) configurável em AppSettings:SmtpThrottleMs. Default
-        // ENXUTO de 300ms (antes 1000ms): para lotes pequenos, a soma dessas pausas era o que
-        // mantinha a campanha "Processando" por muito tempo antes de virar "Em Andamento".
-        // 300ms ≈ 3 envios/s — abaixo dos limites de provedores como o Gmail, e ~3x mais rápido.
-        private static TimeSpan ResolverThrottle(IConfiguration configuration)
-        {
-            var ms = configuration.GetValue<int?>("AppSettings:SmtpThrottleMs") ?? 300;
-            return TimeSpan.FromMilliseconds(Math.Max(0, ms));
-        }
-
-        // Ctor INTERNO (visível aos testes via InternalsVisibleTo). Não é usado pela DI —
-        // o container só enxerga o construtor público — então não há ambiguidade de resolução.
         internal CampaignDispatchService(
             AppDbContext context,
             ILogger<CampaignDispatchService> logger,
-            ISmtpCredentialProtector senhaProtector,
+            ISmtpCredentialProtector credentialProtector,
             ISmtpClientFactory smtpClientFactory,
             Func<int, TimeSpan> backoffProvider,
             TimeSpan throttleEntreEnvios)
         {
-            _context = context;
-            _logger = logger;
-            _senhaProtector = senhaProtector;
-            _smtpClientFactory = smtpClientFactory;
-            _trackingTokenService = new TrackingTokenService(
+            var tracking = new TrackingTokenService(
                 TimeProvider.System,
                 "segredo-de-testes-para-tracking-com-pelo-menos-sessenta-e-quatro-bytes-123456789",
                 TimeSpan.FromDays(90));
-            _backoffProvider = backoffProvider;
-            _throttleEntreEnvios = throttleEntreEnvios;
-            // Defaults para o caminho de testes (ctor interno). O ctor público de produção
-            // sobrescreve com os valores resolvidos da configuração.
-            _baseTrackingUrl = "http://localhost:5000/api/tracking";
-            _secureSocketOptions = SecureSocketOptions.StartTls;
-            _dominiosPermitidos = Array.Empty<string>();
+            var configuration = new ConfigurationBuilder().Build();
+            var contextual = credentialProtector as IEmailSecretProtector
+                ?? new LegacySecretProtectorAdapter(credentialProtector);
+
+            _context = context;
+            _logger = logger;
+            _composer = new EmailMessageComposer(tracking, "http://localhost:5000");
+            _senderResolver = new EmailSenderResolver(new IEmailSender[]
+            {
+                new SmtpEmailSender(
+                    smtpClientFactory,
+                    credentialProtector,
+                    configuration,
+                    NullLogger<SmtpEmailSender>.Instance,
+                    backoffProvider),
+                new ProviderApiEmailSender(
+                    new System.Net.Http.HttpClient { Timeout = TimeSpan.FromSeconds(20) },
+                    contextual,
+                    NullLogger<ProviderApiEmailSender>.Instance)
+            });
+            _throttleBetweenSends = throttleEntreEnvios;
+            _allowedDomains = Array.Empty<string>();
             _smtpTransportEnabled = true;
             _smtpTransportDisabledReason = null;
-            _smtpOperationTimeout = TimeSpan.FromSeconds(15);
         }
 
-        // Resolve o modo de socket SMTP da config. Aceita os nomes do enum SecureSocketOptions
-        // (StartTls, StartTlsWhenAvailable, SslOnConnect, Auto, None). Default: StartTls.
-        private static SecureSocketOptions ResolverSecureSocket(IConfiguration configuration)
+        private CampaignDispatchService(
+            AppDbContext context,
+            ILogger<CampaignDispatchService> logger,
+            IEmailMessageComposer composer,
+            IEmailSenderResolver senderResolver,
+            TimeSpan throttleBetweenSends,
+            IReadOnlyCollection<string> allowedDomains,
+            bool smtpTransportEnabled,
+            string? smtpTransportDisabledReason)
         {
-            var raw = configuration["AppSettings:SmtpSecureSocketOptions"];
-            return Enum.TryParse<SecureSocketOptions>(raw, ignoreCase: true, out var opt)
-                ? opt
-                : SecureSocketOptions.StartTls;
+            _context = context;
+            _logger = logger;
+            _composer = composer;
+            _senderResolver = senderResolver;
+            _throttleBetweenSends = throttleBetweenSends;
+            _allowedDomains = allowedDomains;
+            _smtpTransportEnabled = smtpTransportEnabled;
+            _smtpTransportDisabledReason = smtpTransportDisabledReason;
         }
-
-        // Lê a allowlist de domínios de destino (separados por ',' ou ';'). Normaliza para
-        // minúsculas e SEM o '@' inicial. Vazio/ausente => sem restrição (produção).
-        private static IReadOnlyCollection<string> ResolverDominiosPermitidos(IConfiguration configuration)
-        {
-            var raw = configuration["AppSettings:OutboundEmailAllowedDomains"];
-            if (string.IsNullOrWhiteSpace(raw))
-                return Array.Empty<string>();
-
-            return raw
-                .Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-                .Select(d => d.TrimStart('@').ToLowerInvariant())
-                .Where(d => d.Length > 0)
-                .Distinct()
-                .ToArray();
-        }
-
-        // Aplica a allowlist a um endereço de destino. Lista vazia => tudo permitido.
-        private bool DestinoPermitido(string email)
-        {
-            if (_dominiosPermitidos.Count == 0)
-                return true;
-
-            var at = email.LastIndexOf('@');
-            if (at < 0 || at == email.Length - 1)
-                return false; // e-mail sem domínio: bloqueia por segurança.
-
-            var dominio = email[(at + 1)..].ToLowerInvariant();
-            return _dominiosPermitidos.Contains(dominio);
-        }
-
-        // Backoff exponencial 2s→4s→8s + jitter de até 1s (descorrelaciona reconexões).
-        private static TimeSpan BackoffExponencialComJitter(int tentativa)
-            => TimeSpan.FromSeconds(Math.Pow(2, tentativa))
-               + TimeSpan.FromMilliseconds(Random.Shared.Next(0, 1000));
 
         public async Task DispatchAsync(Campaign campaign, CancellationToken cancellationToken = default)
         {
-            if (!_smtpTransportEnabled)
-                throw new SmtpOperationalException(
-                    SmtpOperationalPolicy.TransportUnavailableCode,
-                    _smtpTransportDisabledReason ?? "O transporte SMTP está indisponível neste ambiente.");
-
-            // Garante que Template e Targets estejam carregados (o worker já os inclui;
-            // este fallback cobre chamadas que passem a campanha sem navegações).
             if (campaign.Template == null)
-                await _context.Entry(campaign).Reference(c => c.Template).LoadAsync(cancellationToken);
+                await _context.Entry(campaign).Reference(item => item.Template).LoadAsync(cancellationToken);
             if (campaign.Targets == null || !campaign.Targets.Any())
-                await _context.Entry(campaign).Collection(c => c.Targets).LoadAsync(cancellationToken);
+                await _context.Entry(campaign).Collection(item => item.Targets).LoadAsync(cancellationToken);
 
             if (campaign.Template == null)
                 throw new InvalidOperationException("Template de e-mail da campanha não encontrado.");
-            if (campaign.Targets == null || !campaign.Targets.Any())
+            if (campaign.Targets == null || campaign.Targets.Count == 0)
                 throw new InvalidOperationException("A campanha não possui alvos selecionados.");
 
-            // SMTP é por-tenant. IgnoreQueryFilters + filtro explícito pelo TenantId da
-            // campanha para funcionar sem contexto de tenant (worker em segundo plano).
-            var smtpConfig = await _context.SmtpConfigs
+            var deliveryConfig = await _context.SmtpConfigs
                 .IgnoreQueryFilters()
-                .FirstOrDefaultAsync(s => s.TenantId == campaign.TenantId, cancellationToken);
+                .FirstOrDefaultAsync(config => config.TenantId == campaign.TenantId, cancellationToken);
 
-            if (!SmtpOperationalPolicy.IsConfigured(smtpConfig))
+            if (!SmtpOperationalPolicy.IsConfigured(deliveryConfig))
                 throw new SmtpOperationalException(
                     SmtpOperationalPolicy.NotConfiguredCode,
-                    "Configuração SMTP não encontrada ou incompleta para o tenant da campanha.");
+                    "Configuração de entrega de e-mail não encontrada ou incompleta para o tenant da campanha.");
 
-            // IDEMPOTÊNCIA: quem já recebeu (log de Envio) é pulado. Carrega o conjunto de
-            // alvos já enviados desta campanha ANTES do loop — assim uma retomada após
-            // queda do worker/container não reenvia para quem já recebeu.
-            var jaEnviados = (await _context.SimulationsLogs
+            if (deliveryConfig!.ProviderType == EmailProviderType.Smtp && !_smtpTransportEnabled)
+                throw new SmtpOperationalException(
+                    SmtpOperationalPolicy.TransportUnavailableCode,
+                    _smtpTransportDisabledReason
+                        ?? "O transporte SMTP está indisponível neste ambiente. Configure um provedor por API HTTPS.");
+
+            var sender = _senderResolver.Resolve(deliveryConfig);
+            var sentTargetIds = (await _context.SimulationsLogs
                     .IgnoreQueryFilters()
-                    .Where(l => l.CampaignId == campaign.Id && l.Acao == SimulationActions.Envio)
-                    .Select(l => l.TargetId)
+                    .Where(log => log.CampaignId == campaign.Id && log.Acao == SimulationActions.Envio)
+                    .Select(log => log.TargetId)
                     .ToListAsync(cancellationToken))
                 .ToHashSet();
+            var deliveries = (await _context.CampaignDeliveries
+                    .IgnoreQueryFilters()
+                    .Where(delivery => delivery.CampaignId == campaign.Id)
+                    .ToListAsync(cancellationToken))
+                .ToDictionary(delivery => delivery.TargetId);
 
-            var pendentes = campaign.Targets.Where(t => !jaEnviados.Contains(t.Id)).ToList();
-            if (pendentes.Count == 0)
+            var senderEmail = deliveryConfig.ProviderType == EmailProviderType.Smtp
+                ? deliveryConfig.Usuario
+                : deliveryConfig.SenderEmail;
+            var hasActiveLease = false;
+
+            foreach (var target in campaign.Targets.Where(target => !sentTargetIds.Contains(target.Id)))
             {
-                _logger.LogInformation(
-                    "Campanha {CampaignId}: todos os {Total} alvos já haviam sido enviados; nada a fazer.",
-                    campaign.Id, campaign.Targets.Count);
-                campaign.Status = CampaignStatus.EmAndamento;
-                await _context.SaveChangesAsync(cancellationToken);
-                return;
-            }
+                var idempotencyKey = $"campaign/{campaign.Id:N}/target/{target.Id:N}";
+                deliveries.TryGetValue(target.Id, out var existingDelivery);
+                var delivery = await TryClaimDeliveryAsync(
+                    campaign,
+                    target,
+                    idempotencyKey,
+                    existingDelivery,
+                    cancellationToken);
 
-            // Senha decifrada apenas no momento do uso (proteção em repouso).
-            var senhaSmtp = _senhaProtector.Unprotect(smtpConfig!.Senha);
+                if (delivery == null)
+                {
+                    hasActiveLease = true;
+                    continue;
+                }
 
-            using var client = _smtpClientFactory.Create();
-
-            // RESILIÊNCIA (Polly): toda operação SMTP (conectar/autenticar/enviar) roda sob
-            // retry com backoff exponencial 2s→4s→8s + jitter de até 1s. O jitter evita o
-            // "thundering herd" (vários workers/alvos reconectando no mesmo instante e
-            // sobrecarregando o servidor). OperationCanceledException NÃO é retentada —
-            // shutdown/cancelamento deve propagar imediatamente.
-            var smtpRetryPolicy = BuildSmtpRetryPolicy();
-
-            // Estabelece (ou restabelece) a sessão SMTP. Idempotente: um SendAsync que derruba
-            // o socket pode ser seguido por uma reconexão transparente antes do próximo envio.
-            async Task GarantirConexaoAsync(CancellationToken ct)
-            {
-                if (!client.IsConnected)
-                    await ExecutarComTimeoutAsync(
-                        token => client.ConnectAsync(smtpConfig.Host, smtpConfig.Porta, _secureSocketOptions, token),
-                        ct);
-                if (!client.IsAuthenticated)
-                    await ExecutarComTimeoutAsync(
-                        token => client.AuthenticateAsync(smtpConfig.Usuario, senhaSmtp, token),
-                        ct);
-            }
-
-            // Conexão inicial sob retry. Se falhar DEFINITIVAMENTE, a exceção propaga: sem
-            // sessão SMTP não há o que disparar, e o caller (worker) trata por-campanha.
-            await smtpRetryPolicy.ExecuteAsync(GarantirConexaoAsync, cancellationToken);
-
-            // Persiste apenas o IDENTIFICADOR da isca em CorpoHtml; resolve para o HTML real.
-            var corpoBase = OfficialBaitCatalog.ResolveHtml(campaign.Template.CorpoHtml);
-
-            foreach (var target in pendentes)
-            {
-                // Resiliência: uma falha definitiva num alvo (e-mail inválido, indisponibilidade
-                // do SMTP após todos os retries) não pode derrubar o disparo inteiro. Registra
-                // o alvo como "Falha" e segue para o próximo destinatário.
-                // ALLOWLIST (§2.1d): em homologação, recusa qualquer destino fora dos
-                // domínios permitidos ANTES de tocar no SMTP — nenhum e-mail de teste
-                // vaza para uma caixa real. Registra "Falha" (rastreável) e segue o lote.
                 if (!DestinoPermitido(target.Email))
                 {
                     _logger.LogWarning(
-                        "Alvo {Email} bloqueado pela allowlist de domínios de destino (campanha {CampaignId}). E-mail NÃO enviado.",
-                        target.Email, campaign.Id);
-
-                    _context.SimulationsLogs.Add(new SimulationLog
-                    {
-                        Id = Guid.NewGuid(),
-                        TenantId = campaign.TenantId,
-                        CampaignId = campaign.Id,
-                        TargetId = target.Id,
-                        Acao = SimulationActions.Falha,
-                        DataHora = DateTime.UtcNow,
-                        IpOrigem = "SISTEMA"
-                    });
-                    await _context.SaveChangesAsync(cancellationToken);
+                        "Alvo {TargetId} bloqueado pela allow-list de destino na campanha {CampaignId}.",
+                        target.Id,
+                        campaign.Id);
+                    await MarkFailedAsync(
+                        delivery,
+                        campaign,
+                        target,
+                        "DESTINATION_NOT_ALLOWED",
+                        cancellationToken);
                     continue;
                 }
 
                 try
                 {
-                    var message = new MimeMessage();
-                    // MÁSCARA DE REMETENTE: o NOME de exibição é a marca parodiada do cenário
-                    // (ex.: "Microsft 365", "NetsFlix"), mas o ENDEREÇO real é SEMPRE a conta SMTP
-                    // autenticada do tenant (ex.: phishguard.tcc@gmail.com). Provedores como o
-                    // Gmail reescrevem/recusam um From que não seja a conta autenticada — usar o
-                    // RemetenteEmail fictício (no-reply@microsft365.com) quebraria a entrega. Assim
-                    // o cabeçalho fica: "Microsft 365" <phishguard.tcc@gmail.com>.
-                    message.From.Add(new MailboxAddress(campaign.Template.RemetenteNome, smtpConfig.Usuario));
-                    message.To.Add(new MailboxAddress(target.Nome, target.Email));
-                    message.Subject = campaign.Template.Assunto;
+                    var message = _composer.Compose(
+                        campaign,
+                        target,
+                        senderEmail,
+                        deliveryConfig.SenderName);
+                    var result = await sender.SendAsync(
+                        message,
+                        deliveryConfig,
+                        idempotencyKey,
+                        cancellationToken);
 
-                    var trackingToken = Uri.EscapeDataString(_trackingTokenService.Create(campaign.Id, target.Id));
-                    var linkClique = $"{_baseTrackingUrl}/click/{campaign.Id}/{target.Id}?k={trackingToken}";
-                    var linkPixel = $"{_baseTrackingUrl}/open/{campaign.Id}/{target.Id}?k={trackingToken}";
-
-                    // TIMEZONE: todos os horários dos e-mails são carimbados no fuso de Brasília
-                    // (America/Sao_Paulo, UTC-3) a partir de UtcNow — ver HorarioBrasilia. Sem
-                    // isso, no contêiner (relógio UTC) os textos saíam 3h adiantados.
-
-                    // Expiração DINÂMICA do link (isca bho MAX): data/hora de ENVIO + 2h,
-                    // formatada no padrão "MMM dd, yyyy às hh:mm tt" (ex.: "Jul 22, 2026 às 04:30 PM").
-                    var expiraEm = HorarioBrasilia.Converter(DateTime.UtcNow.AddHours(2));
-                    var dataExpiracao = expiraEm.ToString("MMM dd, yyyy", CultureInfo.GetCultureInfo("en-US"))
-                        + " às " + expiraEm.ToString("hh:mm tt", CultureInfo.GetCultureInfo("en-US"));
-
-                    // Data/hora do "acesso detectado" (isca Microsft 365): momento
-                    // do ENVIO, padrão pt-BR "dd/MM/yyyy às HH:mm (BRT)".
-                    var agora = HorarioBrasilia.Agora();
-                    var dataAcesso = agora.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture)
-                        + " às " + agora.ToString("HH:mm", CultureInfo.InvariantCulture) + " (BRT)";
-
-                    var corpoPersonalizado = corpoBase
-                        .Replace("{{NOME}}", target.Nome)
-                        .Replace("{{LINK_PHISHING}}", linkClique)
-                        .Replace("{{LINK}}", linkClique)
-                        .Replace("{{DATA_EXPIRACAO}}", dataExpiracao)
-                        .Replace("{{DATA_ACESSO}}", dataAcesso);
-                    // PIXEL DE ABERTURA: NÃO use display:none/visibility:hidden. Muitos clientes
-                    // deixam de baixar imagens removidas do layout e, nesse caso, o endpoint nunca
-                    // é chamado. O pixel transparente continua imperceptível e acessível, mas é um
-                    // elemento renderizável de 1x1 que o cliente pode requisitar.
-                    corpoPersonalizado += $"<img src=\"{linkPixel}\" width=\"1\" height=\"1\" style=\"display:block !important; width:1px !important; height:1px !important; max-width:1px !important; max-height:1px !important; border:0 !important; margin:0 !important; padding:0 !important; opacity:0.01 !important; overflow:hidden !important;\" alt=\"\" aria-hidden=\"true\" />";
-
-                    // LOGOS INLINE (CID): o Gmail não renderiza SVG/data-URI, mas exibe
-                    // anexos inline por padrão. Para cada token de logo referenciado por
-                    // "cid:<token>" no corpo, anexa o PNG embutido como LinkedResource com o
-                    // Content-ID correspondente. Só anexa o que o corpo realmente referencia.
-                    var builder = new BodyBuilder { HtmlBody = corpoPersonalizado };
-                    foreach (var token in EmailLogoCatalog.Tokens)
+                    if (result.Success)
                     {
-                        if (corpoPersonalizado.Contains($"cid:{token}", StringComparison.OrdinalIgnoreCase)
-                            && EmailLogoCatalog.TryGetLogo(token, out var logoFile, out var logoBytes))
-                        {
-                            var linked = builder.LinkedResources.Add(logoFile, logoBytes, new ContentType("image", "png"));
-                            linked.ContentId = token;
-                        }
+                        delivery.Status = CampaignDeliveryStatus.Sent;
+                        delivery.ConcurrencyToken = Guid.NewGuid();
+                        delivery.SentAtUtc = DateTime.UtcNow;
+                        delivery.LeaseExpiresAtUtc = null;
+                        delivery.ProviderMessageId = Truncate(result.ProviderMessageId, 200);
+                        delivery.LastErrorCode = null;
+                        await RecordLogOnceAsync(campaign, target, SimulationActions.Envio, cancellationToken);
+
+                        if (_throttleBetweenSends > TimeSpan.Zero)
+                            await Task.Delay(_throttleBetweenSends, cancellationToken);
                     }
-
-                    message.Body = builder.ToMessageBody();
-
-                    // Envio sob retry. Antes de cada tentativa reforça a sessão SMTP (um envio
-                    // que falhou pode ter derrubado o socket) e então envia.
-                    await smtpRetryPolicy.ExecuteAsync(async ct =>
+                    else
                     {
-                        await GarantirConexaoAsync(ct);
-                        await ExecutarComTimeoutAsync(token => client.SendAsync(message, token), ct);
-                    }, cancellationToken);
-
-                    // Marca o Envio IMEDIATAMENTE após o sucesso e persiste, para que uma
-                    // queda logo em seguida não faça o alvo ser reenviado na retomada.
-                    _context.SimulationsLogs.Add(new SimulationLog
-                    {
-                        Id = Guid.NewGuid(),
-                        TenantId = campaign.TenantId,
-                        CampaignId = campaign.Id,
-                        TargetId = target.Id,
-                        Acao = SimulationActions.Envio,
-                        DataHora = DateTime.UtcNow,
-                        IpOrigem = "SISTEMA"
-                    });
-                    await _context.SaveChangesAsync(cancellationToken);
-
-                    // THROTTLING: pausa para não ser banido por spam pelo provedor SMTP.
-                    if (_throttleEntreEnvios > TimeSpan.Zero)
-                        await Task.Delay(_throttleEntreEnvios, cancellationToken);
+                        _logger.LogError(
+                            "Falha no transporte de e-mail do alvo {TargetId}, campanha {CampaignId}: {Code}.",
+                            target.Id,
+                            campaign.Id,
+                            result.ErrorCode);
+                        await MarkFailedAsync(
+                            delivery,
+                            campaign,
+                            target,
+                            result.ErrorCode ?? "EMAIL_SEND_FAILED",
+                            cancellationToken);
+                    }
                 }
                 catch (Exception ex) when (ex is not OperationCanceledException)
                 {
-                    // Falha DEFINITIVA (retries esgotados) para ESTE alvo. Loga e persiste um
-                    // log "Falha" para rastreabilidade, sem interromper o restante do lote.
-                    _logger.LogError(ex,
-                        "Falha definitiva ao enviar e-mail para {Email} na campanha {CampaignId} após todos os retries.",
-                        target.Email, campaign.Id);
-
-                    _context.SimulationsLogs.Add(new SimulationLog
-                    {
-                        Id = Guid.NewGuid(),
-                        TenantId = campaign.TenantId,
-                        CampaignId = campaign.Id,
-                        TargetId = target.Id,
-                        Acao = SimulationActions.Falha,
-                        DataHora = DateTime.UtcNow,
-                        IpOrigem = "SISTEMA"
-                    });
-
-                    // O SaveChanges do log de Falha é isolado: um erro ao persistir o próprio
-                    // log não pode, por sua vez, derrubar o processamento dos demais alvos.
-                    try
-                    {
-                        await _context.SaveChangesAsync(cancellationToken);
-                    }
-                    catch (Exception logEx) when (logEx is not OperationCanceledException)
-                    {
-                        _logger.LogError(logEx,
-                            "Não foi possível persistir o log de Falha do alvo {TargetId} (campanha {CampaignId}).",
-                            target.Id, campaign.Id);
-                    }
+                    _logger.LogError(
+                        ex,
+                        "Falha definitiva no alvo {TargetId}, campanha {CampaignId}.",
+                        target.Id,
+                        campaign.Id);
+                    await MarkFailedAsync(
+                        delivery,
+                        campaign,
+                        target,
+                        "EMAIL_SEND_EXCEPTION",
+                        cancellationToken);
                 }
             }
 
-            try
-            {
-                await ExecutarComTimeoutAsync(token => client.DisconnectAsync(true, token), cancellationToken);
-            }
-            catch (Exception ex) when (ex is not OperationCanceledException)
-            {
-                // O lote já foi persistido por alvo. Uma falha ao encerrar a sessão não
-                // transforma entregas concluídas em falha nem provoca reprocessamento.
-                _logger.LogWarning(ex,
-                    "Não foi possível encerrar normalmente a sessão SMTP da campanha {CampaignId}.",
-                    campaign.Id);
-            }
-
-            // Lote 100% processado: sai de "Processando" para "Em Andamento" (coleta).
-            campaign.Status = CampaignStatus.EmAndamento;
+            if (!hasActiveLease)
+                campaign.Status = CampaignStatus.EmAndamento;
             await _context.SaveChangesAsync(cancellationToken);
         }
 
-        /// <summary>
-        /// Política de retry para operações SMTP: 3 retries (4 tentativas no total), backoff exponencial
-        /// (2s → 4s → 8s) + jitter aleatório de até 1s por tentativa. O jitter descorrelaciona
-        /// reconexões simultâneas, evitando picos de carga contra o servidor SMTP.
-        /// <see cref="OperationCanceledException"/> é deixada propagar (shutdown/cancelamento).
-        /// </summary>
-        private AsyncRetryPolicy BuildSmtpRetryPolicy()
-        {
-            const int maxTentativas = 3;
-
-            return Policy
-                // Credencial/configuração inválida não é transitória: repetir apenas aumenta
-                // o tempo em "Processando" e pode acelerar bloqueios no provedor.
-                .Handle<Exception>(ex => ex is not OperationCanceledException
-                    and not SmtpOperationalException
-                    and not MailKit.Security.AuthenticationException)
-                .WaitAndRetryAsync(
-                    retryCount: maxTentativas,
-                    sleepDurationProvider: _backoffProvider, // produção: 2/4/8s + jitter; testes: zero
-                    onRetry: (ex, delay, tentativa, _) =>
-                        _logger.LogWarning(ex,
-                            "Falha SMTP transitória (tentativa {Tentativa}/{Max}). Novo retry em {Delay:g}.",
-                            tentativa, maxTentativas, delay));
-        }
-
-        private async Task ExecutarComTimeoutAsync(
-            Func<CancellationToken, Task> operation,
+        private async Task<CampaignDelivery?> TryClaimDeliveryAsync(
+            Campaign campaign,
+            Target target,
+            string idempotencyKey,
+            CampaignDelivery? delivery,
             CancellationToken cancellationToken)
         {
-            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            timeoutCts.CancelAfter(_smtpOperationTimeout);
+            var now = DateTime.UtcNow;
+            var isNew = delivery == null;
+
+            if (delivery?.Status == CampaignDeliveryStatus.Sent)
+                return null;
+            if (delivery?.Status == CampaignDeliveryStatus.Processing
+                && delivery.LeaseExpiresAtUtc > now)
+                return null;
+
+            if (isNew)
+            {
+                delivery = new CampaignDelivery
+                {
+                    Id = Guid.NewGuid(),
+                    TenantId = campaign.TenantId,
+                    CampaignId = campaign.Id,
+                    TargetId = target.Id,
+                    IdempotencyKey = idempotencyKey
+                };
+                _context.CampaignDeliveries.Add(delivery);
+            }
+
+            delivery!.Status = CampaignDeliveryStatus.Processing;
+            delivery.AttemptCount++;
+            delivery.ConcurrencyToken = Guid.NewGuid();
+            delivery.LastAttemptAtUtc = now;
+            delivery.LeaseExpiresAtUtc = now.Add(DeliveryLease);
+            delivery.LastErrorCode = null;
 
             try
             {
-                await operation(timeoutCts.Token);
+                await _context.SaveChangesAsync(cancellationToken);
+                return delivery;
             }
-            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+            catch (DbUpdateConcurrencyException)
             {
-                throw new TimeoutException(
-                    $"A operação SMTP excedeu o limite de {_smtpOperationTimeout.TotalSeconds:0} segundos.");
+                _context.Entry(delivery).State = EntityState.Detached;
+                return null;
             }
+            catch (DbUpdateException) when (isNew)
+            {
+                _context.Entry(delivery).State = EntityState.Detached;
+                var winnerExists = await _context.CampaignDeliveries
+                    .IgnoreQueryFilters()
+                    .AsNoTracking()
+                    .AnyAsync(
+                        item => item.CampaignId == campaign.Id && item.TargetId == target.Id,
+                        cancellationToken);
+                if (winnerExists) return null;
+                throw;
+            }
+        }
+
+        private async Task MarkFailedAsync(
+            CampaignDelivery delivery,
+            Campaign campaign,
+            Target target,
+            string errorCode,
+            CancellationToken cancellationToken)
+        {
+            delivery.Status = CampaignDeliveryStatus.Failed;
+            delivery.ConcurrencyToken = Guid.NewGuid();
+            delivery.LeaseExpiresAtUtc = null;
+            delivery.LastErrorCode = Truncate(errorCode, 100);
+            await RecordLogOnceAsync(campaign, target, SimulationActions.Falha, cancellationToken);
+        }
+
+        private async Task RecordLogOnceAsync(
+            Campaign campaign,
+            Target target,
+            string action,
+            CancellationToken cancellationToken)
+        {
+            var existing = await _context.SimulationsLogs
+                .IgnoreQueryFilters()
+                .FirstOrDefaultAsync(
+                    log => log.CampaignId == campaign.Id
+                        && log.TargetId == target.Id
+                        && log.Acao == action,
+                    cancellationToken);
+
+            if (existing == null)
+            {
+                _context.SimulationsLogs.Add(new SimulationLog
+                {
+                    Id = Guid.NewGuid(),
+                    TenantId = campaign.TenantId,
+                    CampaignId = campaign.Id,
+                    TargetId = target.Id,
+                    Acao = action,
+                    DataHora = DateTime.UtcNow,
+                    IpOrigem = "SISTEMA"
+                });
+            }
+            else if (action == SimulationActions.Falha)
+            {
+                existing.DataHora = DateTime.UtcNow;
+            }
+
+            await _context.SaveChangesAsync(cancellationToken);
+        }
+
+        private static string? Truncate(string? value, int maxLength)
+            => value is null || value.Length <= maxLength ? value : value[..maxLength];
+
+        private static TimeSpan ResolverThrottle(IConfiguration configuration)
+        {
+            var milliseconds = configuration.GetValue<int?>("AppSettings:SmtpThrottleMs") ?? 300;
+            return TimeSpan.FromMilliseconds(Math.Max(0, milliseconds));
+        }
+
+        private static IReadOnlyCollection<string> ResolverDominiosPermitidos(IConfiguration configuration)
+        {
+            var raw = configuration["AppSettings:OutboundEmailAllowedDomains"];
+            if (string.IsNullOrWhiteSpace(raw)) return Array.Empty<string>();
+
+            return raw
+                .Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Select(domain => domain.TrimStart('@').ToLowerInvariant())
+                .Where(domain => domain.Length > 0)
+                .Distinct()
+                .ToArray();
+        }
+
+        private bool DestinoPermitido(string email)
+        {
+            if (_allowedDomains.Count == 0) return true;
+            var at = email.LastIndexOf('@');
+            if (at < 0 || at == email.Length - 1) return false;
+            return _allowedDomains.Contains(email[(at + 1)..].ToLowerInvariant());
         }
     }
 }

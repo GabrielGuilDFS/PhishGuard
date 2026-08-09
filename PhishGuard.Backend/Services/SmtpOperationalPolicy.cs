@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Configuration;
 using PhishGuard.Backend.DTOs;
 using PhishGuard.Backend.Models;
+using PhishGuard.Backend.Services.Delivery;
 
 namespace PhishGuard.Backend.Services;
 
@@ -19,12 +20,33 @@ public static class SmtpOperationalPolicy
     public const string ConnectionTimeoutCode = "SMTP_CONNECTION_TIMEOUT";
     public const string ConnectionFailedCode = "SMTP_CONNECTION_FAILED";
 
-    public static bool IsConfigured(SmtpConfig? config) =>
-        config is not null
-        && !string.IsNullOrWhiteSpace(config.Host)
-        && config.Porta is > 0 and <= 65535
-        && !string.IsNullOrWhiteSpace(config.Usuario)
-        && !string.IsNullOrWhiteSpace(config.Senha);
+    public static bool IsConfigured(SmtpConfig? config)
+    {
+        if (config == null) return false;
+
+        if (config.ProviderType == EmailProviderType.ProviderApi)
+        {
+            if (!Enum.IsDefined(config.ApiProvider)
+                || string.IsNullOrWhiteSpace(config.EncryptedApiKey)
+                || string.IsNullOrWhiteSpace(config.SenderEmail))
+                return false;
+
+            return config.ApiProvider switch
+            {
+                ApiProviderName.AwsSes =>
+                    !string.IsNullOrWhiteSpace(config.ApiAccountIdentifier)
+                    && EmailProviderPolicy.IsSupportedAwsRegion(config.ApiRegion),
+                ApiProviderName.MailtrapSandbox =>
+                    EmailProviderPolicy.TryParseMailtrapSandboxId(config.ApiAccountIdentifier, out _),
+                _ => true
+            };
+        }
+
+        return !string.IsNullOrWhiteSpace(config.Host)
+            && config.Porta is > 0 and <= 65535
+            && !string.IsNullOrWhiteSpace(config.Usuario)
+            && !string.IsNullOrWhiteSpace(config.Senha);
+    }
 
     public static string? ValidateCredential(
         SmtpConfig? config,
@@ -34,7 +56,14 @@ public static class SmtpOperationalPolicy
 
         try
         {
-            return string.IsNullOrWhiteSpace(credentialProtector.Unprotect(config!.Senha))
+            if (config!.ProviderType == EmailProviderType.ProviderApi)
+            {
+                return string.IsNullOrWhiteSpace(config.EncryptedApiKey)
+                    ? CredentialUnreadableCode
+                    : null;
+            }
+
+            return string.IsNullOrWhiteSpace(credentialProtector.Unprotect(config.Senha))
                 ? CredentialUnreadableCode
                 : null;
         }
@@ -56,16 +85,25 @@ public static class SmtpOperationalPolicy
     public static SmtpStatusDto ToStatus(
         SmtpConfig? config,
         IConfiguration configuration,
-        string? credentialErrorCode = null) => new()
+        string? credentialErrorCode = null)
     {
-        Configurado = IsConfigured(config) && credentialErrorCode is null,
-        SenhaConfigurada = !string.IsNullOrWhiteSpace(config?.Senha),
-        TransporteDisponivel = IsTransportEnabled(configuration),
-        TransporteIndisponivelMotivo = GetTransportDisabledReason(configuration),
-        UltimoTesteEmUtc = config?.UltimoTesteEmUtc,
-        UltimoTesteSucesso = config?.UltimoTesteSucesso,
-        UltimoErroCodigo = credentialErrorCode ?? config?.UltimoErroCodigo,
-    };
+        var providerType = config?.ProviderType ?? EmailProviderType.Smtp;
+        var transportEnabled = providerType == EmailProviderType.ProviderApi || IsTransportEnabled(configuration);
+
+        return new SmtpStatusDto
+        {
+            Configurado = IsConfigured(config) && credentialErrorCode is null,
+            ProviderType = providerType,
+            ApiProvider = config?.ApiProvider ?? ApiProviderName.AwsSes,
+            SenhaConfigurada = !string.IsNullOrWhiteSpace(config?.Senha),
+            ApiKeyConfigured = !string.IsNullOrWhiteSpace(config?.EncryptedApiKey),
+            TransporteDisponivel = transportEnabled,
+            TransporteIndisponivelMotivo = transportEnabled ? null : GetTransportDisabledReason(configuration),
+            UltimoTesteEmUtc = config?.UltimoTesteEmUtc,
+            UltimoTesteSucesso = config?.UltimoTesteSucesso,
+            UltimoErroCodigo = credentialErrorCode ?? config?.UltimoErroCodigo,
+        };
+    }
 
     public static (string Code, string Message) Classify(Exception exception) => exception switch
     {
@@ -78,6 +116,6 @@ public static class SmtpOperationalPolicy
             (ConnectionFailedCode, "Não foi possível conectar ao servidor SMTP. Verifique host, porta e as restrições de rede do ambiente."),
         MailKit.Security.SslHandshakeException =>
             (ConnectionFailedCode, "Falha ao negociar uma conexão segura com o servidor SMTP. Verifique a porta e o modo TLS."),
-        _ => (ConnectionFailedCode, "Não foi possível concluir a operação SMTP. Verifique a configuração e tente novamente."),
+        _ => (ConnectionFailedCode, "Não foi possível concluir a operação de e-mail. Verifique a configuração e tente novamente."),
     };
 }

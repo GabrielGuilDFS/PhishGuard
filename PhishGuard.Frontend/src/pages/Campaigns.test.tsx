@@ -36,7 +36,7 @@ const fetchMock = vi.fn((url: string) => {
   if (String(url).includes('/Campaigns')) {
     return Promise.resolve({ ok: true, json: async () => [campanha()] });
   }
-  if (String(url).includes('/SmtpConfig/status')) {
+  if (String(url).includes('/email-delivery/status')) {
     return Promise.resolve({
       ok: true,
       json: async () => ({
@@ -95,8 +95,8 @@ describe('Campaigns — atualização reativa do status (polling inteligente)', 
     renderTela();
     await flush();
 
-    expect(screen.getByText(/servidor SMTP ainda não foi configurado/i)).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /configurar smtp/i })).toHaveAttribute('href', '/admin/settings?tab=smtp');
+    expect(screen.getByText(/entrega de e-mail ainda não foi configurada/i)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /configurar entrega/i })).toHaveAttribute('href', '/admin/settings?tab=smtp');
   });
 
   it('abre o modal novo via ?nova=1 sem recarregar a listagem', async () => {

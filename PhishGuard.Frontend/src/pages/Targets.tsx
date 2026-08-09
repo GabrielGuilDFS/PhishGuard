@@ -232,7 +232,7 @@ export default function Targets() {
     const token = getToken();
     
     try {
-      const response = await authFetch(`${API_BASE}/SmtpConfig/Testar`, {
+      const response = await authFetch(`${API_BASE}/email-delivery/test`, {
         method: 'POST',
         headers: { 
           'Authorization': `Bearer ${token}`,
@@ -245,7 +245,7 @@ export default function Targets() {
         showNotify(`Disparo bem-sucedido para ${emailDestino}!`, "success");
       } else {
         const data = await response.json().catch(() => null) as { message?: string } | null;
-        showNotify(data?.message ?? "Não foi possível concluir o teste SMTP.", "error");
+        showNotify(data?.message ?? "Não foi possível concluir o teste de entrega de e-mail.", "error");
       }
     } catch {
       showNotify("Erro de rede ao tentar contatar o servidor.", "error");

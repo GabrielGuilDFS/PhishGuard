@@ -202,6 +202,43 @@ public class CampaignDispatchServiceTests
         Assert.Single(await LogsAsync(ctx, campaign.Id, SimulationActions.Envio));
         Assert.Empty(await LogsAsync(ctx, campaign.Id, SimulationActions.Falha));
         Assert.Equal(CampaignStatus.EmAndamento, campaign.Status);
+        var delivery = await ctx.CampaignDeliveries.IgnoreQueryFilters().SingleAsync();
+        Assert.Equal(CampaignDeliveryStatus.Sent, delivery.Status);
+        Assert.Equal($"campaign/{campaign.Id:N}/target/{campaign.Targets.Single().Id:N}", delivery.IdempotencyKey);
+    }
+
+    [Fact]
+    public async Task Envio_CincoAlvos_GeraUmaEntregaIdempotentePorDestinatario()
+    {
+        var emails = Enumerable.Range(1, 5)
+            .Select(numero => $"alvo{numero}@empresa.com")
+            .ToArray();
+        var (ctx, campaign) = await SemearCampanhaAsync(emails);
+        var client = new FakeSmtpClient(_ => false);
+        var servico = CriarServico(ctx, client);
+
+        await servico.DispatchAsync(campaign);
+
+        Assert.Equal(5, client.SendCount);
+        Assert.Equal(5, (await LogsAsync(ctx, campaign.Id, SimulationActions.Envio)).Count);
+        var deliveries = await ctx.CampaignDeliveries.IgnoreQueryFilters().ToListAsync();
+        Assert.Equal(5, deliveries.Count);
+        Assert.Equal(5, deliveries.Select(delivery => delivery.IdempotencyKey).Distinct().Count());
+    }
+
+    [Fact]
+    public async Task Reexecucao_AposEntrega_NaoEnviaNovamenteOMesmoAlvo()
+    {
+        var (ctx, campaign) = await SemearCampanhaAsync("alvo@empresa.com");
+        var client = new FakeSmtpClient(_ => false);
+        var servico = CriarServico(ctx, client);
+
+        await servico.DispatchAsync(campaign);
+        await servico.DispatchAsync(campaign);
+
+        Assert.Equal(1, client.SendCount);
+        Assert.Single(await LogsAsync(ctx, campaign.Id, SimulationActions.Envio));
+        Assert.Single(await ctx.CampaignDeliveries.IgnoreQueryFilters().ToListAsync());
     }
 
     [Fact]

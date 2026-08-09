@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { alpha } from '@mui/material/styles';
 // Teste de UI co-located (padrão de espelhamento do frontend).
 import Settings from './Settings';
@@ -21,6 +21,34 @@ afterEach(() => {
   // Sem token: os dois useEffect de carga (perfil/SMTP) fazem early-return antes de
   // chamar fetch — a tela renderiza puramente síncrona, sem precisar mockar rede.
   localStorage.clear();
+});
+
+describe('Settings — entrega multi-provedor', () => {
+  it('mantém SMTP e permite alternar para API HTTPS com campos do AWS SES', () => {
+    renderSettings();
+    fireEvent.click(screen.getByRole('tab', { name: /entrega de e-mail/i }));
+
+    expect(screen.getByRole('button', { name: /servidor smtp/i })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /api https/i }));
+
+    expect(screen.getByLabelText(/provedor por api/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/aws access key id/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/aws secret access key/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/região aws ses/i)).toBeInTheDocument();
+  });
+
+  it('oferece Mailtrap Sandbox e informa que destinatários reais não recebem mensagens', () => {
+    renderSettings();
+    fireEvent.click(screen.getByRole('tab', { name: /entrega de e-mail/i }));
+    fireEvent.click(screen.getByRole('button', { name: /api https/i }));
+
+    fireEvent.mouseDown(screen.getByLabelText(/provedor por api/i));
+    fireEvent.click(screen.getByRole('option', { name: /mailtrap sandbox/i }));
+
+    expect(screen.getByLabelText(/mailtrap sandbox id/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/mailtrap api token/i)).toBeInTheDocument();
+    expect(screen.getByText(/não receberão e-mails em suas caixas reais/i)).toBeInTheDocument();
+  });
 });
 
 describe('Settings — bordas suavizadas', () => {

@@ -79,6 +79,17 @@ public class TenantIsolationTests
             DataHora = DateTime.UtcNow,
             IpOrigem = "127.0.0.1",
         });
+        db.CampaignDeliveries.Add(new CampaignDelivery
+        {
+            Id = Guid.NewGuid(),
+            CampaignId = campaign.Id,
+            TargetId = target.Id,
+            IdempotencyKey = $"campaign/{campaign.Id:N}/target/{target.Id:N}",
+            Status = CampaignDeliveryStatus.Sent,
+            AttemptCount = 1,
+            LastAttemptAtUtc = DateTime.UtcNow,
+            SentAtUtc = DateTime.UtcNow
+        });
         await db.SaveChangesAsync();
 
         return (campaign.Id, target.Id);
@@ -104,17 +115,20 @@ public class TenantIsolationTests
         Assert.Empty(await h.Db.PhishingPages.ToListAsync());
         Assert.Empty(await h.Db.EducationalPages.ToListAsync());
         Assert.Empty(await h.Db.SimulationsLogs.ToListAsync());
+        Assert.Empty(await h.Db.CampaignDeliveries.ToListAsync());
 
         // Mas o dado EXISTE (o que muda é só a visibilidade via filtro).
         Assert.Equal(1, await h.Db.Targets.IgnoreQueryFilters().CountAsync());
         Assert.Equal(1, await h.Db.Campaigns.IgnoreQueryFilters().CountAsync());
         Assert.Equal(1, await h.Db.SimulationsLogs.IgnoreQueryFilters().CountAsync());
+        Assert.Equal(1, await h.Db.CampaignDeliveries.IgnoreQueryFilters().CountAsync());
 
         // De volta ao Tenant A: enxerga o próprio grafo.
         h.UsarTenant(tenantA);
         Assert.Single(await h.Db.Targets.ToListAsync());
         Assert.Single(await h.Db.Campaigns.ToListAsync());
         Assert.Single(await h.Db.SimulationsLogs.ToListAsync());
+        Assert.Single(await h.Db.CampaignDeliveries.ToListAsync());
     }
 
     // ------------------------------------------------------------------------------------

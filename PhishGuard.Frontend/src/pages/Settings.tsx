@@ -16,11 +16,12 @@ import {
   ToggleButtonGroup,
   Alert,
   Chip,
-  CircularProgress
+  CircularProgress,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem
 } from '@mui/material';
-// Deep imports (não o barrel `@mui/icons-material`): named imports do barrel quebram
-// o Vitest no Windows com EMFILE (milhares de ícones abertos de uma vez) — gotcha já
-// documentado no projeto.
 import SaveIcon from '@mui/icons-material/Save';
 import LockIcon from '@mui/icons-material/Lock';
 import EmailIcon from '@mui/icons-material/Email';
@@ -29,6 +30,8 @@ import SendIcon from '@mui/icons-material/Send';
 import PaletteIcon from '@mui/icons-material/Palette';
 import LightModeIcon from '@mui/icons-material/LightMode';
 import DarkModeIcon from '@mui/icons-material/DarkMode';
+import VpnKeyIcon from '@mui/icons-material/VpnKey';
+import CloudQueueIcon from '@mui/icons-material/CloudQueue';
 import { alpha } from '@mui/material/styles';
 import { useNotify } from '../context/NotificationContext';
 import { useThemeMode } from '../context/ThemeModeContext';
@@ -43,7 +46,10 @@ interface TabPanelProps {
 
 interface SmtpStatus {
   configurado: boolean;
+  providerType?: number;
+  apiProvider?: number;
   senhaConfigurada: boolean;
+  apiKeyConfigured?: boolean;
   transporteDisponivel: boolean;
   transporteIndisponivelMotivo?: string;
   ultimoTesteEmUtc?: string;
@@ -51,19 +57,28 @@ interface SmtpStatus {
   ultimoErroCodigo?: string;
 }
 
+interface EmailDeliveryConfigResponse {
+  providerType: number;
+  apiProvider: number;
+  senderEmail: string;
+  senderName: string;
+  apiAccountIdentifier: string;
+  apiRegion: string;
+  host: string;
+  porta: number;
+  usuario: string;
+}
+
+interface ProfileResponse {
+  nome?: string;
+  email?: string;
+}
+
 function TabPanel(props: TabPanelProps) {
   const { children, value, index, ...other } = props;
   return (
-    <div
-      role="tabpanel"
-      hidden={value !== index}
-      {...other}
-    >
-      {value === index && (
-        <Box sx={{ p: 3 }}>
-          {children}
-        </Box>
-      )}
+    <div role="tabpanel" hidden={value !== index} {...other}>
+      {value === index && <Box sx={{ p: 3 }}>{children}</Box>}
     </div>
   );
 }
@@ -80,8 +95,6 @@ export default function Settings() {
   const [testingSmtp, setTestingSmtp] = useState(false);
 
   const handleChangeMode = (_event: React.MouseEvent<HTMLElement>, novoModo: AppThemeMode | null) => {
-    // ToggleButtonGroup emite null quando o usuário clica no botão já ativo — ignora
-    // para nunca ficar sem tema selecionado.
     if (!novoModo || novoModo === mode) return;
     setMode(novoModo);
     showNotify(`Modo ${novoModo === 'dark' ? 'escuro' : 'claro'} ativado.`, 'success');
@@ -122,7 +135,7 @@ export default function Settings() {
           }
         });
         if (response.ok) {
-          const data = await response.json();
+          const data = await response.json() as ProfileResponse;
           setProfile(prev => ({
             ...prev,
             nome: data.nome || prev.nome,
@@ -138,6 +151,13 @@ export default function Settings() {
   }, []);
 
   const [smtp, setSmtp] = useState({
+    providerType: 0,
+    apiProvider: 0,
+    senderEmail: '',
+    senderName: '',
+    apiKey: '',
+    apiAccountIdentifier: '',
+    apiRegion: 'us-east-1',
     host: 'smtp.gmail.com',
     port: '587',
     user: '',
@@ -153,7 +173,7 @@ export default function Settings() {
           return;
         }
 
-        const response = await authFetch(`${API_BASE}/SmtpConfig`, {
+        const response = await authFetch(`${API_BASE}/email-delivery/config`, {
           method: 'GET',
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -162,30 +182,33 @@ export default function Settings() {
         });
 
         if (response.ok) {
-          const data = await response.json();
-          // A API serializa em camelCase (host/porta/usuario), não PascalCase.
-          // A senha nunca volta do backend (por segurança), então preserva a digitada.
+          const data = await response.json() as EmailDeliveryConfigResponse;
           setSmtp(prev => ({
             ...prev,
+            providerType: data.providerType ?? 0,
+            apiProvider: data.apiProvider ?? 0,
+            senderEmail: data.senderEmail || '',
+            senderName: data.senderName || '',
             host: data.host || '',
             port: data.porta ? data.porta.toString() : '587',
             user: data.usuario || '',
-            password: prev.password
+            password: prev.password,
+            apiKey: prev.apiKey,
+            apiAccountIdentifier: data.apiAccountIdentifier || '',
+            apiRegion: data.apiRegion || 'us-east-1'
           }));
         }
 
-        const statusResponse = await authFetch(`${API_BASE}/SmtpConfig/status`, {
+        const statusResponse = await authFetch(`${API_BASE}/email-delivery/status`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         if (statusResponse.ok) setSmtpStatus(await statusResponse.json() as SmtpStatus);
       } catch (error) {
-        console.error("Erro ao carregar configurações de SMTP", error);
+        console.error("Erro ao carregar configurações de e-mail", error);
       }
     };
 
     fetchSmtpConfig();
-    // Carga inicial: roda uma unica vez na montagem. `showNotify` vem do contexto e nao
-    // deve reexecutar a busca de configuracao de SMTP quando a identidade dela mudar.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -244,19 +267,46 @@ export default function Settings() {
       }
 
       const porta = Number(smtp.port);
-      if (!Number.isInteger(porta) || porta <= 0 || porta > 65535) {
+      if (smtp.providerType === 0 && (!Number.isInteger(porta) || porta <= 0 || porta > 65535)) {
         showNotify("A porta SMTP deve ser um número válido (1-65535).", "error");
+        return;
+      }
+      if (smtp.providerType === 1 && !/^\S+@\S+\.\S+$/.test(smtp.senderEmail.trim())) {
+        showNotify("Informe um e-mail de remetente autorizado válido.", "error");
+        return;
+      }
+      if (smtp.providerType === 1
+        && !smtp.apiKey
+        && (!smtpStatus?.apiKeyConfigured
+          || smtpStatus.providerType !== 1
+          || smtpStatus.apiProvider !== smtp.apiProvider)) {
+        showNotify("Informe a credencial do provedor selecionado.", "error");
+        return;
+      }
+      if (smtp.providerType === 1 && smtp.apiProvider === 0 && !smtp.apiAccountIdentifier.trim()) {
+        showNotify("Informe o AWS Access Key ID.", "error");
+        return;
+      }
+      if (smtp.providerType === 1 && smtp.apiProvider === 4 && !/^\d+$/.test(smtp.apiAccountIdentifier.trim())) {
+        showNotify("Informe o Sandbox ID numérico do Mailtrap.", "error");
         return;
       }
 
       const payload = {
+        ProviderType: smtp.providerType,
+        ApiProvider: smtp.apiProvider,
+        SenderEmail: smtp.senderEmail,
+        SenderName: smtp.senderName,
+        ApiKey: smtp.apiKey,
+        ApiAccountIdentifier: smtp.apiAccountIdentifier,
+        ApiRegion: smtp.apiRegion,
         Host: smtp.host,
         Porta: porta,
         Usuario: smtp.user,
         Senha: smtp.password
       };
 
-      const response = await authFetch(`${API_BASE}/SmtpConfig`, {
+      const response = await authFetch(`${API_BASE}/email-delivery/config`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -267,9 +317,8 @@ export default function Settings() {
 
       if (response.ok) {
         const data = await response.json() as { status?: SmtpStatus };
-        showNotify("Configurações de SMTP salvas com sucesso!", "success");
-        // Opcional: limpar o campo de senha da tela após salvar, já que o C# processou
-        setSmtp(prev => ({ ...prev, password: '' }));
+        showNotify("Configurações de envio de e-mail salvas com sucesso!", "success");
+        setSmtp(prev => ({ ...prev, password: '', apiKey: '' }));
         if (data.status) setSmtpStatus(data.status);
         setSmtpDirty(false);
       } else {
@@ -284,13 +333,16 @@ export default function Settings() {
   };
 
   const handleTestEmail = async () => {
-
     if (smtpDirty) {
-      showNotify("Salve as alterações SMTP antes de executar o teste.", "warning");
+      showNotify("Salve as alterações antes de executar o teste.", "warning");
       return;
     }
 
-    const emailDestino = window.prompt("Digite o e-mail que receberá a mensagem de teste do PhishGuard:");
+    const emailDestino = window.prompt(
+      smtp.apiProvider === 4
+        ? "Digite o destinatário simulado que aparecerá no Mailtrap Sandbox:"
+        : "Digite o e-mail que receberá a mensagem de teste do PhishGuard:"
+    );
 
     if (!emailDestino) return;
 
@@ -300,7 +352,7 @@ export default function Settings() {
       setTestingSmtp(true);
       const token = getToken();
 
-      const response = await authFetch(`${API_BASE}/SmtpConfig/Testar`, {
+      const response = await authFetch(`${API_BASE}/email-delivery/test`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -312,11 +364,17 @@ export default function Settings() {
       });
 
       if (response.ok) {
-        showNotify("Teste de conexão bem-sucedido! Verifique a caixa de entrada.", "success");
+        const data = await response.json().catch(() => null) as { message?: string } | null;
+        showNotify(
+          data?.message ?? (smtp.apiProvider === 4
+            ? "Mensagem capturada! Verifique o Mailtrap Sandbox."
+            : "Teste de conexão bem-sucedido! Verifique a caixa de entrada."),
+          "success"
+        );
         setSmtpStatus(prev => prev ? { ...prev, ultimoTesteSucesso: true, ultimoTesteEmUtc: new Date().toISOString(), ultimoErroCodigo: undefined } : prev);
       } else {
         const data = await response.json().catch(() => null) as { code?: string; message?: string } | null;
-        showNotify(data?.message ?? "Não foi possível concluir o teste SMTP.", "error");
+        showNotify(data?.message ?? "Não foi possível concluir o teste de envio.", "error");
         setSmtpStatus(prev => prev ? { ...prev, ultimoTesteSucesso: false, ultimoTesteEmUtc: new Date().toISOString(), ultimoErroCodigo: data?.code } : prev);
       }
     } catch {
@@ -332,14 +390,7 @@ export default function Settings() {
         Configurações do Sistema
       </Typography>
 
-      {/* Sem borda: `elevation={2}` já dá ao painel uma sombra suave, suficiente para
-          delimitá-lo do fundo (mesmo neutro que a página) sem precisar de um contorno
-          — a mesma lógica "flutuante" aplicada ao header/sidebar do AdminLayout. */}
       <Paper elevation={2}>
-        {/* Separador funcional (faixa de abas → conteúdo): mantém a borda, mas diluída
-            — mesmo alpha usado nos <Divider /> do AdminLayout, já que aqui ela também
-            está cercada de conteúdo e não precisa competir por atenção como o contorno
-            externo do painel. */}
         <Box sx={{ borderBottom: 1, borderColor: (theme) => alpha(theme.palette.divider, 0.16) }}>
           <Tabs
             value={tabValue}
@@ -349,7 +400,7 @@ export default function Settings() {
             indicatorColor="primary"
           >
             <Tab icon={<SettingsIcon />} iconPosition="start" label="Meu Perfil" />
-            <Tab icon={<EmailIcon />} iconPosition="start" label="Servidor de E-mail (SMTP)" />
+            <Tab icon={<EmailIcon />} iconPosition="start" label="Entrega de E-mail" />
             <Tab icon={<PaletteIcon />} iconPosition="start" label="Aparência" />
           </Tabs>
         </Box>
@@ -413,25 +464,28 @@ export default function Settings() {
             )}
             {smtpStatus?.ultimoErroCodigo === 'SMTP_CREDENTIAL_UNREADABLE' && (
               <Alert severity="warning" sx={{ mb: 2 }}>
-                A senha salva pertence a uma chave de criptografia antiga. Digite a senha SMTP novamente e salve para recuperar os disparos.
+                A credencial salva pertence a uma chave antiga. Digite os dados novamente e salve a configuração.
               </Alert>
             )}
             <Stack direction="row" spacing={1} sx={{ mb: 2, flexWrap: 'wrap' }} useFlexGap>
               <Chip
-                label={smtpStatus?.configurado ? 'Configuração salva' : 'SMTP não configurado'}
+                label={smtpStatus?.configurado ? 'Configuração salva' : 'Não configurado'}
                 color={smtpStatus?.configurado ? 'success' : 'warning'}
                 size="small"
               />
-              {smtpStatus?.senhaConfigurada && <Chip label="Senha cadastrada" color="info" size="small" />}
+              {smtp.providerType === 0 && smtpStatus?.senhaConfigurada && <Chip label="Senha SMTP cadastrada" color="info" size="small" />}
+              {smtp.providerType === 1 && smtpStatus?.apiKeyConfigured && <Chip label="API Key cadastrada" color="info" size="small" />}
+              {smtp.providerType === 1 && smtpStatus?.transporteDisponivel && <Chip label="HTTPS disponível" color="success" size="small" />}
               {smtpDirty && <Chip label="Alterações não salvas" color="warning" size="small" />}
               {smtpStatus?.ultimoTesteSucesso === true && <Chip label="Último teste aprovado" color="success" size="small" />}
               {smtpStatus?.ultimoTesteSucesso === false && <Chip label="Último teste falhou" color="error" size="small" />}
             </Stack>
+
             <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
               <Box>
                 <Typography variant="h6">Configuração de Disparo</Typography>
                 <Typography variant="body2" color="textSecondary">
-                  Defina qual servidor será usado para enviar os ataques simulados.
+                  Defina o método de envio utilizado para transmitir as simulações de e-mail.
                 </Typography>
               </Box>
               <Button
@@ -444,50 +498,197 @@ export default function Settings() {
               </Button>
             </Stack>
 
-            <Stack direction="row" spacing={2}>
-              <TextField
+            <Box sx={{ mb: 3 }}>
+              <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 'bold' }}>Método de Transporte</Typography>
+              <ToggleButtonGroup
+                value={smtp.providerType}
+                exclusive
+                onChange={(_e, val) => {
+                  if (val !== null) {
+                    setSmtp({ ...smtp, providerType: val });
+                    setSmtpDirty(true);
+                  }
+                }}
+                color="primary"
                 fullWidth
-                label="Host SMTP"
-                placeholder="smtp.gmail.com"
-                margin="normal"
-                value={smtp.host}
-                onChange={(e) => { setSmtp({ ...smtp, host: e.target.value }); setSmtpDirty(true); }}
-              />
-              <TextField
-                sx={{ width: 150 }}
-                label="Porta"
-                placeholder="587"
-                type="number"
-                margin="normal"
-                value={smtp.port}
-                inputProps={{ min: 1, max: 65535, step: 1 }}
-                onChange={(e) => { setSmtp({ ...smtp, port: e.target.value }); setSmtpDirty(true); }}
-              />
-            </Stack>
+              >
+                <ToggleButton value={0}>
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <EmailIcon fontSize="small" />
+                    <span>Servidor SMTP (Local / Relay)</span>
+                  </Stack>
+                </ToggleButton>
+                <ToggleButton value={1}>
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <CloudQueueIcon fontSize="small" />
+                    <span>API HTTPS (SaaS / Sandbox)</span>
+                  </Stack>
+                </ToggleButton>
+              </ToggleButtonGroup>
+            </Box>
 
-            <TextField
-              fullWidth
-              label="Usuário SMTP / E-mail"
-              margin="normal"
-              value={smtp.user}
-              onChange={(e) => { setSmtp({ ...smtp, user: e.target.value }); setSmtpDirty(true); }}
-            />
-            <TextField
-              fullWidth
-              type="password"
-              label="Senha / App Password"
-              margin="normal"
-              value={smtp.password}
-              placeholder={smtpStatus?.senhaConfigurada ? 'Deixe em branco para manter a senha atual' : undefined}
-              onChange={(e) => { setSmtp({ ...smtp, password: e.target.value }); setSmtpDirty(true); }}
-              InputProps={{
-                startAdornment: <InputAdornment position="start"><LockIcon fontSize="small" /></InputAdornment>,
-              }}
-            />
+            {smtp.providerType === 0 ? (
+              <>
+                <Stack direction="row" spacing={2}>
+                  <TextField
+                    fullWidth
+                    label="Host SMTP"
+                    placeholder="smtp.gmail.com"
+                    margin="normal"
+                    value={smtp.host}
+                    onChange={(e) => { setSmtp({ ...smtp, host: e.target.value }); setSmtpDirty(true); }}
+                  />
+                  <TextField
+                    sx={{ width: 150 }}
+                    label="Porta"
+                    placeholder="587"
+                    type="number"
+                    margin="normal"
+                    value={smtp.port}
+                    inputProps={{ min: 1, max: 65535, step: 1 }}
+                    onChange={(e) => { setSmtp({ ...smtp, port: e.target.value }); setSmtpDirty(true); }}
+                  />
+                </Stack>
+
+                <TextField
+                  fullWidth
+                  label="Usuário SMTP / E-mail"
+                  margin="normal"
+                  value={smtp.user}
+                  onChange={(e) => { setSmtp({ ...smtp, user: e.target.value }); setSmtpDirty(true); }}
+                />
+                <TextField
+                  fullWidth
+                  type="password"
+                  label="Senha / App Password"
+                  margin="normal"
+                  value={smtp.password}
+                  placeholder={smtpStatus?.senhaConfigurada ? 'Deixe em branco para manter a senha atual' : undefined}
+                  onChange={(e) => { setSmtp({ ...smtp, password: e.target.value }); setSmtpDirty(true); }}
+                  InputProps={{
+                    startAdornment: <InputAdornment position="start"><LockIcon fontSize="small" /></InputAdornment>,
+                  }}
+                />
+              </>
+            ) : (
+              <>
+                <FormControl fullWidth margin="normal">
+                  <InputLabel id="api-provider-select-label">Provedor por API</InputLabel>
+                  <Select
+                    labelId="api-provider-select-label"
+                    value={smtp.apiProvider}
+                    label="Provedor por API"
+                    onChange={(e) => {
+                      setSmtp({
+                        ...smtp,
+                        apiProvider: Number(e.target.value),
+                        apiKey: '',
+                        apiAccountIdentifier: ''
+                      });
+                      setSmtpDirty(true);
+                    }}
+                  >
+                    <MenuItem value={0}>AWS SES (HTTPS / Porto 443)</MenuItem>
+                    <MenuItem value={1}>Postmark (HTTPS)</MenuItem>
+                    <MenuItem value={2}>Brevo (HTTPS)</MenuItem>
+                    <MenuItem value={3}>SendGrid (HTTPS)</MenuItem>
+                    <MenuItem value={4}>Mailtrap Sandbox (HTTPS / não entrega externamente)</MenuItem>
+                  </Select>
+                </FormControl>
+
+                {smtp.apiProvider === 4 && (
+                  <Alert severity="info" sx={{ mt: 1, mb: 1 }}>
+                    O Mailtrap Sandbox captura as mensagens para inspeção. Os endereços informados
+                    são destinatários simulados e não receberão e-mails em suas caixas reais.
+                  </Alert>
+                )}
+
+                <TextField
+                  fullWidth
+                  label={smtp.apiProvider === 4
+                    ? 'E-mail do Remetente Simulado'
+                    : 'E-mail do Remetente Autorizado'}
+                  placeholder={smtp.apiProvider === 4
+                    ? 'simulacoes@example.com'
+                    : 'simulacoes@dominio-verificado.com'}
+                  margin="normal"
+                  value={smtp.senderEmail}
+                  onChange={(e) => { setSmtp({ ...smtp, senderEmail: e.target.value }); setSmtpDirty(true); }}
+                />
+
+                <TextField
+                  fullWidth
+                  label="Nome de Exibição Padrão do Remetente"
+                  placeholder="PhishGuard Security"
+                  margin="normal"
+                  value={smtp.senderName}
+                  onChange={(e) => { setSmtp({ ...smtp, senderName: e.target.value }); setSmtpDirty(true); }}
+                />
+
+                {smtp.apiProvider === 0 && (
+                  <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+                    <TextField
+                      fullWidth
+                      label="AWS Access Key ID"
+                      margin="normal"
+                      value={smtp.apiAccountIdentifier}
+                      onChange={(e) => { setSmtp({ ...smtp, apiAccountIdentifier: e.target.value }); setSmtpDirty(true); }}
+                    />
+                    <FormControl fullWidth margin="normal">
+                      <InputLabel id="aws-region-select-label">Região AWS SES</InputLabel>
+                      <Select
+                        labelId="aws-region-select-label"
+                        value={smtp.apiRegion}
+                        label="Região AWS SES"
+                        onChange={(e) => { setSmtp({ ...smtp, apiRegion: e.target.value }); setSmtpDirty(true); }}
+                      >
+                        <MenuItem value="us-east-1">US East (N. Virginia)</MenuItem>
+                        <MenuItem value="us-east-2">US East (Ohio)</MenuItem>
+                        <MenuItem value="us-west-2">US West (Oregon)</MenuItem>
+                        <MenuItem value="sa-east-1">South America (São Paulo)</MenuItem>
+                        <MenuItem value="eu-west-1">Europe (Ireland)</MenuItem>
+                      </Select>
+                    </FormControl>
+                  </Stack>
+                )}
+
+                {smtp.apiProvider === 4 && (
+                  <TextField
+                    fullWidth
+                    label="Mailtrap Sandbox ID"
+                    helperText="Número exibido na URL da caixa: mailtrap.io/inboxes/{sandboxId}/messages"
+                    inputMode="numeric"
+                    margin="normal"
+                    value={smtp.apiAccountIdentifier}
+                    onChange={(e) => {
+                      setSmtp({ ...smtp, apiAccountIdentifier: e.target.value.replace(/\D/g, '') });
+                      setSmtpDirty(true);
+                    }}
+                  />
+                )}
+
+                <TextField
+                  fullWidth
+                  type="password"
+                  label={smtp.apiProvider === 0
+                    ? 'AWS Secret Access Key'
+                    : smtp.apiProvider === 4
+                      ? 'Mailtrap API Token'
+                      : 'API Key do Provedor'}
+                  margin="normal"
+                  value={smtp.apiKey}
+                  placeholder={smtpStatus?.apiKeyConfigured ? 'Deixe em branco para manter a API Key atual' : undefined}
+                  onChange={(e) => { setSmtp({ ...smtp, apiKey: e.target.value }); setSmtpDirty(true); }}
+                  InputProps={{
+                    startAdornment: <InputAdornment position="start"><VpnKeyIcon fontSize="small" /></InputAdornment>,
+                  }}
+                />
+              </>
+            )}
 
             <Box sx={{ mt: 3 }}>
               <Button type="submit" variant="contained" disabled={savingSmtp || !smtpDirty} startIcon={savingSmtp ? <CircularProgress size={16} color="inherit" /> : <SaveIcon />}>
-                Salvar Configurações SMTP
+                Salvar Configurações de Envio
               </Button>
             </Box>
           </Box>
@@ -495,8 +696,6 @@ export default function Settings() {
 
         <TabPanel value={tabValue} index={2}>
           <Box sx={{ maxWidth: 560 }}>
-            {/* Card de destaque com um dos gradientes da paleta (azul-escuro nos dois
-                modos → conteúdo em branco fixo, não no `text` do modo). */}
             <Typography variant="h6" gutterBottom>Tema do Painel</Typography>
             <Typography variant="body2" color="textSecondary" mb={3}>
               Escolha entre o modo claro e o modo escuro. A preferência é salva neste

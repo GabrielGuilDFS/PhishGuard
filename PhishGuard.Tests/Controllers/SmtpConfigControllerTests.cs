@@ -8,6 +8,7 @@ using PhishGuard.Backend.Data;
 using PhishGuard.Backend.DTOs;
 using PhishGuard.Backend.Models;
 using PhishGuard.Backend.Services;
+using PhishGuard.Backend.Services.Delivery;
 
 namespace PhishGuard.Tests.Controllers;
 
@@ -162,6 +163,96 @@ public sealed class SmtpConfigControllerTests
         var saved = await context.SmtpConfigs.IgnoreQueryFilters().SingleAsync();
         Assert.Equal("protected:original", saved.Senha);
         Assert.Equal("new.example.com", saved.Host);
+    }
+
+    [Fact]
+    public async Task UpsertApi_EGet_NuncaDevolveApiKey()
+    {
+        var tenantId = Guid.NewGuid();
+        var (context, controller) = Create(tenantId);
+
+        var result = await controller.Upsert(new SmtpConfigDto
+        {
+            ProviderType = EmailProviderType.ProviderApi,
+            ApiProvider = ApiProviderName.SendGrid,
+            SenderEmail = "sender@example.com",
+            SenderName = "Equipe",
+            ApiKey = "sg-secret"
+        }, CancellationToken.None);
+
+        Assert.IsType<OkObjectResult>(result);
+        var saved = await context.SmtpConfigs.IgnoreQueryFilters().SingleAsync();
+        Assert.Equal("protected:sg-secret", saved.EncryptedApiKey);
+
+        var get = await controller.Get();
+        var dto = Assert.IsType<SmtpConfigDto>(get.Value);
+        Assert.Equal(string.Empty, dto.ApiKey);
+        Assert.True(dto.ApiKeyConfigured);
+    }
+
+    [Fact]
+    public async Task UpsertAwsSes_ExigeAccessKeyIdERegiaoDaAllowList()
+    {
+        var tenantId = Guid.NewGuid();
+        var (_, controller) = Create(tenantId);
+
+        var result = await controller.Upsert(new SmtpConfigDto
+        {
+            ProviderType = EmailProviderType.ProviderApi,
+            ApiProvider = ApiProviderName.AwsSes,
+            SenderEmail = "sender@example.com",
+            ApiKey = "secret",
+            ApiAccountIdentifier = "",
+            ApiRegion = "http://169.254.169.254"
+        }, CancellationToken.None);
+
+        Assert.IsType<BadRequestObjectResult>(result);
+    }
+
+    [Fact]
+    public async Task UpsertMailtrapSandbox_ExigeSandboxIdNumericoPositivo()
+    {
+        var tenantId = Guid.NewGuid();
+        var (_, controller) = Create(tenantId);
+
+        var result = await controller.Upsert(new SmtpConfigDto
+        {
+            ProviderType = EmailProviderType.ProviderApi,
+            ApiProvider = ApiProviderName.MailtrapSandbox,
+            SenderEmail = "sender@example.com",
+            ApiKey = "mailtrap-token",
+            ApiAccountIdentifier = "https://sandbox.api.mailtrap.io/api/send/4015"
+        }, CancellationToken.None);
+
+        Assert.IsType<BadRequestObjectResult>(result);
+    }
+
+    [Fact]
+    public async Task UpsertApi_AoTrocarProvedor_ExigeNovaCredencial()
+    {
+        var tenantId = Guid.NewGuid();
+        var (context, controller) = Create(tenantId);
+        context.SmtpConfigs.Add(new SmtpConfig
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            ProviderType = EmailProviderType.ProviderApi,
+            ApiProvider = ApiProviderName.Brevo,
+            SenderEmail = "sender@example.com",
+            EncryptedApiKey = "protected:brevo-secret"
+        });
+        await context.SaveChangesAsync();
+
+        var result = await controller.Upsert(new SmtpConfigDto
+        {
+            ProviderType = EmailProviderType.ProviderApi,
+            ApiProvider = ApiProviderName.MailtrapSandbox,
+            SenderEmail = "sender@example.com",
+            ApiKey = "",
+            ApiAccountIdentifier = "4015"
+        }, CancellationToken.None);
+
+        Assert.IsType<BadRequestObjectResult>(result);
     }
 
     [Fact]

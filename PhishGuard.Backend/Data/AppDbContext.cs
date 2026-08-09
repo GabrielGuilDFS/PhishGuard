@@ -28,6 +28,7 @@ namespace PhishGuard.Backend.Data
         public DbSet<EducationalPage> EducationalPages { get; set; }
         public DbSet<Campaign> Campaigns { get; set; }
         public DbSet<SimulationLog> SimulationsLogs { get; set; }
+        public DbSet<CampaignDelivery> CampaignDeliveries { get; set; }
         public DbSet<AuthSession> AuthSessions { get; set; }
         public DbSet<DataProtectionKey> DataProtectionKeys { get; set; }
 
@@ -135,6 +136,27 @@ namespace PhishGuard.Backend.Data
                 entity.Property(e => e.Senha)
                     .IsRequired()
                     .HasMaxLength(2048);
+
+                entity.Property(e => e.SenderEmail)
+                    .IsRequired()
+                    .HasMaxLength(254);
+
+                entity.Property(e => e.SenderName)
+                    .IsRequired()
+                    .HasMaxLength(100);
+
+                entity.Property(e => e.EncryptedApiKey)
+                    .IsRequired()
+                    .HasMaxLength(4096);
+
+                entity.Property(e => e.ApiAccountIdentifier)
+                    .IsRequired()
+                    .HasMaxLength(200);
+
+                entity.Property(e => e.ApiRegion)
+                    .IsRequired()
+                    .HasMaxLength(32)
+                    .HasDefaultValue("us-east-1");
 
                 entity.Property(e => e.UltimoErroCodigo)
                     .HasMaxLength(50);
@@ -284,6 +306,38 @@ namespace PhishGuard.Backend.Data
                 entity.HasIndex(l => new { l.CampaignId, l.TargetId, l.Acao })
                     .IsUnique()
                     .HasDatabaseName("ux_simulations_logs_campaign_target_action");
+            });
+
+            modelBuilder.Entity<CampaignDelivery>(entity =>
+            {
+                entity.HasQueryFilter(delivery => delivery.TenantId == this.TenantIdAtual);
+
+                entity.Property(delivery => delivery.IdempotencyKey)
+                    .IsRequired()
+                    .HasMaxLength(200);
+                entity.Property(delivery => delivery.ProviderMessageId).HasMaxLength(200);
+                entity.Property(delivery => delivery.LastErrorCode).HasMaxLength(100);
+                entity.Property(delivery => delivery.AttemptCount).HasDefaultValue(0);
+                entity.Property(delivery => delivery.ConcurrencyToken).IsConcurrencyToken();
+
+                entity.HasIndex(delivery => new { delivery.CampaignId, delivery.TargetId })
+                    .IsUnique()
+                    .HasDatabaseName("ux_campaign_deliveries_campaign_target");
+                entity.HasIndex(delivery => new { delivery.TenantId, delivery.Status, delivery.LeaseExpiresAtUtc })
+                    .HasDatabaseName("ix_campaign_deliveries_tenant_status_lease");
+
+                entity.HasOne(delivery => delivery.Campaign)
+                    .WithMany()
+                    .HasForeignKey(delivery => delivery.CampaignId)
+                    .OnDelete(DeleteBehavior.Cascade);
+                entity.HasOne(delivery => delivery.Target)
+                    .WithMany()
+                    .HasForeignKey(delivery => delivery.TargetId)
+                    .OnDelete(DeleteBehavior.Cascade);
+                entity.HasOne<Tenant>()
+                    .WithMany()
+                    .HasForeignKey(delivery => delivery.TenantId)
+                    .OnDelete(DeleteBehavior.Cascade);
             });
 
             modelBuilder.Entity<AuthSession>(entity =>
