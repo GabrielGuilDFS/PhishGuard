@@ -101,6 +101,23 @@ a.es-button, button.es-button, label.es-button {
 }
 @media only screen and (max-width:600px) {.es-m-p15r { padding-right:15px!important }.es-m-p15l { padding-left:15px!important }.es-m-p20b { padding-bottom:20px!important }.es-p-default { padding-right:15px!important; padding-left:15px!important }*[class="gmail-fix"] { display:none!important }p, a { line-height:150%!important }h1, h1 a { line-height:100%!important }h2, h2 a { line-height:100%!important }h3, h3 a { line-height:100%!important }h4, h4 a { line-height:120%!important }h5, h5 a { line-height:120%!important }h6, h6 a { line-height:120%!important }.es-header-body p { }.es-content-body p { }.es-footer-body p { }.es-infoblock p { }h1 { font-size:24px!important; text-align:left; margin-bottom:8px!important }h2 { font-size:18px!important; text-align:left; margin-bottom:6px!important }h3 { font-size:20px!important; text-align:left; margin-bottom:10px!important }h4 { font-size:24px!important; text-align:left }h5 { font-size:20px!important; text-align:left }h6 { font-size:16px!important; text-align:left }.es-header-body h1 a, .es-content-body h1 a, .es-footer-body h1 a { font-size:24px!important }.es-header-body h2 a, .es-content-body h2 a, .es-footer-body h2 a { font-size:18px!important }.es-header-body h3 a, .es-content-body h3 a, .es-footer-body h3 a { font-size:20px!important }.es-header-body h4 a, .es-content-body h4 a, .es-footer-body h4 a { font-size:24px!important }.es-header-body h5 a, .es-content-body h5 a, .es-footer-body h5 a { font-size:20px!important }.es-header-body h6 a, .es-content-body h6 a, .es-footer-body h6 a { font-size:16px!important }.es-menu td a { font-size:14px!important }.es-header-body p, .es-header-body a { font-size:16px!important }.es-content-body p, .es-content-body a { font-size:16px!important }.es-footer-body p, .es-footer-body a { font-size:14px!important }.es-infoblock p, .es-infoblock a { font-size:16px!important }.es-m-txt-c, .es-m-txt-c h1, .es-m-txt-c h2, .es-m-txt-c h3, .es-m-txt-c h4, .es-m-txt-c h5, .es-m-txt-c h6 { text-align:center!important }.es-m-txt-r, .es-m-txt-r h1, .es-m-txt-r h2, .es-m-txt-r h3, .es-m-txt-r h4, .es-m-txt-r h5, .es-m-txt-r h6 { text-align:right!important }.es-m-txt-j, .es-m-txt-j h1, .es-m-txt-j h2, .es-m-txt-j h3, .es-m-txt-j h4, .es-m-txt-j h5, .es-m-txt-j h6 { text-align:justify!important }.es-m-txt-l, .es-m-txt-l h1, .es-m-txt-l h2, .es-m-txt-l h3, .es-m-txt-l h4, .es-m-txt-l h5, .es-m-txt-l h6 { text-align:left!important }.es-m-txt-r img, .es-m-txt-c img, .es-m-txt-l img { display:inline!important }.es-m-txt-r .rollover:hover .rollover-second, .es-m-txt-c .rollover:hover .rollover-second, .es-m-txt-l .rollover:hover .rollover-second { display:inline!important }.es-m-txt-r .rollover span, .es-m-txt-c .rollover span, .es-m-txt-l .rollover span { line-height:0!important; font-size:0!important; display:block }.es-m-txt-r .es-menu td { float:right!important }.es-m-txt-l .es-menu td { float:left!important }.es-m-txt-c .es-menu td { display:inline-block!important }.es-spacer { display:inline-table }a.es-button, button.es-button { display:inline-block!important; font-size:18px!important; padding:10px 20px 10px 20px!important; line-height:120%!important }.es-button-border { display:block!important }.es-m-fw, .es-m-fw.es-fw, .es-m-fw .es-button { display:block!important }.es-m-il, .es-m-il .es-button, .es-social, .es-social td, .es-menu.es-table-not-adapt { display:inline-block!important }.es-adaptive table, .es-left, .es-right { width:100%!important }.es-content table, .es-header table, .es-footer table, .es-content, .es-footer, .es-header { width:100%!important; max-width:600px!important }.adapt-img { width:100%!important; height:auto!important }.es-adapt-td { display:block!important; width:100%!important }.es-mobile-hidden, .es-hidden { display:none!important }.es-container-hidden { display:none!important }.es-desk-hidden { width:auto!important; overflow:visible!important; float:none!important; max-height:inherit!important; line-height:inherit!important }tr.es-desk-hidden { display:table-row!important }table.es-desk-hidden { display:table!important }td.es-desk-hidden { display:table-cell!important }td.es-desk-menu-hidden { display:table-cell!important }.es-menu td { width:1%!important }table.es-table-not-adapt, .esd-block-html table, .es-m-txt-r .es-menu td, .es-m-txt-l .es-menu td, .es-m-txt-c .es-menu td { width:auto!important }.h-auto { height:auto!important }a.es-button, button.es-button, label.es-button { padding-left:0px!important; padding-right:0px!important; padding-top:5px!important; padding-bottom:0px!important }a.es-button, button.es-button, .es-button-border { display:block!important }.esd-module-5274 a.es-button, .esd-module-5274 button.es-button { padding-top:5px!important; padding-bottom:0px!important; padding-right:0px!important; padding-left:0px!important }a.es-button.es-button-1026 { padding:5px 0!important }a.es-button.es-button-9084 { padding:5px 0!important }a.es-button.es-button-6789 { padding:5px 0!important }a.es-button.es-button-2091 { padding:5px 0!important }a.es-button.es-button-8994 { padding:5px 0!important }a.es-button.es-button-8958 { padding:5px 0!important }.es-m-text .es-text-mobile-size-16, .es-m-text .es-text-mobile-size-16 * { font-size:16px!important; line-height:150%!important }.es-m-text .es-text-mobile-size-20, .es-m-text .es-text-mobile-size-20 * { font-size:20px!important; line-height:150%!important }a.es-button.es-button-6079 { padding:5px 0!important }a.es-button.es-button-4860 { padding:5px 0!important }.esdev-mso-td.es-m-w50, .esdev-mso-td.n { width:auto!important }a.es-button.es-button-8959 { padding:5px 0!important }a.es-button.es-button-6368 { padding:5px 0!important }.es-responsive { clear:both!important; display:block!important; width:100%!important }.es-m-w50, .n { width:unset!important }.esdev-mso-td.es-m-w50, .esdev-mso-td.n { width:auto!important } }
 @media screen and (max-width:384px) {.mail-message-content { width:414px!important } }</style>
+  <style type="text/css">
+    /* Mantém o preview alinhado ao template oficial enviado pelo backend. */
+    .es-header-body td:has(img[alt="bho MAX"][width="140"]) {
+      padding:10px 0!important;
+      text-align:left!important;
+    }
+    .es-header-body a:has(> img[alt="bho MAX"][width="140"]) {
+      display:block!important;
+      width:140px!important;
+      height:70px!important;
+      margin:0!important;
+      background:url('/bho-max-logo-onlight.svg') left top / 140px 70px no-repeat!important;
+    }
+    .es-header-body img[alt="bho MAX"][width="140"] {
+      display:none!important;
+    }
+  </style>
  </head>
  <body class="body" style="width:100%;height:100%;font-family:verdana, geneva, sans-serif;-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;padding:0;Margin:0">
 <div style="display:none !important;visibility:hidden;mso-hide:all;font-size:1px;color:#ffffff;line-height:1px;max-height:0px;max-width:0px;opacity:0;overflow:hidden;">Recupere sua senha</div>
@@ -440,21 +457,6 @@ a.es-button, button.es-button, label.es-button {
                          </tr>
                        </table>
 </td>
-                     </tr>
-                   </table>
-</td>
-                 </tr>
-               </table>
-</td>
-             </tr>
-             <tr>
-              <td align="left" bgcolor="#ffffff" class="bh bi es-p0 es-m-p15l es-m-p15r" style="Margin:0;padding-top:20px;padding-right:30px;padding-bottom:30px;padding-left:30px;background-color:#ffffff">
-               <table width="100%" cellpadding="0" cellspacing="0" role="none" style="mso-table-lspace:0pt;mso-table-rspace:0pt;border-spacing:0px">
-                 <tr>
-                  <td align="left" style="padding:0;Margin:0;width:540px">
-                   <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="mso-table-lspace:0pt;mso-table-rspace:0pt;border-spacing:0px">
-                     <tr>
-                      <td align="left" style="padding:0;Margin:0;font-size:0"><img width="92" src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMDAgMTUwIiByb2xlPSJpbWciIGFyaWEtbGFiZWw9ImJobyBNQVgiPjx0aXRsZT5iaG8gTUFYPC90aXRsZT48dGV4dCB4PSIxNTAiIHk9IjY2IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmb250LWZhbWlseT0iTW9udHNlcnJhdCwgQXJpYWwsIHNhbnMtc2VyaWYiIGZvbnQtd2VpZ2h0PSI4MDAiIGZvbnQtc2l6ZT0iNzIiIGxldHRlci1zcGFjaW5nPSItMiIgZmlsbD0iIzExMTExMSI+TUFYPC90ZXh0Pjx0ZXh0IHg9IjE1MCIgeT0iMTI4IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmb250LWZhbWlseT0iTW9udHNlcnJhdCwgQXJpYWwsIHNhbnMtc2VyaWYiIGZvbnQtd2VpZ2h0PSIzMDAiIGZvbnQtc2l6ZT0iNTgiIGxldHRlci1zcGFjaW5nPSI2IiBmaWxsPSIjOGE4YThhIj5iaG88L3RleHQ+PC9zdmc+Cg==" alt="bho MAX" height="46" style="display:block;border:0;outline:none;text-decoration:none;margin:0"></td>
                      </tr>
                    </table>
 </td>

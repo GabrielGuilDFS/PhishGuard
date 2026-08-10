@@ -45,7 +45,8 @@ const hboMaxRedefinicaoSenhaHtml = `<!DOCTYPE html>
   .hbo-nav a.muted { color: #a3a3a3; }
   .hbo-actions { display: flex; align-items: center; gap: 20px; }
   .hbo-actions svg { width: 24px; height: 24px; color: rgba(255,255,255,0.9); }
-  .hbo-avatar { width: 32px; height: 32px; border-radius: 9999px; overflow: hidden; box-shadow: 0 0 0 2px rgba(255,255,255,0.2); background: linear-gradient(135deg,#4b4b4b,#222); }
+  .hbo-avatar { position: relative; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 9999px; overflow: hidden; box-shadow: 0 0 0 2px rgba(255,255,255,0.2); background: linear-gradient(135deg,#4b4b4b,#222); }
+  .hbo-avatar svg { position: relative; z-index: 1; width: 18px; height: 18px; color: #ffffff; }
   @media (min-width: 768px) { .hbo-nav { display: flex; } }
   /* ---------- Main / título ---------- */
   .hbo-main { flex: 1; display: flex; flex-direction: column; align-items: center; padding: 32px 24px 0; }
@@ -104,7 +105,12 @@ const hboMaxRedefinicaoSenhaHtml = `<!DOCTYPE html>
     <div class="hbo-actions">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"></path></svg>
-      <div class="hbo-avatar"></div>
+      <div class="hbo-avatar" role="img" aria-label="Perfil do usuário">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="8" r="3.25"></circle>
+          <path d="M5.5 19c.8-3.3 3.2-5 6.5-5s5.7 1.7 6.5 5"></path>
+        </svg>
+      </div>
     </div>
   </header>
 

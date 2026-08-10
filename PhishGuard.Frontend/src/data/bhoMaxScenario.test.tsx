@@ -10,8 +10,8 @@ import FeedbackTraining from '../components/FeedbackTraining';
 // ============================================================================
 // Suíte do CENÁRIO "bho MAX" — mesmo BLUEPRINT de mercadoLivScenario.test.tsx,
 // adaptado à estrutura REAL desta isca:
-//   • E-mail (hbomax-redefinicao-senha): logo em PNG (data-URI no preview /
-//     cid:logo-bhomax no disparo); placeholders {{LINK_PHISHING}} + {{DATA_EXPIRACAO}}.
+//   • E-mail (hbomax-redefinicao-senha): logo local no preview, alinhada no topo
+//     esquerdo; placeholders {{LINK_PHISHING}} + {{DATA_EXPIRACAO}}.
 //   • Página falsa (hbomax-redefinicao-senha): captura "senha atual" + "nova senha".
 //   • Tela educacional (feedbackTrainings.bhomax).
 // Vitest + RTL (jsdom); fetch/useNavigate mockados e isolados por arquivo.
@@ -47,14 +47,19 @@ describe('bho MAX — Template de E-mail', () => {
     expect(container.innerHTML).not.toMatch(/\{\{.*?\}\}/);
   });
 
-  it('injeta a logo própria como PNG (data-URI no preview; cid:logo-bhomax no disparo) e conforma a marca', () => {
-    const { container } = render(<div dangerouslySetInnerHTML={{ __html: emailComProps() }} />);
-    const temPng = Array.from(container.querySelectorAll('img')).some((i) =>
-      i.getAttribute('src')?.startsWith('data:image/png'),
-    );
-    expect(temPng).toBe(true);
-    // Conformidade da marca exibida no corpo.
-    expect(container.textContent).toContain('bho MAX');
+  it('exibe somente a logo principal no topo esquerdo, com padding reduzido', () => {
+    const html = emailComProps();
+    const { container } = render(<div dangerouslySetInnerHTML={{ __html: html }} />);
+
+    expect(html).toContain('.es-header-body td:has(img[alt="bho MAX"][width="140"])');
+    expect(html).toContain('padding:10px 0!important');
+    expect(html).toContain('text-align:left!important');
+    expect(html).toContain("background:url('/bho-max-logo-onlight.svg')");
+    expect(html).toContain('.es-header-body img[alt="bho MAX"][width="140"]');
+    expect(html).toContain('display:none!important');
+
+    expect(container.querySelector('img[alt="bho MAX"][width="92"]')).not.toBeInTheDocument();
+    expect(html).not.toContain('width="92"');
   });
 
   it('data de expiração no formato dinâmico do template', () => {
@@ -82,6 +87,18 @@ describe('bho MAX — Página Simulada (Phishing)', () => {
     expect(container.querySelector('form')).toBeInTheDocument();
     expect(container.querySelector('#current-password')).toBeInTheDocument();
     expect(container.querySelector('#new-password')).toBeInTheDocument();
+  });
+
+  it('mantém o círculo de perfil e adiciona o ícone branco sobre ele', () => {
+    const html = landingHtml();
+    const { container } = render(<div dangerouslySetInnerHTML={{ __html: html }} />);
+    const avatar = container.querySelector('.hbo-avatar[aria-label="Perfil do usuário"]');
+
+    expect(avatar).toBeInTheDocument();
+    expect(avatar?.querySelector('svg[aria-hidden="true"]')).toBeInTheDocument();
+    expect(html).toContain('.hbo-avatar svg');
+    expect(html).toContain('color: #ffffff');
+    expect(html).not.toContain('<div class="hbo-avatar"></div>');
   });
 
   it('ao submeter: envia só metadados (LGPD) para /api/tracking/submit e redireciona ao treinamento', async () => {
@@ -147,6 +164,27 @@ describe('bho MAX — Tela Educacional (Just-in-Time)', () => {
     expect(screen.getByText(/Captura da Credencial Ativa/i)).toBeInTheDocument();
     expect(screen.getByText(/Elementos Estáticos e Ausência do Seu E-mail/i)).toBeInTheDocument();
     expect(screen.getByText(/Domínio do Remetente Falsificado/i)).toBeInTheDocument();
+  });
+
+  it('reutiliza nos mockups educacionais a logo corrigida e o perfil com ícone', () => {
+    renderEdu();
+
+    const emailFrame = screen.getByTitle('O e-mail que você recebeu') as HTMLIFrameElement;
+    const landingFrame = screen.getByTitle('A página falsa de redefinição de senha') as HTMLIFrameElement;
+    const emailSrcDoc = emailFrame.getAttribute('srcdoc') ?? '';
+    const landingSrcDoc = landingFrame.getAttribute('srcdoc') ?? '';
+
+    expect(emailSrcDoc).toContain("background:url('/bho-max-logo-onlight.svg')");
+    expect(emailSrcDoc).toContain('padding:10px 0!important');
+    expect(emailSrcDoc).not.toContain('width="92"');
+    expect(landingSrcDoc).toContain('class="hbo-avatar"');
+    expect(landingSrcDoc).toContain('aria-label="Perfil do usuário"');
+    expect(landingSrcDoc).toContain('<svg viewBox="0 0 24 24"');
+
+    const logoHotspot = feedbackTrainings[IDS.feedback].mockups
+      .find((mockup) => mockup.id === 'email')
+      ?.hotspots.find((hotspot) => hotspot.numero === 1);
+    expect(logoHotspot?.xPct).toBe(13);
   });
 
   it('o botão de conclusão registra a participação e encerra o fluxo', async () => {

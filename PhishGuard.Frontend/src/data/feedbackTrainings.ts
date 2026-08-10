@@ -332,7 +332,7 @@ export const feedbackTrainings: Record<string, FeedbackTrainingConfig> = {
         altura: 460,
         hotspots: [
           { numero: 5, xPct: 26, yPct: 3, dica: 'Domínio do remetente (subdomínio "alerts.")' },
-          { numero: 1, xPct: 30, yPct: 15, dica: 'Nome da marca invertido' },
+          { numero: 1, xPct: 13, yPct: 15, dica: 'Nome da marca invertido' },
           { numero: 2, xPct: 55, yPct: 27, dica: 'Horário em fuso EST + prazo curto' },
         ],
       },
