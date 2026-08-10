@@ -7,6 +7,7 @@ import {
   getToken,
   refreshSession,
   setToken,
+  subscribeSession,
   validateSession,
 } from './session';
 import { jwtDeTeste } from '../test/jwt';
@@ -45,6 +46,20 @@ describe('armazenamento seguro da sessão', () => {
     expect(getToken()).toBe('token-novo');
     expect(localStorage.getItem(TOKEN_KEY)).toBeNull();
     expect(sessionStorage.getItem(TOKEN_KEY)).toBeNull();
+  });
+
+  it('notifica consumidores quando a identidade da sessão muda', () => {
+    const listener = vi.fn();
+    const unsubscribe = subscribeSession(listener);
+
+    setToken('token-antigo');
+    setToken('token-antigo');
+    setToken('token-novo');
+    clearSession();
+    unsubscribe();
+    setToken('token-após-unsubscribe');
+
+    expect(listener).toHaveBeenCalledTimes(3);
   });
 });
 

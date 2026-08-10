@@ -1,11 +1,13 @@
-import { describe, it, expect, afterEach } from 'vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { describe, it, expect, afterEach, vi } from 'vitest';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { alpha } from '@mui/material/styles';
 // Teste de UI co-located (padrão de espelhamento do frontend).
 import Settings from './Settings';
 import { ThemeModeProvider } from '../context/ThemeModeContext';
 import { NotificationProvider } from '../context/NotificationContext';
 import { brandPalette } from '../theme';
+import { clearSession, getToken, setToken } from '../auth/session';
+import { jwtDeTeste } from '../test/jwt';
 
 function renderSettings() {
   return render(
@@ -21,6 +23,73 @@ afterEach(() => {
   // Sem token: os dois useEffect de carga (perfil/SMTP) fazem early-return antes de
   // chamar fetch — a tela renderiza puramente síncrona, sem precisar mockar rede.
   localStorage.clear();
+  clearSession();
+  vi.unstubAllGlobals();
+});
+
+describe('Settings — Meu Perfil', () => {
+  it('carrega o perfil, salva o nome e substitui o access token retornado pela API', async () => {
+    const tenantId = '11111111-1111-1111-1111-111111111111';
+    const tokenInicial = jwtDeTeste({
+      tenant_id: tenantId,
+      exp: Math.floor(Date.now() / 1000) + 3600,
+      name: 'Nome do Token',
+      email: 'admin@teste.com',
+    });
+    const tokenAtualizado = jwtDeTeste({
+      tenant_id: tenantId,
+      exp: Math.floor(Date.now() / 1000) + 3600,
+      name: 'Nome Atualizado',
+      email: 'admin@teste.com',
+    });
+    setToken(tokenInicial);
+
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.endsWith('/auth/profile') && (init?.method ?? 'GET') === 'GET') {
+        return new Response(JSON.stringify({ nome: 'Nome da API', email: 'admin@teste.com' }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+      if (url.endsWith('/auth/profile') && init?.method === 'PUT') {
+        return new Response(JSON.stringify({
+          nome: 'Nome Atualizado',
+          email: 'admin@teste.com',
+          accessToken: tokenAtualizado,
+          expiresAtUtc: new Date(Date.now() + 3600_000).toISOString(),
+        }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      }
+      if (url.includes('/email-delivery/status')) {
+        return new Response(JSON.stringify({
+          configurado: false,
+          senhaConfigurada: false,
+          transporteDisponivel: true,
+        }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      }
+      return new Response(null, { status: 404 });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    renderSettings();
+
+    const nameInput = await screen.findByLabelText(/nome do administrador/i);
+    await waitFor(() => expect(nameInput).toHaveValue('Nome da API'));
+    expect(screen.getByLabelText(/e-mail de login/i)).toHaveValue('admin@teste.com');
+
+    fireEvent.change(nameInput, { target: { value: 'Nome Atualizado' } });
+    fireEvent.click(screen.getByRole('button', { name: /salvar alterações/i }));
+
+    await waitFor(() => expect(getToken()).toBe(tokenAtualizado));
+    const profilePut = fetchMock.mock.calls.find(([url, init]) =>
+      String(url).endsWith('/auth/profile') && init?.method === 'PUT');
+    expect(profilePut).toBeDefined();
+    expect(JSON.parse(String(profilePut?.[1]?.body))).toMatchObject({
+      nome: 'Nome Atualizado',
+      senhaAtual: null,
+      novaSenha: null,
+    });
+  });
 });
 
 describe('Settings — entrega multi-provedor', () => {

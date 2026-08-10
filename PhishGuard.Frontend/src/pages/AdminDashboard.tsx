@@ -6,6 +6,7 @@ import PageContainer from '../components/PageContainer';
 import { API_BASE } from '../config';
 import { useNotify } from '../context/NotificationContext';
 import { authFetch, clearSession } from '../auth/session';
+import { useSessionIdentity } from '../auth/useSessionIdentity';
 import DashboardHeader from './dashboard/DashboardHeader';
 import DashboardKpiGrid from './dashboard/DashboardKpiGrid';
 import SimulationTrendChart from './dashboard/SimulationTrendChart';
@@ -37,6 +38,7 @@ async function extractErrorMessage(response: Response): Promise<string> {
 export default function AdminDashboard() {
   const navigate = useNavigate();
   const { showNotify } = useNotify();
+  const sessionIdentity = useSessionIdentity();
   const [period, setPeriod] = useState<DashboardPeriod>('30d');
   const [department, setDepartment] = useState('');
   const [data, setData] = useState<DashboardOverview | null>(null);
@@ -134,6 +136,7 @@ export default function AdminDashboard() {
   return (
     <PageContainer sx={{ py: { xs: 1, md: 2 } }}>
       <DashboardHeader
+        administratorName={sessionIdentity.name}
         tenantName={data?.tenant.name ?? ''}
         period={period}
         department={department}

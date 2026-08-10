@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { API_BASE, AUTH_API_BASE } from '../config';
-import { authFetch, getToken } from '../auth/session';
+import { authFetch, getSessionIdentity, getToken, setToken } from '../auth/session';
 import {
   Box,
   Typography,
@@ -70,8 +70,13 @@ interface EmailDeliveryConfigResponse {
 }
 
 interface ProfileResponse {
-  nome?: string;
-  email?: string;
+  nome: string;
+  email: string;
+}
+
+interface ProfileUpdateResponse extends ProfileResponse {
+  accessToken: string;
+  expiresAtUtc: string;
 }
 
 function TabPanel(props: TabPanelProps) {
@@ -93,6 +98,7 @@ export default function Settings() {
   const [smtpDirty, setSmtpDirty] = useState(false);
   const [savingSmtp, setSavingSmtp] = useState(false);
   const [testingSmtp, setTestingSmtp] = useState(false);
+  const [savingProfile, setSavingProfile] = useState(false);
 
   const handleChangeMode = (_event: React.MouseEvent<HTMLElement>, novoModo: AppThemeMode | null) => {
     if (!novoModo || novoModo === mode) return;
@@ -113,14 +119,13 @@ export default function Settings() {
       if (!token) return;
 
       try {
-        const payload = JSON.parse(atob(token.split('.')[1]));
-        const nameClaim = payload["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name"] || payload.unique_name || payload.name;
-        const emailClaim = payload["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress"] || payload.email;
-        if (nameClaim || emailClaim) {
+        const identity = getSessionIdentity(token);
+        if (!identity) throw new Error('Token inválido.');
+        if (identity.name || identity.email) {
           setProfile(prev => ({
             ...prev,
-            nome: nameClaim || '',
-            email: emailClaim || ''
+            nome: identity.name,
+            email: identity.email
           }));
         }
       } catch (e) {
@@ -218,12 +223,22 @@ export default function Settings() {
 
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
+    const nome = profile.nome.trim();
+    if (nome.length < 2 || nome.length > 150) {
+      showNotify("O nome deve ter entre 2 e 150 caracteres.", "error");
+      return;
+    }
     if (profile.novaSenha && profile.novaSenha.length < 6) {
       showNotify("A nova senha deve ter no mínimo 6 caracteres", "error");
       return;
     }
+    if (Boolean(profile.senhaAtual) !== Boolean(profile.novaSenha)) {
+      showNotify("Para alterar a senha, informe a senha atual e a nova senha.", "error");
+      return;
+    }
 
     try {
+      setSavingProfile(true);
       const token = getToken();
       if (!token) {
         showNotify("Sessão expirada. Faça login novamente.", "error");
@@ -237,21 +252,31 @@ export default function Settings() {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          nome: profile.nome,
-          senhaAtual: profile.senhaAtual,
-          novaSenha: profile.novaSenha
+          nome,
+          senhaAtual: profile.senhaAtual || null,
+          novaSenha: profile.novaSenha || null
         })
       });
 
       if (response.ok) {
+        const data = await response.json() as ProfileUpdateResponse;
+        setToken(data.accessToken);
         showNotify("Perfil atualizado com sucesso!", "success");
-        setProfile(prev => ({ ...prev, senhaAtual: '', novaSenha: '' }));
+        setProfile(prev => ({
+          ...prev,
+          nome: data.nome,
+          email: data.email,
+          senhaAtual: '',
+          novaSenha: ''
+        }));
       } else {
-        const errorText = await response.text();
-        showNotify(`Erro ao atualizar perfil: ${errorText}`, "error");
+        const data = await response.json().catch(() => null) as { message?: string; title?: string } | null;
+        showNotify(data?.message ?? data?.title ?? "Não foi possível atualizar o perfil.", "error");
       }
     } catch {
       showNotify("Erro de conexão ao salvar perfil.", "error");
+    } finally {
+      setSavingProfile(false);
     }
   };
 
@@ -448,8 +473,13 @@ export default function Settings() {
             />
 
             <Box sx={{ mt: 3 }}>
-              <Button type="submit" variant="contained" startIcon={<SaveIcon />}>
-                Salvar Alterações
+              <Button
+                type="submit"
+                variant="contained"
+                disabled={savingProfile}
+                startIcon={savingProfile ? <CircularProgress size={16} color="inherit" /> : <SaveIcon />}
+              >
+                {savingProfile ? 'Salvando...' : 'Salvar Alterações'}
               </Button>
             </Box>
           </Box>

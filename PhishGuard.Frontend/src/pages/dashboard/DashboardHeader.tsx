@@ -13,7 +13,7 @@ import {
   Typography,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
-import BusinessOutlinedIcon from '@mui/icons-material/BusinessOutlined';
+import AccountCircleOutlinedIcon from '@mui/icons-material/AccountCircleOutlined';
 import DownloadOutlinedIcon from '@mui/icons-material/DownloadOutlined';
 import PictureAsPdfOutlinedIcon from '@mui/icons-material/PictureAsPdfOutlined';
 import TableViewOutlinedIcon from '@mui/icons-material/TableViewOutlined';
@@ -23,6 +23,7 @@ import type { DashboardExportFormat } from './dashboard.export';
 import type { DashboardPeriod } from './dashboard.types';
 
 interface DashboardHeaderProps {
+  administratorName: string;
   tenantName: string;
   period: DashboardPeriod;
   department: string;
@@ -37,6 +38,7 @@ interface DashboardHeaderProps {
 }
 
 export default function DashboardHeader({
+  administratorName,
   tenantName,
   period,
   department,
@@ -75,13 +77,20 @@ export default function DashboardHeader({
         <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 1, minWidth: 0 }}>
           <Chip
             size="small"
-            icon={<BusinessOutlinedIcon />}
-            label={tenantName || 'Tenant atual'}
+            icon={<AccountCircleOutlinedIcon />}
+            label={administratorName || 'Administrador atual'}
+            aria-label={`Administrador: ${administratorName || 'Administrador atual'}`}
             variant="outlined"
             sx={{ maxWidth: '100%', '& .MuiChip-label': { overflow: 'hidden', textOverflow: 'ellipsis' } }}
           />
-          <Typography variant="caption" color="text.secondary" sx={{ display: { xs: 'none', sm: 'block' } }}>
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            aria-label={tenantName ? `Ambiente da empresa: ${tenantName}` : undefined}
+            sx={{ display: { xs: 'none', sm: 'block' } }}
+          >
             Métricas consolidadas do ambiente
+            {tenantName && <> · Empresa: <Box component="span">{tenantName}</Box></>}
           </Typography>
         </Stack>
       </Box>

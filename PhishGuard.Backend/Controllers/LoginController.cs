@@ -177,6 +177,131 @@ public class LoginController : ControllerBase
 		return NoContent();
 	}
 
+	[Authorize]
+	[HttpGet("profile")]
+	public async Task<ActionResult<ProfileResponseDto>> GetProfile(CancellationToken cancellationToken = default)
+	{
+		if (!TryGetAuthenticatedIdentity(out var administratorId, out var tenantId, out _))
+			return Unauthorized();
+
+		// Defesa em profundidade contra IDOR: além do Global Query Filter, exige no
+		// predicado o administrador E o tenant presentes no token autenticado.
+		var profile = await (
+			from administrator in _context.Administradores
+			join tenant in _context.Tenants on administrator.TenantId equals tenant.Id
+			where administrator.Id == administratorId
+				&& administrator.TenantId == tenantId
+				&& tenant.Id == tenantId
+				&& tenant.Ativo
+			select new ProfileResponseDto
+			{
+				Nome = administrator.Nome,
+				Email = administrator.Email
+			})
+			.SingleOrDefaultAsync(cancellationToken);
+
+		return profile is null ? NotFound() : Ok(profile);
+	}
+
+	[Authorize]
+	[HttpPut("profile")]
+	public async Task<ActionResult<ProfileUpdateResponseDto>> UpdateProfile(
+		[FromBody] UpdateProfileDto request,
+		CancellationToken cancellationToken = default)
+	{
+		if (!TryGetAuthenticatedIdentity(out var administratorId, out var tenantId, out var sessionId))
+			return Unauthorized();
+
+		var administrator = await (
+			from admin in _context.Administradores
+			join tenant in _context.Tenants on admin.TenantId equals tenant.Id
+			where admin.Id == administratorId
+				&& admin.TenantId == tenantId
+				&& tenant.Id == tenantId
+				&& tenant.Ativo
+			select admin)
+			.SingleOrDefaultAsync(cancellationToken);
+		if (administrator is null) return NotFound();
+
+		var nowUtc = _timeProvider.GetUtcNow().UtcDateTime;
+		var currentSession = await _context.AuthSessions.SingleOrDefaultAsync(session =>
+			session.Id == sessionId
+			&& session.AdministratorId == administratorId
+			&& session.TenantId == tenantId
+			&& !session.RevokedAtUtc.HasValue
+			&& session.ExpiresAtUtc > nowUtc,
+			cancellationToken);
+		if (currentSession is null) return Unauthorized();
+
+		var hasNameInput = request.Nome is not null;
+		var normalizedName = request.Nome?.Trim();
+		if (hasNameInput && (string.IsNullOrWhiteSpace(normalizedName) || normalizedName.Length is < 2 or > 150))
+			return BadRequest(new { code = "PROFILE_NAME_INVALID", message = "O nome deve ter entre 2 e 150 caracteres." });
+
+		var hasCurrentPassword = !string.IsNullOrWhiteSpace(request.SenhaAtual);
+		var hasNewPassword = !string.IsNullOrWhiteSpace(request.NovaSenha);
+		if (hasCurrentPassword != hasNewPassword)
+			return BadRequest(new
+			{
+				code = "PROFILE_PASSWORD_FIELDS_REQUIRED",
+				message = "Para alterar a senha, informe a senha atual e a nova senha."
+			});
+		if (hasNewPassword && request.NovaSenha!.Length is < 6 or > 100)
+			return BadRequest(new { code = "PROFILE_PASSWORD_INVALID", message = "A nova senha deve ter entre 6 e 100 caracteres." });
+		if (!hasNameInput && !hasNewPassword)
+			return BadRequest(new { code = "PROFILE_NO_CHANGES", message = "Informe ao menos uma alteração para salvar." });
+
+		if (hasNewPassword && !BCrypt.Net.BCrypt.Verify(request.SenhaAtual!, administrator.PasswordHash))
+			return BadRequest(new { code = "PROFILE_CURRENT_PASSWORD_INVALID", message = "A senha atual está incorreta." });
+
+		if (hasNameInput)
+			administrator.Nome = normalizedName!;
+
+		if (hasNewPassword)
+		{
+			administrator.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.NovaSenha!);
+
+			// A sessão que confirmou a senha permanece ativa. Todas as demais sessões
+			// deste mesmo administrador/tenant são revogadas imediatamente.
+			var otherSessions = await _context.AuthSessions
+				.Where(session => session.AdministratorId == administratorId
+					&& session.TenantId == tenantId
+					&& session.Id != sessionId
+					&& !session.RevokedAtUtc.HasValue)
+				.ToListAsync(cancellationToken);
+			foreach (var session in otherSessions)
+				session.RevokedAtUtc = nowUtc;
+		}
+
+		await _context.SaveChangesAsync(cancellationToken);
+
+		// O nome faz parte do JWT. Emite um access token novo para a mesma sessão,
+		// evitando que a interface continue exibindo o claim antigo até novo login.
+		var auth = CriarToken(administrator, currentSession.Id);
+		return Ok(new ProfileUpdateResponseDto
+		{
+			Nome = administrator.Nome,
+			Email = administrator.Email,
+			AccessToken = auth.AccessToken,
+			ExpiresAtUtc = auth.ExpiresAtUtc
+		});
+	}
+
+	private bool TryGetAuthenticatedIdentity(
+		out Guid administratorId,
+		out Guid tenantId,
+		out Guid sessionId)
+	{
+		administratorId = Guid.Empty;
+		tenantId = Guid.Empty;
+		sessionId = Guid.Empty;
+		return Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out administratorId)
+			&& Guid.TryParse(User.FindFirstValue("tenant_id"), out tenantId)
+			&& tenantId != Guid.Empty
+			&& Guid.TryParse(User.FindFirstValue("sid"), out sessionId)
+			&& sessionId != Guid.Empty;
+	}
+
 	private AuthResponseDto CriarToken(Administrador admin, Guid sessionId)
 	{
 		var now = _timeProvider.GetUtcNow();

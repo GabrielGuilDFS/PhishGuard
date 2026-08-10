@@ -100,12 +100,13 @@ beforeEach(() => {
   setToken(jwtDeTeste({
     tenant_id: '11111111-1111-1111-1111-111111111111',
     exp: Math.floor(Date.now() / 1000) + 3600,
+    'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name': 'Administrador Inicial',
   }));
 });
 
 afterEach(() => {
   vi.unstubAllGlobals();
-  clearSession();
+  act(() => clearSession());
   localStorage.clear();
 });
 
@@ -114,7 +115,8 @@ describe('AdminDashboard — visão executiva essencial', () => {
     renderDashboard();
 
     expect(await screen.findByRole('heading', { name: 'Visão Geral de Segurança' })).toBeInTheDocument();
-    expect(screen.getByText('Empresa Segura')).toBeInTheDocument();
+    expect(screen.getByLabelText('Administrador: Administrador Inicial')).toBeInTheDocument();
+    expect(screen.getByLabelText('Ambiente da empresa: Empresa Segura')).toBeInTheDocument();
     expect(screen.getByText('320')).toBeInTheDocument();
     expect(screen.getByText('71,8%')).toBeInTheDocument();
     expect(screen.getByText('18,4%')).toBeInTheDocument();
@@ -130,6 +132,21 @@ describe('AdminDashboard — visão executiva essencial', () => {
     expect(screen.getByText('46 abriram sem clicar')).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(String(fetchMock.mock.calls[0][0])).toContain('/Dashboard/overview?period=30d');
+  });
+
+  it('atualiza o nome do administrador quando o token muda, sem remontar o dashboard', async () => {
+    renderDashboard();
+    await screen.findByLabelText('Administrador: Administrador Inicial');
+
+    act(() => setToken(jwtDeTeste({
+      tenant_id: '11111111-1111-1111-1111-111111111111',
+      exp: Math.floor(Date.now() / 1000) + 3600,
+      'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name': 'Administrador Atualizado',
+    })));
+
+    expect(await screen.findByLabelText('Administrador: Administrador Atualizado')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Administrador: Administrador Inicial')).not.toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it('explica as fórmulas em tooltips e em um glossário acessível', async () => {

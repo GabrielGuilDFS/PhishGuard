@@ -6,6 +6,7 @@ const GUID_VAZIO = '00000000-0000-0000-0000-000000000000';
 
 let accessToken: string | null = null;
 let refreshInFlight: Promise<string | null> | null = null;
+const sessionListeners = new Set<() => void>();
 
 interface AuthResponse {
   accessToken: string;
@@ -19,19 +20,38 @@ interface JwtPayload {
   [claim: string]: unknown;
 }
 
+export interface SessionIdentity {
+  name: string;
+  email: string;
+}
+
 export function getToken(): string | null {
   return accessToken;
+}
+
+/** Permite que componentes React reajam a login, refresh, logout e troca de identidade. */
+export function subscribeSession(listener: () => void): () => void {
+  sessionListeners.add(listener);
+  return () => sessionListeners.delete(listener);
+}
+
+function notifySessionChanged(): void {
+  [...sessionListeners].forEach((listener) => listener());
 }
 
 /** O access token existe somente na memória desta aba. */
 export function setToken(token: string): void {
   clearLegacyStorage();
+  if (accessToken === token) return;
   accessToken = token;
+  notifySessionChanged();
 }
 
 export function clearSession(): void {
+  const hadToken = accessToken !== null;
   accessToken = null;
   clearLegacyStorage();
+  if (hadToken) notifySessionChanged();
 }
 
 function clearLegacyStorage(): void {
@@ -49,6 +69,35 @@ export function decodeJwtPayload(token: string): JwtPayload | null {
   } catch {
     return null;
   }
+}
+
+function stringClaim(payload: JwtPayload, ...claimNames: string[]): string {
+  for (const claimName of claimNames) {
+    const value = payload[claimName];
+    if (typeof value === 'string' && value.trim()) return value.trim();
+  }
+  return '';
+}
+
+/** Extrai somente claims de apresentação; autorização continua sendo validada no backend. */
+export function getSessionIdentity(token: string | null = accessToken): SessionIdentity | null {
+  if (!token) return null;
+  const payload = decodeJwtPayload(token);
+  if (!payload) return null;
+
+  return {
+    name: stringClaim(
+      payload,
+      'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name',
+      'unique_name',
+      'name',
+    ),
+    email: stringClaim(
+      payload,
+      'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress',
+      'email',
+    ),
+  };
 }
 
 export interface SessaoValidada {
