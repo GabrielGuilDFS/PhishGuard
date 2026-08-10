@@ -11,7 +11,6 @@ import {
   Button,
   Stack,
   InputAdornment,
-  Divider,
   ToggleButton,
   ToggleButtonGroup,
   Alert,
@@ -72,6 +71,7 @@ interface EmailDeliveryConfigResponse {
 interface ProfileResponse {
   nome: string;
   email: string;
+  empresa: string;
 }
 
 interface ProfileUpdateResponse extends ProfileResponse {
@@ -83,7 +83,7 @@ function TabPanel(props: TabPanelProps) {
   const { children, value, index, ...other } = props;
   return (
     <div role="tabpanel" hidden={value !== index} {...other}>
-      {value === index && <Box sx={{ p: 3 }}>{children}</Box>}
+      {value === index && <Box sx={{ p: { xs: 2, md: 3 } }}>{children}</Box>}
     </div>
   );
 }
@@ -98,7 +98,8 @@ export default function Settings() {
   const [smtpDirty, setSmtpDirty] = useState(false);
   const [savingSmtp, setSavingSmtp] = useState(false);
   const [testingSmtp, setTestingSmtp] = useState(false);
-  const [savingProfile, setSavingProfile] = useState(false);
+  const [savingPersonalInfo, setSavingPersonalInfo] = useState(false);
+  const [savingPassword, setSavingPassword] = useState(false);
 
   const handleChangeMode = (_event: React.MouseEvent<HTMLElement>, novoModo: AppThemeMode | null) => {
     if (!novoModo || novoModo === mode) return;
@@ -109,8 +110,12 @@ export default function Settings() {
   const [profile, setProfile] = useState({
     nome: '',
     email: '',
-    senhaAtual: '',
-    novaSenha: ''
+    empresa: ''
+  });
+  const [password, setPassword] = useState({
+    atual: '',
+    nova: '',
+    confirmacao: ''
   });
 
   useEffect(() => {
@@ -144,7 +149,8 @@ export default function Settings() {
           setProfile(prev => ({
             ...prev,
             nome: data.nome || prev.nome,
-            email: data.email || prev.email
+            email: data.email || prev.email,
+            empresa: data.empresa || prev.empresa
           }));
         }
       } catch {
@@ -221,28 +227,12 @@ export default function Settings() {
     setTabValue(newValue);
   };
 
-  const handleSaveProfile = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const nome = profile.nome.trim();
-    if (nome.length < 2 || nome.length > 150) {
-      showNotify("O nome deve ter entre 2 e 150 caracteres.", "error");
-      return;
-    }
-    if (profile.novaSenha && profile.novaSenha.length < 6) {
-      showNotify("A nova senha deve ter no mínimo 6 caracteres", "error");
-      return;
-    }
-    if (Boolean(profile.senhaAtual) !== Boolean(profile.novaSenha)) {
-      showNotify("Para alterar a senha, informe a senha atual e a nova senha.", "error");
-      return;
-    }
-
+  const updateProfile = async (payload: { nome?: string; senhaAtual?: string; novaSenha?: string }) => {
     try {
-      setSavingProfile(true);
       const token = getToken();
       if (!token) {
         showNotify("Sessão expirada. Faça login novamente.", "error");
-        return;
+        return null;
       }
 
       const response = await authFetch(`${AUTH_API_BASE}/profile`, {
@@ -251,32 +241,74 @@ export default function Settings() {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({
-          nome,
-          senhaAtual: profile.senhaAtual || null,
-          novaSenha: profile.novaSenha || null
-        })
+        body: JSON.stringify(payload)
       });
 
-      if (response.ok) {
-        const data = await response.json() as ProfileUpdateResponse;
-        setToken(data.accessToken);
-        showNotify("Perfil atualizado com sucesso!", "success");
-        setProfile(prev => ({
-          ...prev,
-          nome: data.nome,
-          email: data.email,
-          senhaAtual: '',
-          novaSenha: ''
-        }));
-      } else {
+      if (!response.ok) {
         const data = await response.json().catch(() => null) as { message?: string; title?: string } | null;
         showNotify(data?.message ?? data?.title ?? "Não foi possível atualizar o perfil.", "error");
+        return null;
       }
+
+      const data = await response.json() as ProfileUpdateResponse;
+      setToken(data.accessToken);
+      setProfile(prev => ({
+        ...prev,
+        nome: data.nome,
+        email: data.email,
+        empresa: data.empresa || prev.empresa
+      }));
+      return data;
     } catch {
       showNotify("Erro de conexão ao salvar perfil.", "error");
+      return null;
+    }
+  };
+
+  const handleSavePersonalInfo = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const nome = profile.nome.trim();
+    if (nome.length < 2 || nome.length > 150) {
+      showNotify("O nome deve ter entre 2 e 150 caracteres.", "error");
+      return;
+    }
+
+    try {
+      setSavingPersonalInfo(true);
+      const updated = await updateProfile({ nome });
+      if (updated) showNotify("Informações pessoais atualizadas com sucesso!", "success");
     } finally {
-      setSavingProfile(false);
+      setSavingPersonalInfo(false);
+    }
+  };
+
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!password.atual) {
+      showNotify("Informe a senha atual.", "error");
+      return;
+    }
+    if (password.nova.length < 6 || password.nova.length > 100) {
+      showNotify("A nova senha deve ter entre 6 e 100 caracteres.", "error");
+      return;
+    }
+    if (password.nova !== password.confirmacao) {
+      showNotify("A confirmação deve ser idêntica à nova senha.", "error");
+      return;
+    }
+
+    try {
+      setSavingPassword(true);
+      const updated = await updateProfile({
+        senhaAtual: password.atual,
+        novaSenha: password.nova
+      });
+      if (updated) {
+        setPassword({ atual: '', nova: '', confirmacao: '' });
+        showNotify("Senha alterada. As outras sessões foram encerradas.", "success");
+      }
+    } finally {
+      setSavingPassword(false);
     }
   };
 
@@ -409,6 +441,10 @@ export default function Settings() {
     }
   };
 
+  const passwordLengthValid = password.nova.length >= 6 && password.nova.length <= 100;
+  const passwordConfirmationMatches = password.confirmacao.length > 0
+    && password.nova === password.confirmacao;
+
   return (
     <PageContainer>
       <Typography variant="h4" sx={{ fontWeight: 'bold', mb: 3 }}>
@@ -424,64 +460,161 @@ export default function Settings() {
             textColor="primary"
             indicatorColor="primary"
           >
-            <Tab icon={<SettingsIcon />} iconPosition="start" label="Meu Perfil" />
+            <Tab icon={<SettingsIcon />} iconPosition="start" label="Editar Perfil" />
             <Tab icon={<EmailIcon />} iconPosition="start" label="Entrega de E-mail" />
             <Tab icon={<PaletteIcon />} iconPosition="start" label="Aparência" />
           </Tabs>
         </Box>
 
         <TabPanel value={tabValue} index={0}>
-          <Box component="form" onSubmit={handleSaveProfile} sx={{ maxWidth: 500 }}>
-            <Typography variant="h6" gutterBottom>Dados de Acesso</Typography>
-            <Typography variant="body2" color="textSecondary" mb={3}>
-              Mantenha seus dados atualizados para garantir a segurança do painel.
-            </Typography>
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: { xs: '1fr', md: 'repeat(2, minmax(0, 1fr))' },
+              gap: 2.5,
+              alignItems: 'stretch'
+            }}
+          >
+            <Paper
+              component="form"
+              variant="outlined"
+              aria-labelledby="personal-info-title"
+              onSubmit={handleSavePersonalInfo}
+              sx={{ p: { xs: 2, sm: 3 }, display: 'flex', flexDirection: 'column', minWidth: 0 }}
+            >
+              <Box sx={{ mb: 2.5 }}>
+                <Typography id="personal-info-title" variant="h6" sx={{ fontWeight: 750 }}>
+                  Editar informações pessoais
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Atualize os dados do seu perfil administrativo. E-mail e empresa são somente leitura.
+                </Typography>
+              </Box>
 
-            <TextField
-              fullWidth
-              label="Nome do Administrador"
-              margin="normal"
-              value={profile.nome}
-              onChange={(e) => setProfile({ ...profile, nome: e.target.value })}
-            />
-            <TextField
-              fullWidth
-              label="E-mail de Login"
-              margin="normal"
-              disabled
-              value={profile.email}
-            />
+              <Stack spacing={2} sx={{ flexGrow: 1 }}>
+                <TextField
+                  fullWidth
+                  required
+                  label="Nome do Administrador"
+                  value={profile.nome}
+                  inputProps={{ maxLength: 150 }}
+                  onChange={(e) => setProfile({ ...profile, nome: e.target.value })}
+                />
+                <TextField
+                  fullWidth
+                  label="E-mail de Login"
+                  value={profile.email}
+                  helperText="O e-mail de acesso não pode ser alterado nesta tela."
+                  slotProps={{ htmlInput: { readOnly: true } }}
+                />
+                <TextField
+                  fullWidth
+                  label="Empresa"
+                  value={profile.empresa}
+                  slotProps={{ htmlInput: { readOnly: true } }}
+                />
+              </Stack>
 
-            <Divider sx={{ my: 3 }} />
-
-            <Typography variant="h6" gutterBottom>Alterar Senha</Typography>
-            <TextField
-              fullWidth
-              type="password"
-              label="Senha Atual"
-              margin="normal"
-              value={profile.senhaAtual}
-              onChange={(e) => setProfile({ ...profile, senhaAtual: e.target.value })}
-            />
-            <TextField
-              fullWidth
-              type="password"
-              label="Nova Senha"
-              margin="normal"
-              value={profile.novaSenha}
-              onChange={(e) => setProfile({ ...profile, novaSenha: e.target.value })}
-            />
-
-            <Box sx={{ mt: 3 }}>
               <Button
                 type="submit"
                 variant="contained"
-                disabled={savingProfile}
-                startIcon={savingProfile ? <CircularProgress size={16} color="inherit" /> : <SaveIcon />}
+                disabled={savingPersonalInfo}
+                startIcon={savingPersonalInfo ? <CircularProgress size={16} color="inherit" /> : <SaveIcon />}
+                sx={{ mt: 3, alignSelf: { xs: 'stretch', sm: 'flex-start' } }}
               >
-                {savingProfile ? 'Salvando...' : 'Salvar Alterações'}
+                {savingPersonalInfo ? 'Salvando...' : 'Salvar informações'}
               </Button>
-            </Box>
+            </Paper>
+
+            <Paper
+              component="form"
+              variant="outlined"
+              aria-labelledby="security-title"
+              onSubmit={handleChangePassword}
+              sx={{ p: { xs: 2, sm: 3 }, display: 'flex', flexDirection: 'column', minWidth: 0 }}
+            >
+              <Box sx={{ mb: 2.5 }}>
+                <Typography id="security-title" variant="h6" sx={{ fontWeight: 750 }}>
+                  Segurança
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Use a senha atual para confirmar uma alteração segura.
+                </Typography>
+              </Box>
+
+              <Stack spacing={2}>
+                <TextField
+                  fullWidth
+                  required
+                  type="password"
+                  label="Senha Atual"
+                  autoComplete="current-password"
+                  value={password.atual}
+                  inputProps={{ maxLength: 100 }}
+                  onChange={(e) => setPassword({ ...password, atual: e.target.value })}
+                />
+                <TextField
+                  fullWidth
+                  required
+                  type="password"
+                  label="Nova Senha"
+                  autoComplete="new-password"
+                  value={password.nova}
+                  inputProps={{ minLength: 6, maxLength: 100 }}
+                  onChange={(e) => setPassword({ ...password, nova: e.target.value })}
+                />
+                <TextField
+                  fullWidth
+                  required
+                  type="password"
+                  label="Confirmar Nova Senha"
+                  autoComplete="new-password"
+                  value={password.confirmacao}
+                  error={password.confirmacao.length > 0 && !passwordConfirmationMatches}
+                  helperText={password.confirmacao.length > 0 && !passwordConfirmationMatches
+                    ? 'As senhas não coincidem.'
+                    : 'Digite novamente a nova senha.'}
+                  inputProps={{ minLength: 6, maxLength: 100 }}
+                  onChange={(e) => setPassword({ ...password, confirmacao: e.target.value })}
+                />
+              </Stack>
+
+              <Box
+                aria-live="polite"
+                sx={{ mt: 2.5, p: 2, borderRadius: 2, bgcolor: (theme) => alpha(theme.palette.primary.main, 0.06) }}
+              >
+                <Typography variant="subtitle2" sx={{ mb: 1 }}>Critérios de segurança</Typography>
+                <Stack component="ul" spacing={0.75} sx={{ p: 0, m: 0, listStyle: 'none' }}>
+                  <Typography
+                    component="li"
+                    variant="body2"
+                    color={passwordLengthValid ? 'success.main' : 'text.secondary'}
+                  >
+                    {passwordLengthValid ? '✓' : '•'} Entre 6 e 100 caracteres
+                  </Typography>
+                  <Typography
+                    component="li"
+                    variant="body2"
+                    color={passwordConfirmationMatches ? 'success.main' : 'text.secondary'}
+                  >
+                    {passwordConfirmationMatches ? '✓' : '•'} Confirmação idêntica à nova senha
+                  </Typography>
+                  <Typography component="li" variant="body2" color="text.secondary">
+                    • Outras sessões serão encerradas após a alteração
+                  </Typography>
+                </Stack>
+              </Box>
+
+              <Button
+                type="submit"
+                variant="contained"
+                disabled={savingPassword}
+                startIcon={savingPassword ? <CircularProgress size={16} color="inherit" /> : <LockIcon />}
+                sx={{ mt: 3, alignSelf: { xs: 'stretch', sm: 'flex-start' } }}
+              >
+                {savingPassword ? 'Alterando...' : 'Alterar senha'}
+              </Button>
+            </Paper>
           </Box>
         </TabPanel>
 

@@ -115,6 +115,7 @@ public sealed class ProfileControllerTests
         var profile = Assert.IsType<ProfileResponseDto>(ok.Value);
         Assert.Equal(fixture.Administrator.Nome, profile.Nome);
         Assert.Equal(fixture.Administrator.Email, profile.Email);
+        Assert.Equal("Empresa Perfil", profile.Empresa);
     }
 
     [Fact]
@@ -158,6 +159,7 @@ public sealed class ProfileControllerTests
         var ok = Assert.IsType<OkObjectResult>(result.Result);
         var response = Assert.IsType<ProfileUpdateResponseDto>(ok.Value);
         Assert.Equal("Novo Nome", response.Nome);
+        Assert.Equal("Empresa Perfil", response.Empresa);
         Assert.False(string.IsNullOrWhiteSpace(response.AccessToken));
         var jwt = new JwtSecurityTokenHandler().ReadJwtToken(response.AccessToken);
         Assert.Contains(jwt.Claims, claim => claim.Type == ClaimTypes.Name && claim.Value == "Novo Nome");

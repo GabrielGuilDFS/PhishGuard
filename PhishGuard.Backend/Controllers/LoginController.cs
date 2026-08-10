@@ -196,7 +196,8 @@ public class LoginController : ControllerBase
 			select new ProfileResponseDto
 			{
 				Nome = administrator.Nome,
-				Email = administrator.Email
+				Email = administrator.Email,
+				Empresa = tenant.NomeEmpresa
 			})
 			.SingleOrDefaultAsync(cancellationToken);
 
@@ -212,16 +213,21 @@ public class LoginController : ControllerBase
 		if (!TryGetAuthenticatedIdentity(out var administratorId, out var tenantId, out var sessionId))
 			return Unauthorized();
 
-		var administrator = await (
+		var profile = await (
 			from admin in _context.Administradores
 			join tenant in _context.Tenants on admin.TenantId equals tenant.Id
 			where admin.Id == administratorId
 				&& admin.TenantId == tenantId
 				&& tenant.Id == tenantId
 				&& tenant.Ativo
-			select admin)
+			select new
+			{
+				Administrator = admin,
+				Empresa = tenant.NomeEmpresa
+			})
 			.SingleOrDefaultAsync(cancellationToken);
-		if (administrator is null) return NotFound();
+		if (profile is null) return NotFound();
+		var administrator = profile.Administrator;
 
 		var nowUtc = _timeProvider.GetUtcNow().UtcDateTime;
 		var currentSession = await _context.AuthSessions.SingleOrDefaultAsync(session =>
@@ -282,6 +288,7 @@ public class LoginController : ControllerBase
 		{
 			Nome = administrator.Nome,
 			Email = administrator.Email,
+			Empresa = profile.Empresa,
 			AccessToken = auth.AccessToken,
 			ExpiresAtUtc = auth.ExpiresAtUtc
 		});

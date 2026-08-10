@@ -6,6 +6,7 @@ public sealed class ProfileResponseDto
 {
     public string Nome { get; init; } = string.Empty;
     public string Email { get; init; } = string.Empty;
+    public string Empresa { get; init; } = string.Empty;
 }
 
 public sealed class UpdateProfileDto
@@ -24,6 +25,7 @@ public sealed class ProfileUpdateResponseDto
 {
     public string Nome { get; init; } = string.Empty;
     public string Email { get; init; } = string.Empty;
+    public string Empresa { get; init; } = string.Empty;
     public string AccessToken { get; init; } = string.Empty;
     public DateTime ExpiresAtUtc { get; init; }
 }
