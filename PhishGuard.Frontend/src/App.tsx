@@ -4,11 +4,13 @@ import { ThemeModeProvider } from './context/ThemeModeContext';
 import { NotificationProvider } from './context/NotificationContext';
 import ForcedLightScope from './theme/ForcedLightScope';
 import AppRoutes from './routing/AppRoutes';
+import { REGISTRATION_ENABLED } from './config';
 
 import { retryPendingTrackingEvents } from './shared/trackingRetryQueue';
 
 const Login = lazy(() => import('./pages/Login'));
 const Register = lazy(() => import('./pages/Register'));
+const RegistrationUnavailable = lazy(() => import('./pages/RegistrationUnavailable'));
 const AdminLayout = lazy(() => import('./layouts/AdminLayout'));
 const AdminDashboard = lazy(() => import('./pages/AdminDashboard'));
 const Targets = lazy(() => import('./pages/Targets'));
@@ -41,7 +43,11 @@ function App() {
             <AppRoutes
               home={<ForcedLightScope><HomeLandingPage /></ForcedLightScope>}
               login={<ForcedLightScope><Login /></ForcedLightScope>}
-              register={<ForcedLightScope><Register /></ForcedLightScope>}
+              register={
+                <ForcedLightScope>
+                  {REGISTRATION_ENABLED ? <Register /> : <RegistrationUnavailable />}
+                </ForcedLightScope>
+              }
               checkout={<CheckoutPage />}
               landing={<LandingPage />}
               educationalFeedback={<EducationalFeedbackPage />}

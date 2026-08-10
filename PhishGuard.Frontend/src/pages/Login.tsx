@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { AUTH_API_BASE } from '../config';
+import { AUTH_API_BASE, REGISTRATION_ENABLED } from '../config';
 import {
   Box,
   Button,
@@ -176,14 +176,16 @@ export default function Login() {
                 Entrar no Sistema
               </Button>
             </Box>
-            <Link
-              component={RouterLink}
-              to="/Register"
-              variant="body2"
-              sx={{ color: 'primary.main', fontWeight: 'bold' }}
-            >
-              {"Sem conta? Cadastre-se"}
-            </Link>
+            {REGISTRATION_ENABLED && (
+              <Link
+                component={RouterLink}
+                to="/register"
+                variant="body2"
+                sx={{ color: 'primary.main', fontWeight: 'bold' }}
+              >
+                {"Sem conta? Cadastre-se"}
+              </Link>
+            )}
           </Paper>
         </Box>
       </Container>

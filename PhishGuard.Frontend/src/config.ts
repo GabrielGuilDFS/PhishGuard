@@ -19,3 +19,7 @@ export const API_BASE: string =
 
 /** Rotas de autenticação canônicas; o Path do refresh cookie é case-sensitive. */
 export const AUTH_API_BASE = `${API_BASE}/auth`;
+
+/** Feature flag de onboarding público; no Render permanece false durante a demonstração. */
+export const REGISTRATION_ENABLED =
+  String(import.meta.env.VITE_REGISTRATION_ENABLED ?? 'true').toLowerCase() === 'true';

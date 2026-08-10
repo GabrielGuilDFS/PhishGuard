@@ -26,6 +26,9 @@ public class IgnoreQueryFiltersGuardTests
     {
         "BackgroundServices/CampaignSchedulerWorker.cs",
         "Services/CampaignDispatchService.cs",
+        // Processo de startup sem HttpContext: valida unicidade global de CNPJ/e-mail
+        // antes de criar um tenant, reescopando o administrador pelo TenantId criado.
+        "Services/AdminBootstrapProvisioner.cs",
         "Controllers/TrackingController.cs",
         "Controllers/LoginController.cs",
         "Controllers/RegisterController.cs",

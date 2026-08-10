@@ -33,6 +33,24 @@ services:
         value: "true"
       - key: AppSettings__CrossSiteRefreshCookie
         value: "true"
+      - key: AppSettings__RegistrationEnabled
+        value: "false"
+      # Bootstrap administrativo de uso único. A senha deve ser cadastrada como Secret
+      # no painel da Render e o Enabled deve voltar a false após o primeiro deploy.
+      - key: BootstrapAdmin__Enabled
+        value: "true"
+      - key: BootstrapAdmin__TenantName
+        value: Mercado Mendonça
+      - key: BootstrapAdmin__Cnpj
+        value: "49689568958612"
+      - key: BootstrapAdmin__Name
+        value: Ricardo Richard Almeida
+      - key: BootstrapAdmin__Email
+        value: rradmin@gmail.com
+      - key: BootstrapAdmin__Password
+        sync: false
+      - key: BootstrapAdmin__Plan
+        value: Bronze
       # Instancias gratuitas do Render bloqueiam egress SMTP nas portas 25/465/587.
       # Ao migrar para um plano pago, altere para true e sincronize o Blueprint.
       - key: AppSettings__SmtpTransportEnabled
@@ -52,6 +70,8 @@ services:
     envVars:
       - key: VITE_API_BASE_URL
         value: https://phishguard-backend-rcbr.onrender.com/api
+      - key: VITE_REGISTRATION_ENABLED
+        value: "false"
     routes:
       - type: rewrite
         source: /*

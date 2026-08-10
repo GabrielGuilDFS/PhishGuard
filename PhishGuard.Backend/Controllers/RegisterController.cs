@@ -13,16 +13,29 @@ namespace PhishGuard.Backend.Controllers;
 public class RegisterController : ControllerBase
 {
 	private readonly AppDbContext _context;
+	private readonly IConfiguration _configuration;
 
-	public RegisterController(AppDbContext context)
+	public RegisterController(AppDbContext context, IConfiguration? configuration = null)
 	{
 		_context = context;
+		_configuration = configuration ?? new ConfigurationBuilder().Build();
 	}
 
 	[AllowAnonymous]
 	[HttpPost("register")]
 	public async Task<IActionResult> Registrar(RegisterDto request)
 	{
+		var registrationEnabled = _configuration
+			.GetValue<bool?>("AppSettings:RegistrationEnabled") ?? true;
+		if (!registrationEnabled)
+		{
+			return StatusCode(StatusCodes.Status403Forbidden, new
+			{
+				code = "REGISTRATION_DISABLED",
+				message = "Novos cadastros estão temporariamente desabilitados."
+			});
+		}
+
 		if (!ModelState.IsValid)
 		{
 			return BadRequest(ModelState);

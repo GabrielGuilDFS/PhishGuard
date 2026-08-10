@@ -291,6 +291,7 @@ builder.Services.AddScoped<IEmailSenderResolver, EmailSenderResolver>();
 builder.Services.AddScoped<ICampaignDispatchService, CampaignDispatchService>();
 builder.Services.AddScoped<IDashboardOverviewService, DashboardOverviewService>();
 builder.Services.AddSingleton<IDashboardExportService, DashboardExportService>();
+builder.Services.AddScoped<IAdminBootstrapProvisioner, AdminBootstrapProvisioner>();
 builder.Services.AddHostedService<CampaignSchedulerWorker>();
 
 var app = builder.Build();
@@ -362,6 +363,9 @@ using (var scope = app.Services.CreateScope())
         await context.Database.MigrateAsync();
         startupLogger.LogInformation("Migrações aplicadas com sucesso.");
     }
+
+    var adminBootstrap = scope.ServiceProvider.GetRequiredService<IAdminBootstrapProvisioner>();
+    await adminBootstrap.ProvisionAsync();
 }
 
 app.Run();

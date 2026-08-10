@@ -23,6 +23,7 @@ import {
   ArrowForward as ArrowForwardIcon,
 } from '@mui/icons-material';
 import { brandPalette, mutedTextFor } from '../theme';
+import { REGISTRATION_ENABLED } from '../config';
 // Importada (e não referenciada por caminho solto tipo '/assets/images/...'): o Vite
 // versiona o arquivo com hash e, se ele sumir, o BUILD quebra em vez de virar um 404
 // silencioso em produção. A netflix-bg.png vive em public/ por outro motivo — é usada
@@ -184,11 +185,11 @@ export default function HomeLandingPage() {
 
   // Inicia o fluxo de onboarding do novo Tenant (cadastro da empresa).
   const iniciarOnboarding = (planoId: string) => {
-    navigate(`/register?plano=${planoId}`);
+    navigate(REGISTRATION_ENABLED ? `/register?plano=${planoId}` : '/login');
   };
 
   const irParaConsultor = () => {
-    navigate('/register?plano=ouro&contato=consultor');
+    navigate(REGISTRATION_ENABLED ? '/register?plano=ouro&contato=consultor' : '/login');
   };
 
   const scrollPara = (id: string) => {
@@ -346,7 +347,7 @@ export default function HomeLandingPage() {
               variant="contained"
               size="large"
               endIcon={<ArrowForwardIcon />}
-              onClick={() => scrollPara('precos')}
+              onClick={() => REGISTRATION_ENABLED ? scrollPara('precos') : navigate('/login')}
               sx={{
                 backgroundColor: ACCENT,
                 color: '#ffffff',
@@ -357,12 +358,12 @@ export default function HomeLandingPage() {
                 '&:hover': { backgroundColor: ACCENT_HOVER },
               }}
             >
-              Começar Agora
+              {REGISTRATION_ENABLED ? 'Começar Agora' : 'Acessar demonstração'}
             </Button>
             <Button
               variant="outlined"
               size="large"
-              onClick={() => navigate('/register?intencao=demonstracao')}
+              onClick={() => navigate(REGISTRATION_ENABLED ? '/register?intencao=demonstracao' : '/login')}
               sx={{
                 color: TEXT_DARK,
                 borderColor: BORDER,
@@ -373,7 +374,7 @@ export default function HomeLandingPage() {
                 '&:hover': { borderColor: ACCENT, backgroundColor: 'rgba(6,0,194,0.06)' },
               }}
             >
-              Agendar Demonstração
+              {REGISTRATION_ENABLED ? 'Agendar Demonstração' : 'Entrar'}
             </Button>
           </Stack>
         </Container>
@@ -616,7 +617,7 @@ export default function HomeLandingPage() {
                       }
                   }
                 >
-                  {plano.cta}
+                  {REGISTRATION_ENABLED ? plano.cta : 'Acessar conta'}
                 </Button>
               </Paper>
             ))}

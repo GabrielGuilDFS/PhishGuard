@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using PhishGuard.Backend.Controllers;
 using PhishGuard.Backend.Data;
 using PhishGuard.Backend.DTOs;
@@ -63,6 +64,34 @@ public class RegisterControllerTests
         Assert.Equal("admin@teste.com", adminSalvo!.Email);
         // O administrador deve estar corretamente vinculado ao tenant criado
         Assert.Equal(tenantSalvo.Id, adminSalvo.TenantId);
+    }
+
+    [Fact]
+    public async Task Registrar_QuandoDesabilitado_RetornaForbiddenENaoPersisteDados()
+    {
+        var context = CriarContexto();
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["AppSettings:RegistrationEnabled"] = "false"
+            })
+            .Build();
+        var controller = new RegisterController(context, configuration);
+        var request = new RegisterDto
+        {
+            NomeEmpresa = "Empresa Bloqueada",
+            Cnpj = "12345678000199",
+            Nome = "Admin Bloqueado",
+            Email = "bloqueado@teste.com",
+            Password = SenhaValida
+        };
+
+        var resultado = await controller.Registrar(request);
+
+        var forbidden = Assert.IsType<ObjectResult>(resultado);
+        Assert.Equal(403, forbidden.StatusCode);
+        Assert.False(await context.Tenants.IgnoreQueryFilters().AnyAsync());
+        Assert.False(await context.Administradores.IgnoreQueryFilters().AnyAsync());
     }
 
     [Theory]
