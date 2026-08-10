@@ -13,10 +13,7 @@ import {
 import { useNavigate, useSearchParams, Link as RouterLink } from 'react-router-dom';
 import { clearSession } from '../auth/session';
 import { brandPalette } from '../theme';
-// Deep import (não o barrel `@mui/icons-material`): named imports do barrel quebram o
-// Vitest no Windows com EMFILE (milhares de ícones abertos de uma vez) — gotcha já
-// documentado no projeto.
-import SecurityIcon from '@mui/icons-material/Security';
+import PhishGuardMark from '../components/PhishGuardMark';
 
 export default function Register() {
   const navigate = useNavigate();
@@ -223,7 +220,7 @@ export default function Register() {
               },
             }}
           >
-            <SecurityIcon sx={{ color: ACCENT, mr: 1 }} />
+            <PhishGuardMark size={34} marginRight={0.5} />
             <Typography
               variant="h6"
               sx={{ fontWeight: 800, letterSpacing: 0.5, color: TEXT_DARK }}

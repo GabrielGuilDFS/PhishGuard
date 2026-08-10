@@ -19,10 +19,10 @@ import {
   School as SchoolIcon,
   Insights as InsightsIcon,
   CheckCircle as CheckCircleIcon,
-  Security as SecurityIcon,
   ArrowForward as ArrowForwardIcon,
 } from '@mui/icons-material';
 import { brandPalette, mutedTextFor } from '../theme';
+import PhishGuardMark from '../components/PhishGuardMark';
 import { REGISTRATION_ENABLED } from '../config';
 // Importada (e não referenciada por caminho solto tipo '/assets/images/...'): o Vite
 // versiona o arquivo com hash e, se ele sumir, o BUILD quebra em vez de virar um 404
@@ -210,7 +210,7 @@ export default function HomeLandingPage() {
       >
         <Container maxWidth="lg">
           <Toolbar>
-            <SecurityIcon sx={{ color: ACCENT, mr: 1 }} />
+            <PhishGuardMark size={34} marginRight={0.5} />
             <Typography
               variant="h6"
               sx={{ fontWeight: 800, letterSpacing: 0.5, flexGrow: 1, color: TEXT_DARK }}
@@ -246,13 +246,18 @@ export default function HomeLandingPage() {
               to="/login"
               variant="outlined"
               sx={{
-                color: ACCENT,
+                color: CARD_BG,
                 borderColor: ACCENT_BORDER,
+                backgroundColor: ACCENT,
                 fontWeight: 700,
-                '&:hover': { borderColor: ACCENT, backgroundColor: 'rgba(6,0,194,0.06)' },
+                paddingX: '10px',
+                paddingY: '2px',
+                borderWidth: '2px',
+                borderRadius: '7px',
+                '&:hover': { borderColor: ACCENT, backgroundColor: '#04008f' },
               }}
             >
-              Login
+              Entrar
             </Button>
           </Toolbar>
         </Container>
@@ -303,7 +308,7 @@ export default function HomeLandingPage() {
           }}
         >
           <Chip
-            icon={<SecurityIcon sx={{ color: `${ACCENT} !important` }} />}
+            icon={<PhishGuardMark size={22} />}
             label="Conscientização em Segurança da Informação"
             sx={{
               mb: 3,
@@ -636,7 +641,7 @@ export default function HomeLandingPage() {
           >
             <Box>
               <Stack direction="row" alignItems="center" spacing={1}>
-                <SecurityIcon sx={{ color: ACCENT }} />
+                <PhishGuardMark size={34} />
                 <Typography variant="h6" sx={{ fontWeight: 800, color: TEXT_DARK }}>
                   Phish<span style={{ color: ACCENT }}>Guard</span>
                 </Typography>

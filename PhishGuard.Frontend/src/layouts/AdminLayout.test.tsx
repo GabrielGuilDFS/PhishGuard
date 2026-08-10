@@ -28,13 +28,16 @@ afterEach(() => {
 // aqui é ela voltar a ficar "presa" num hex fixo e parar de acompanhar o toggle.
 describe('AdminLayout — logo sem fundo sólido, cor por token de tema', () => {
   it('renderiza "Phish" + "Guard" sem herdar mais o gradiente de marca fixo', () => {
-    renderLayout();
+    const { container } = renderLayout();
     // "Guard" fica num <span> filho separado — "PhishGuard" nunca existe como um nó
     // de texto único, por isso as duas partes são checadas separadamente. Também
     // aparecem em dobro: Drawer permanente + temporário (mobile) montam juntos, só um
     // fica visível por CSS.
     expect(screen.getAllByText('Phish', { exact: false }).length).toBeGreaterThan(0);
     expect(screen.getAllByText('Guard').length).toBeGreaterThan(0);
+    // O mesmo cabeçalho alimenta o Drawer permanente e o temporário; o JSDOM monta
+    // apenas a variante ativa conforme o comportamento responsivo do MUI.
+    expect(container.querySelectorAll('img[src*="phishguard-mark"]').length).toBeGreaterThan(0);
   });
 
   it('"Guard" usa o accent do modo LIGHT (#0600c2), não um hex de marca fixo', () => {

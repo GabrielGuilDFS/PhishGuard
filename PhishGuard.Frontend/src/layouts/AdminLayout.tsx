@@ -27,6 +27,7 @@ import SendIcon from '@mui/icons-material/Send';
 import LogoutIcon from '@mui/icons-material/Logout';
 import SettingsIcon from '@mui/icons-material/Settings';
 import FolderIcon from '@mui/icons-material/FolderCopy';
+import PhishGuardMark from '../components/PhishGuardMark';
 
 const drawerWidth = 260;
 
@@ -67,6 +68,7 @@ export default function AdminLayout() {
           fade global de 1s (.theme-transition no <html>, ThemeModeContext); nenhuma
           transição local é necessária aqui. */}
       <Toolbar sx={{ bgcolor: 'transparent' }}>
+        <PhishGuardMark size={34} marginRight={0.5} />
         <Typography
           variant="h6"
           noWrap
