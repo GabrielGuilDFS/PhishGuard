@@ -56,6 +56,26 @@ public static class SmtpOperationalPolicy
 
         try
         {
+            if (credentialProtector is IEmailSecretProtector contextualProtector)
+            {
+                var secretType = config!.ProviderType == EmailProviderType.ProviderApi
+                    ? EmailSecretType.ApiKey
+                    : EmailSecretType.SmtpPassword;
+                var storedSecret = secretType == EmailSecretType.ApiKey
+                    ? config.EncryptedApiKey
+                    : config.Senha;
+
+                return string.IsNullOrWhiteSpace(contextualProtector.UnprotectSecret(
+                    config.TenantId,
+                    config.ProviderType,
+                    secretType,
+                    storedSecret))
+                        ? CredentialUnreadableCode
+                        : null;
+            }
+
+            // Compatibilidade para integrações e testes que ainda fornecem somente o
+            // contrato SMTP legado. Configurações novas usam sempre o ramo contextual.
             if (config!.ProviderType == EmailProviderType.ProviderApi)
             {
                 return string.IsNullOrWhiteSpace(config.EncryptedApiKey)

@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using PhishGuard.Backend.Controllers;
@@ -326,6 +327,71 @@ public class CampaignsControllerTests : CampaignTestBase
 
         Assert.IsType<ConflictObjectResult>(resultado);
         Assert.Equal(CampaignStatus.Rascunho, campanha.Status);
+    }
+
+    [Fact]
+    public async Task Ativar_ComCredencialSmtpContextual_TransicionaParaProcessando()
+    {
+        var (context, tenantProvider) = CriarContexto();
+        var tenant = new Tenant { Id = Guid.NewGuid(), NomeEmpresa = "Empresa", Cnpj = "11111111000191", Ativo = true, CriadoEm = DateTime.UtcNow, Plano = PlanoTenant.Bronze };
+        context.Tenants.Add(tenant);
+        await context.SaveChangesAsync();
+        var campanha = await SemearCampanhaRascunhoAsync(
+            context,
+            tenantProvider,
+            tenant.Id,
+            DateTime.UtcNow.AddMinutes(-1));
+        var smtp = await context.SmtpConfigs.IgnoreQueryFilters()
+            .SingleAsync(config => config.TenantId == tenant.Id);
+        var protector = new EmailSecretProtector(new EphemeralDataProtectionProvider());
+        smtp.Senha = protector.ProtectSecret(
+            tenant.Id,
+            EmailProviderType.Smtp,
+            EmailSecretType.SmtpPassword,
+            "senha-mailpit");
+        await context.SaveChangesAsync();
+
+        var controller = new CampaignsController(
+            context,
+            tenantProvider,
+            smtpCredentialProtector: protector);
+        var resultado = await controller.AtivarCampanha(campanha.Id);
+
+        Assert.IsType<AcceptedResult>(resultado);
+        Assert.Equal(CampaignStatus.Processando, campanha.Status);
+    }
+
+    [Fact]
+    public async Task RetryDispatch_ComCredencialSmtpContextual_ReenfileiraCampanha()
+    {
+        var (context, tenantProvider) = CriarContexto();
+        var tenant = new Tenant { Id = Guid.NewGuid(), NomeEmpresa = "Empresa", Cnpj = "11111111000191", Ativo = true, CriadoEm = DateTime.UtcNow, Plano = PlanoTenant.Bronze };
+        context.Tenants.Add(tenant);
+        await context.SaveChangesAsync();
+        var campanha = await SemearCampanhaRascunhoAsync(
+            context,
+            tenantProvider,
+            tenant.Id,
+            DateTime.UtcNow.AddMinutes(-1));
+        campanha.Status = CampaignStatus.FalhaNoDisparo;
+        var smtp = await context.SmtpConfigs.IgnoreQueryFilters()
+            .SingleAsync(config => config.TenantId == tenant.Id);
+        var protector = new EmailSecretProtector(new EphemeralDataProtectionProvider());
+        smtp.Senha = protector.ProtectSecret(
+            tenant.Id,
+            EmailProviderType.Smtp,
+            EmailSecretType.SmtpPassword,
+            "senha-mailpit");
+        await context.SaveChangesAsync();
+
+        var controller = new CampaignsController(
+            context,
+            tenantProvider,
+            smtpCredentialProtector: protector);
+        var resultado = await controller.RetryDispatch(campanha.Id);
+
+        Assert.IsType<AcceptedResult>(resultado);
+        Assert.Equal(CampaignStatus.Processando, campanha.Status);
     }
 
     [Fact]
