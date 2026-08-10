@@ -18,7 +18,7 @@ import ClearAllIcon from '@mui/icons-material/ClearAll';
 import ReplayIcon from '@mui/icons-material/Replay';
 import { simulationScenarios, templatesPredefinidos, type SimulationScenario } from '../data/predefinedTemplates';
 import { landingTemplates } from '../data/landingTemplates';
-import { resolverPaginaEducativaDoCenario } from '../data/feedbackTrainings';
+import { paginaEducativaPrecisaReconciliar, resolverPaginaEducativaDoCenario } from '../data/feedbackTrainings';
 import { CampaignStatus } from '../data/campaignStatus';
 import { useNotify } from '../context/NotificationContext';
 import { toDateTimeLocal } from '../utils/dateTime';
@@ -480,7 +480,25 @@ export default function Campaigns() {
         const descritor = resolverPaginaEducativaDoCenario(cenario);
 
         const existente = educationalPages.find(p => p.conteudoHtml === descritor.html);
-        if (existente) return existente.id;
+        if (existente) {
+            // O catálogo é a fonte canônica do rótulo. Páginas antigas podem manter
+            // nomes de migrations de descontinuação mesmo após o cenário ser reativado.
+            // Reconcilia no mesmo registro para preservar FKs, histórico e idempotência.
+            if (paginaEducativaPrecisaReconciliar(
+                { nome: existente.nome, html: existente.conteudoHtml ?? '' },
+                descritor,
+            )) {
+                const res = await authFetch(`${API_BASE}/EducationalPages/${existente.id}`, {
+                    method: 'PUT', headers,
+                    body: JSON.stringify({ nome: descritor.nome, conteudoHtml: descritor.html }),
+                });
+                if (!res.ok) throw new Error(await extrairMensagemDeErro(res));
+
+                setEducationalPages(prev => prev.map(p =>
+                    p.id === existente.id ? { ...p, nome: descritor.nome } : p));
+            }
+            return existente.id;
+        }
 
         const res = await authFetch(`${API_BASE}/EducationalPages`, {
             method: 'POST', headers,

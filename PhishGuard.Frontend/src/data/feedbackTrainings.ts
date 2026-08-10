@@ -636,6 +636,14 @@ export interface PaginaEducativaDescriptor {
   html: string;
 }
 
+/** Indica se uma linha persistida, já identificada pelo HTML estável, precisa ser reconciliada. */
+export function paginaEducativaPrecisaReconciliar(
+  pagina: Pick<PaginaEducativaDescriptor, 'nome' | 'html'>,
+  descritor: PaginaEducativaDescriptor,
+): boolean {
+  return pagina.html === descritor.html && pagina.nome !== descritor.nome;
+}
+
 /**
  * Deriva, a partir do cenário selecionado, a página educativa a ser vinculada à campanha
  * — substitui o antigo seletor manual "Página Educativa" do formulário.
