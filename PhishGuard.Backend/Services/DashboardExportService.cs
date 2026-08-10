@@ -34,6 +34,35 @@ public sealed class DashboardExportService : IDashboardExportService
         string Color,
         Func<DashboardTrendPointDto, int> Value);
 
+    internal sealed record TrendLegendMetric(
+        string Label,
+        string Color,
+        int Total,
+        double Percentage);
+
+    private static readonly IReadOnlyList<TrendSeries> OperationalTrendSeries =
+    [
+        new("Enviados", Primary, point => point.Sent),
+        new("Abertos", Success, point => point.Opened),
+        new("Clicados", Warning, point => point.Clicked),
+        new("Comprometidos", Danger, point => point.Compromised)
+    ];
+
+    private static readonly IReadOnlyList<TrendSeries> EducationTrendSeries =
+    [
+        new("Comprometidos", Danger, point => point.Compromised),
+        new("Acesso educacional", Info, point => point.EducationViewed),
+        new("Treinamento concluído", Success, point => point.Trained)
+    ];
+
+    internal static IReadOnlyList<TrendLegendMetric> BuildOperationalTrendLegend(
+        IReadOnlyList<DashboardTrendPointDto> trend) =>
+        BuildTrendLegend(trend, OperationalTrendSeries);
+
+    internal static IReadOnlyList<TrendLegendMetric> BuildEducationTrendLegend(
+        IReadOnlyList<DashboardTrendPointDto> trend) =>
+        BuildTrendLegend(trend, EducationTrendSeries);
+
     public DashboardExportFile Generate(
         DashboardExportFormat format,
         DashboardOverviewResponse dashboard,
@@ -74,6 +103,7 @@ public sealed class DashboardExportService : IDashboardExportService
                     column.Item().Element(container => ComposeExecutiveSummary(container, data));
                     column.Item().Text("Indicadores gerais").Bold().FontSize(13);
                     column.Item().Element(container => ComposeKpis(container, data));
+                    column.Item().Element(container => ComposeOpenTrackingExplanation(container, data));
                     column.Item().Element(container => ComposePrivacyNote(container));
                 });
                 page.Footer().Element(container => ComposeFooter(container, context));
@@ -94,11 +124,13 @@ public sealed class DashboardExportService : IDashboardExportService
                     column.Item().Text("Evolução acumulada de envios, aberturas, cliques e comprometimentos no recorte selecionado.")
                         .FontSize(8).FontColor(Muted);
                     column.Item().Height(142).Svg(BuildOperationalTrendSvg(data.Trend));
+                    column.Item().Element(container => ComposeTrendLegend(container, BuildOperationalTrendLegend(data.Trend)));
 
                     column.Item().Text("Jornada educacional").Bold().FontSize(13);
                     column.Item().Text("Comparação entre comprometimentos, acessos ao conteúdo educativo e conclusões de treinamento.")
                         .FontSize(8).FontColor(Muted);
                     column.Item().Height(126).Svg(BuildEducationTrendSvg(data.Trend));
+                    column.Item().Element(container => ComposeTrendLegend(container, BuildEducationTrendLegend(data.Trend)));
 
                     column.Item().Text("Efetividade do treinamento").Bold().FontSize(13);
                     column.Item().Element(container => ComposeTraining(container, data));
@@ -226,10 +258,10 @@ public sealed class DashboardExportService : IDashboardExportService
                 Kpi(row.RelativeItem(), "Aprendizado", FormatPercent(data.Kpis.TrainingRate.Rate), Info,
                     $"{FormatInteger(data.Kpis.TrainingRate.UniqueTotal)} conclusões");
                 row.Spacing(7);
-                Kpi(row.RelativeItem(), "Pixel / inferidas",
+                Kpi(row.RelativeItem(), "Aberturas: pixel / inferidas",
                     $"{FormatInteger(data.Kpis.OpenRate.ObservedTotal)} / {FormatInteger(data.Kpis.OpenRate.InferredTotal)}",
                     Success,
-                    "Origem das aberturas efetivas");
+                    $"{FormatInteger(data.Kpis.OpenRate.ObservedTotal)} pelo pixel; {FormatInteger(data.Kpis.OpenRate.InferredTotal)} por interação posterior");
             });
         });
     }
@@ -247,6 +279,34 @@ public sealed class DashboardExportService : IDashboardExportService
             column.Item().PaddingTop(3).Text(value).Bold().FontSize(15).FontColor(color);
             if (!string.IsNullOrWhiteSpace(note))
                 column.Item().PaddingTop(3).Text(note).FontSize(7).FontColor(Muted);
+        });
+    }
+
+    private static void ComposeOpenTrackingExplanation(
+        IContainer container,
+        DashboardOverviewResponse data)
+    {
+        var observed = FormatInteger(data.Kpis.OpenRate.ObservedTotal);
+        var inferred = FormatInteger(data.Kpis.OpenRate.InferredTotal);
+
+        container.Background("#F0FDF4").Border(1).BorderColor("#BBF7D0").Padding(10).Column(column =>
+        {
+            column.Spacing(3);
+            column.Item().Text("Como são calculadas as aberturas?").Bold().FontSize(10).FontColor("#166534");
+            column.Item().DefaultTextStyle(style => style.FontSize(8)).Text(text =>
+            {
+                text.Span("Pixel: ").Bold();
+                text.Span($"{observed} abertura(s) observada(s) quando a imagem de rastreamento do e-mail foi carregada.");
+            });
+            column.Item().DefaultTextStyle(style => style.FontSize(8)).Text(text =>
+            {
+                text.Span("Inferidas: ").Bold();
+                text.Span($"{inferred} abertura(s) sem registro do pixel, confirmada(s) por clique, submissão da simulação ou conclusão do treinamento.");
+            });
+            column.Item().Text("Aberturas efetivas = participantes identificados pelo pixel ou por interação posterior. Cada participante conta uma única vez por campanha.")
+                .FontSize(8);
+            column.Item().Text("Observação: bloqueio de imagens, cache e mecanismos de privacidade do cliente de e-mail podem impedir o registro do pixel.")
+                .FontSize(7).FontColor(Muted);
         });
     }
 
@@ -285,7 +345,9 @@ public sealed class DashboardExportService : IDashboardExportService
             column.Spacing(3);
             column.Item().Text("Metodologia resumida").Bold().FontSize(10).FontColor(Primary);
             column.Item().Text("- Eventos são deduplicados pelo conjunto campanha, destinatário e ação.").FontSize(8);
-            column.Item().Text("- A abertura efetiva combina o pixel observado com aberturas inferidas por ações posteriores, sem duplicar destinatários.").FontSize(8);
+            column.Item().Text("- Pixel: abertura observada quando a imagem de rastreamento do e-mail é carregada.").FontSize(8);
+            column.Item().Text("- Inferida: não houve registro do pixel, mas o destinatário clicou, submeteu a simulação ou concluiu o treinamento.").FontSize(8);
+            column.Item().Text("- Aberturas por pixel e inferidas são unificadas por campanha e destinatário; interações repetidas contam uma única vez.").FontSize(8);
             column.Item().Text("- Clique e comprometimento usam os e-mails enviados no recorte como base; abandono usa os acessos educacionais.").FontSize(8);
             column.Item().Text("- Recuperação representa participantes comprometidos que concluíram o treinamento.").FontSize(8);
         });
@@ -360,22 +422,53 @@ public sealed class DashboardExportService : IDashboardExportService
         cell.Text(text).FontSize(6.5f);
     }
 
-    private static string BuildOperationalTrendSvg(IReadOnlyList<DashboardTrendPointDto> trend) =>
-        BuildTrendSvg(trend,
-        [
-            new("Enviados", Primary, point => point.Sent),
-            new("Abertos", Success, point => point.Opened),
-            new("Clicados", Warning, point => point.Clicked),
-            new("Comprometidos", Danger, point => point.Compromised)
-        ]);
+    private static void ComposeTrendLegend(
+        IContainer container,
+        IReadOnlyList<TrendLegendMetric> metrics)
+    {
+        container.PaddingHorizontal(18).Row(row =>
+        {
+            row.Spacing(12);
+            foreach (var item in metrics)
+            {
+                row.RelativeItem().Row(legendItem =>
+                {
+                    legendItem.ConstantItem(8).AlignMiddle().Height(8).Background(item.Color);
+                    legendItem.ConstantItem(5);
+                    legendItem.RelativeItem().AlignMiddle()
+                        .DefaultTextStyle(style => style.FontSize(8).FontColor("#334155"))
+                        .Text(text =>
+                        {
+                            text.Span(item.Label);
+                            text.Span($"  {FormatInteger(item.Total)} ({FormatPercent(item.Percentage)})").SemiBold();
+                        });
+                });
+            }
+        });
+    }
 
-    private static string BuildEducationTrendSvg(IReadOnlyList<DashboardTrendPointDto> trend) =>
-        BuildTrendSvg(trend,
-        [
-            new("Comprometidos", Danger, point => point.Compromised),
-            new("Acesso educacional", Info, point => point.EducationViewed),
-            new("Treinamento concluído", Success, point => point.Trained)
-        ]);
+    private static IReadOnlyList<TrendLegendMetric> BuildTrendLegend(
+        IReadOnlyList<DashboardTrendPointDto> trend,
+        IReadOnlyList<TrendSeries> series)
+    {
+        var latest = trend.LastOrDefault();
+        var sent = latest?.Sent ?? 0;
+
+        return series.Select(item =>
+        {
+            var total = latest is null ? 0 : item.Value(latest);
+            var percentage = sent == 0
+                ? 0
+                : Math.Round(100.0 * total / sent, 1);
+            return new TrendLegendMetric(item.Label, item.Color, total, percentage);
+        }).ToArray();
+    }
+
+    internal static string BuildOperationalTrendSvg(IReadOnlyList<DashboardTrendPointDto> trend) =>
+        BuildTrendSvg(trend, OperationalTrendSeries);
+
+    internal static string BuildEducationTrendSvg(IReadOnlyList<DashboardTrendPointDto> trend) =>
+        BuildTrendSvg(trend, EducationTrendSeries);
 
     private static string BuildTrendSvg(
         IReadOnlyList<DashboardTrendPointDto> trend,
@@ -386,6 +479,8 @@ public sealed class DashboardExportService : IDashboardExportService
         const int left = 36;
         const int right = 14;
         const int top = 12;
+        // O SVG contém apenas o gráfico e os eixos. A legenda é renderizada com
+        // componentes nativos do QuestPDF para não depender do recorte de texto SVG.
         const int bottom = 32;
         var plotWidth = width - left - right;
         var plotHeight = height - top - bottom;
@@ -414,16 +509,8 @@ public sealed class DashboardExportService : IDashboardExportService
             foreach (var index in labelIndexes)
             {
                 var x = left + (trend.Count == 1 ? plotWidth / 2.0 : plotWidth * index / (trend.Count - 1.0));
-                builder.Append(CultureInfo.InvariantCulture, $"<text x='{x:0.##}' y='{height - 17}' text-anchor='middle' font-size='8' fill='{Muted}'>{SecurityElement.Escape(trend[index].Label)}</text>");
+                builder.Append(CultureInfo.InvariantCulture, $"<text x='{x:0.##}' y='{height - 12}' text-anchor='middle' font-size='8' fill='{Muted}'>{SecurityElement.Escape(trend[index].Label)}</text>");
             }
-        }
-
-        var legendX = left;
-        var legendSpacing = plotWidth / Math.Max(1, series.Count);
-        foreach (var item in series)
-        {
-            builder.Append($"<circle cx='{legendX}' cy='{height - 5}' r='3' fill='{item.Color}'/><text x='{legendX + 6}' y='{height - 2}' font-size='7' fill='{Muted}'>{SecurityElement.Escape(item.Label)}</text>");
-            legendX += legendSpacing;
         }
 
         builder.Append("</svg>");

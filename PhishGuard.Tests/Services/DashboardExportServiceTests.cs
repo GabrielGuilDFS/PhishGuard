@@ -43,6 +43,49 @@ public class DashboardExportServiceTests
     }
 
     [Fact]
+    public void BuildOperationalTrendSvg_DelegaLegendaAoQuestPdf()
+    {
+        var trend = CriarDashboard().Trend;
+        var svg = DashboardExportService.BuildOperationalTrendSvg(trend);
+        var legend = DashboardExportService.BuildOperationalTrendLegend(trend);
+
+        Assert.Collection(legend,
+            item => Assert.Equal(("Enviados", 10, 100d), (item.Label, item.Total, item.Percentage)),
+            item => Assert.Equal(("Abertos", 8, 80d), (item.Label, item.Total, item.Percentage)),
+            item => Assert.Equal(("Clicados", 5, 50d), (item.Label, item.Total, item.Percentage)),
+            item => Assert.Equal(("Comprometidos", 3, 30d), (item.Label, item.Total, item.Percentage)));
+        Assert.DoesNotContain(">Enviados</text>", svg);
+        Assert.DoesNotContain("<circle", svg);
+    }
+
+    [Fact]
+    public void BuildEducationTrendSvg_DelegaLegendaAoQuestPdf()
+    {
+        var trend = CriarDashboard().Trend;
+        var svg = DashboardExportService.BuildEducationTrendSvg(trend);
+        var legend = DashboardExportService.BuildEducationTrendLegend(trend);
+
+        Assert.Collection(legend,
+            item => Assert.Equal(("Comprometidos", 3, 30d), (item.Label, item.Total, item.Percentage)),
+            item => Assert.Equal(("Acesso educacional", 3, 30d), (item.Label, item.Total, item.Percentage)),
+            item => Assert.Equal(("Treinamento concluído", 2, 20d), (item.Label, item.Total, item.Percentage)));
+        Assert.DoesNotContain(">Acesso educacional</text>", svg);
+        Assert.DoesNotContain("<circle", svg);
+    }
+
+    [Fact]
+    public void BuildTrendLegend_SemEnvios_RetornaTotaisEPercentuaisZerados()
+    {
+        var legend = DashboardExportService.BuildOperationalTrendLegend([]);
+
+        Assert.All(legend, item =>
+        {
+            Assert.Equal(0, item.Total);
+            Assert.Equal(0, item.Percentage);
+        });
+    }
+
+    [Fact]
     public void Generate_CsvEscapaFormulaEIncluiBomUtf8()
     {
         var service = new DashboardExportService();
