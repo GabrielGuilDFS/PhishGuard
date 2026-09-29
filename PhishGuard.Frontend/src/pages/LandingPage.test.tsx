@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
@@ -34,6 +34,44 @@ function renderLanding(pageId: string) {
 }
 
 describe('LandingPage (componente real)', () => {
+  it.each(['mercado-liv-login', 'mercadoliv-login'])(
+    'resolve %s e mantém o rastreamento assinado sem transmitir credenciais', async (templateId) => {
+      let submitted: { url: string; body: string } | undefined;
+      server.use(
+        http.get('/api/PhishingPages/:id', () => HttpResponse.json({ conteudoHtml: templateId })),
+        http.post('/api/tracking/submit/:campaign/:target', async ({ request }) => {
+          submitted = { url: request.url, body: await request.text() };
+          return HttpResponse.json({});
+        }),
+      );
+      const locationDescriptor = Object.getOwnPropertyDescriptor(window, 'location');
+      const locationStub = { href: window.location.href, origin: window.location.origin, search: '' };
+      Object.defineProperty(window, 'location', { configurable: true, value: locationStub });
+      try {
+        const { container } = renderLanding('pp-mercado');
+        await screen.findByText('Digite seu e-mail e senha atual para alterar sua senha');
+        const form = container.querySelector('form')!;
+        expect(form).not.toHaveAttribute('onsubmit');
+        fireEvent.change(container.querySelector('#ml-email')!, { target: { value: 'alvo@example.test' } });
+        fireEvent.change(container.querySelector('#ml-password')!, { target: { value: 'SenhaFicticia123' } });
+        fireEvent.submit(form);
+
+        await waitFor(() => expect(submitted).toBeDefined());
+        const url = new URL(submitted!.url);
+        expect(url.pathname).toBe(`/api/tracking/submit/${CAMP}/${TGT}`);
+        expect(url.searchParams.get('k')).toBe(TRACKING_TOKEN);
+        expect(JSON.parse(submitted!.body)).toMatchObject({ camposPreenchidos: true, tamanhoSenha: 'SenhaFicticia123'.length });
+        expect(submitted!.body).not.toContain('SenhaFicticia123');
+        expect(submitted!.body).not.toContain('alvo@example.test');
+        await waitFor(() => expect(locationStub.href).toBe(
+          `/educational-feedback?template=mercadoliv&c=${CAMP}&t=${TGT}&k=${TRACKING_TOKEN}`,
+        ));
+      } finally {
+        if (locationDescriptor) Object.defineProperty(window, 'location', locationDescriptor);
+      }
+    },
+  );
+
   it('resolve o molde oficial por ID e substitui os placeholders de campanha/alvo', async () => {
     server.use(
       http.get('/api/PhishingPages/:id', () => HttpResponse.json({ conteudoHtml: 'amazon-login' })),

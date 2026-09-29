@@ -7,15 +7,12 @@ import { feedbackTrainings } from './feedbackTrainings';
 import FeedbackTraining from '../components/FeedbackTraining';
 
 // ============================================================================
-// Suíte do CENÁRIO "NetsFlix" — mesmo BLUEPRINT, adaptado à isca:
-//   • E-mail (netflix-atualizacao-cobranca): identidade é um WORDMARK textual/CSS
-//     (compliance de IP — SEM logo raster/cid); placeholder {{LINK_PHISHING}}.
+// Suíte do cenário Netflix restaurado a partir de 631acbe^:
+//   • E-mail (netflix-atualizacao-cobranca): logotipo e nome históricos.
 //   • Página falsa (netflix-login): captura e-mail + senha.
 //   • Tela educacional (feedbackTrainings.netsflix).
 //
-// GUARDRAIL DE MARCA: a identidade exibida ao alvo (nome do remetente, corpo do e-mail)
-// usa ESTRITAMENTE "NetsFlix" e nunca a marca real nem qualquer aviso de simulação —
-// ver [[dashboard-v2]]/CLAUDE.md (compliance de IP). Os testes abaixo travam isso.
+// O ID de feedback netsflix permanece compatível com campanhas existentes.
 // ============================================================================
 
 const { navigateMock } = vi.hoisted(() => ({ navigateMock: vi.fn() }));
@@ -43,30 +40,26 @@ describe('NetsFlix — Template de E-mail', () => {
     expect(container.innerHTML).not.toMatch(/\{\{.*?\}\}/);
   });
 
-  it('usa wordmark textual (sem logo raster/cid) e conforma a marca "NetsFlix"', () => {
+  it('restaura o logotipo histórico da Netflix', () => {
     const isca = templatesPredefinidos.find((t) => t.id === IDS.email)!;
     const { container } = render(<div dangerouslySetInnerHTML={{ __html: emailComProps() }} />);
-    // Marca exibida presente no corpo…
-    expect(container.textContent).toContain('NetsFlix');
-    // …e NENHUM logo raster/cid embutido (identidade puramente textual/CSS).
-    expect(isca.corpoHtml).not.toContain('data:image/png');
-    expect(isca.corpoHtml).not.toContain('cid:');
+    expect(container.querySelector('img[alt="Netflix"]')).toHaveAttribute('src', expect.stringContaining('assets.nflxext.com'));
+    expect(isca.corpoHtml).not.toContain('NetsFlix');
   });
 
-  it('o NOME DE EXIBIÇÃO do remetente é estritamente "NetsFlix" (nunca a marca real)', () => {
+  it('restaura o nome do remetente e do catálogo para Netflix', () => {
     const isca = templatesPredefinidos.find((t) => t.id === IDS.email)!;
-    // Bug reportado: o From chegava como "Netflix". O nome do remetente é copiado para o
+    // O nome do remetente é copiado para o
     // header From no disparo (CampaignDispatchService → new MailboxAddress(RemetenteNome, ...)).
-    expect(isca.remetenteNome).toBe('NetsFlix');
-    // Marca REAL não pode aparecer em NENHUM campo visível ao alvo.
-    expect(isca.remetenteNome).not.toMatch(/netflix/i);
-    expect(isca.nome).not.toMatch(/netflix/i);
+    expect(isca.remetenteNome).toBe('Netflix');
+    expect(isca.remetenteEmail).toBe('info@account.netflix.com');
+    expect(isca.nome).toMatch(/Netflix/);
   });
 
-  it('não vaza a marca real nem aviso de simulação/paródia no corpo do e-mail', () => {
+  it('usa a marca histórica no corpo do e-mail', () => {
     const html = emailComProps();
-    // \b evita casar "NetsFlix"; procura a grafia REAL "Netflix" isolada.
-    expect(html).not.toMatch(/\bNetflix\b/);
+    // Confere a grafia histórica da marca.
+    expect(html).toMatch(/\bNetflix\b/);
     expect(html).not.toMatch(/paród|fictíci|simulação de conscientiz/i);
   });
 });
@@ -141,7 +134,7 @@ describe('NetsFlix — Tela Educacional (Just-in-Time)', () => {
     expect(screen.getByText(/simulação de treinamento de segurança do PhishGuard/i)).toBeInTheDocument();
     expect(screen.getByText(/Você interagiu com um e-mail de phishing simulado/i)).toBeInTheDocument();
     expect(screen.getByText(/Falsa Exigência Legal/i)).toBeInTheDocument();
-    expect(screen.getByText(/Saudação Genérica e Alteração da Marca/i)).toBeInTheDocument();
+    expect(screen.getByText(/Saudação Genérica e Identidade Visual Copiada/i)).toBeInTheDocument();
     expect(screen.getByText(/Botão de Ação Suspeito/i)).toBeInTheDocument();
     expect(screen.getByText(/Solicitação Direta de Senha na Tela Inicial/i)).toBeInTheDocument();
   });

@@ -41,30 +41,30 @@ public sealed class DashboardOverviewService : IDashboardOverviewService
         if (departmentFilter is { Length: > 80 })
             throw new DashboardQueryException("Departamento inválido.");
 
-        var targets = await _context.Targets
+        var departments = await _context.Targets
             .AsNoTracking()
             .Where(t => t.TenantId == tenantId)
-            .Select(t => new { t.Id, t.Departamento })
+            .Select(t => t.Departamento)
+            .Distinct()
             .ToListAsync(cancellationToken);
 
-        var availableDepartments = targets
-            .Select(t => t.Departamento?.Trim())
+        var availableDepartments = departments
+            .Select(d => d?.Trim())
             .Where(d => !string.IsNullOrWhiteSpace(d))
             .Select(d => d!)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .OrderBy(d => d, StringComparer.Create(new CultureInfo("pt-BR"), ignoreCase: true))
             .ToList();
 
-        HashSet<Guid>? allowedTargetIds = null;
+        string[]? matchingDepartments = null;
         if (departmentFilter is not null)
         {
-            allowedTargetIds = targets
-                .Where(t => !string.IsNullOrWhiteSpace(t.Departamento)
-                    && string.Equals(t.Departamento.Trim(), departmentFilter, StringComparison.OrdinalIgnoreCase))
-                .Select(t => t.Id)
-                .ToHashSet();
+            matchingDepartments = departments
+                .Where(d => !string.IsNullOrWhiteSpace(d)
+                    && string.Equals(d.Trim(), departmentFilter, StringComparison.OrdinalIgnoreCase))
+                .ToArray();
 
-            if (allowedTargetIds.Count == 0)
+            if (matchingDepartments.Length == 0)
                 throw new DashboardQueryException("Departamento não encontrado para este tenant.");
         }
 
@@ -91,21 +91,27 @@ public sealed class DashboardOverviewService : IDashboardOverviewService
                     || l.Acao == SimulationActions.PaginaEducacionalVisualizada
                     || l.Acao == SimulationActions.TreinamentoConcluido));
 
-        if (allowedTargetIds is not null)
+        if (matchingDepartments is not null)
         {
-            var targetIds = allowedTargetIds.ToArray();
-            logsQuery = logsQuery.Where(l => targetIds.Contains(l.TargetId));
+            var filteredTargets = _context.Targets.Where(t => t.TenantId == tenantId
+                && matchingDepartments.Contains(t.Departamento));
+            logsQuery = logsQuery.Where(l => filteredTargets.Any(t => t.Id == l.TargetId));
         }
 
-        var logs = await logsQuery
-            .Select(l => new DashboardLog(l.CampaignId, l.TargetId, l.Acao, l.DataHora))
+        // O ciclo anterior só participa do delta de envios: conte no banco.
+        var previousSentCount = await logsQuery
+            .Where(l => l.DataHora <= previousEndUtc && l.Acao == SimulationActions.Envio)
+            .Select(l => new { l.CampaignId, l.TargetId }).Distinct()
+            .CountAsync(cancellationToken);
+
+        // Uma ocorrência por ação/par é suficiente para todos os KPIs e para a
+        // primeira aparição no gráfico cumulativo. Não materialize logs anteriores.
+        var currentLogs = await logsQuery.Where(l => l.DataHora >= startUtc)
+            .GroupBy(l => new { l.CampaignId, l.TargetId, l.Acao })
+            .Select(g => new DashboardLog(g.Key.CampaignId, g.Key.TargetId, g.Key.Acao, g.Min(l => l.DataHora)))
             .ToListAsync(cancellationToken);
 
-        var currentLogs = logs.Where(l => l.DataHora >= startUtc && l.DataHora <= nowUtc).ToList();
-        var previousLogs = logs.Where(l => l.DataHora >= previousStartUtc && l.DataHora <= previousEndUtc).ToList();
-
         var currentSent = KeysForAction(currentLogs, SimulationActions.Envio);
-        var previousSent = KeysForAction(previousLogs, SimulationActions.Envio);
         var observedOpened = KeysForAction(currentLogs, SimulationActions.Abertura, currentSent);
         var clicked = KeysForAction(currentLogs, SimulationActions.Clique, currentSent);
         var compromised = KeysForAction(currentLogs, SimulationActions.Submissao, currentSent);
@@ -180,7 +186,7 @@ public sealed class DashboardOverviewService : IDashboardOverviewService
                 Sent = new DashboardSentKpiDto
                 {
                     Total = currentSent.Count,
-                    DeltaPercent = DeltaPercent(currentSent.Count, previousSent.Count)
+                    DeltaPercent = DeltaPercent(currentSent.Count, previousSentCount)
                 },
                 OpenRate = new DashboardOpenRateKpiDto
                 {
@@ -253,25 +259,42 @@ public sealed class DashboardOverviewService : IDashboardOverviewService
         var bucketDays = days >= 90 ? 7 : 1;
         var culture = new CultureInfo("pt-BR");
         var cursor = startDate;
+        var orderedLogs = logs.OrderBy(l => l.DataHora).ToArray();
+        var index = 0;
+        var sent = new HashSet<DashboardEmailKey>();
+        var opened = new HashSet<DashboardEmailKey>();
+        var clicked = new HashSet<DashboardEmailKey>();
+        var compromised = new HashSet<DashboardEmailKey>();
+        var educationViewed = new HashSet<DashboardEmailKey>();
+        var trained = new HashSet<DashboardEmailKey>();
 
         for (var offset = 0; offset < days; offset += bucketDays)
         {
             var bucketEndDate = cursor.AddDays(bucketDays);
             var bucketEndUtc = _reportingTime.StartOfDayUtc(bucketEndDate);
             var throughUtc = bucketEndUtc <= endUtc ? bucketEndUtc : endUtc.AddTicks(1);
-            var visibleLogs = logs.Where(l => l.DataHora < throughUtc).ToList();
-            var observedOpened = KeysForAction(visibleLogs, SimulationActions.Abertura, sentCohort);
-            var clicked = KeysForAction(visibleLogs, SimulationActions.Clique, sentCohort);
-            var compromised = KeysForAction(visibleLogs, SimulationActions.Submissao, sentCohort);
-            var educationViewed = KeysForAction(visibleLogs, SimulationActions.PaginaEducacionalVisualizada, sentCohort);
-            var trained = KeysForAction(visibleLogs, SimulationActions.TreinamentoConcluido, sentCohort);
+            while (index < orderedLogs.Length && orderedLogs[index].DataHora < throughUtc)
+            {
+                var log = orderedLogs[index++];
+                var key = new DashboardEmailKey(log.CampaignId, log.TargetId);
+                if (log.Acao == SimulationActions.Envio) sent.Add(key);
+                if (!sentCohort.Contains(key)) continue;
+                switch (log.Acao)
+                {
+                    case SimulationActions.Abertura: opened.Add(key); break;
+                    case SimulationActions.Clique: clicked.Add(key); opened.Add(key); break;
+                    case SimulationActions.Submissao: compromised.Add(key); opened.Add(key); break;
+                    case SimulationActions.PaginaEducacionalVisualizada: educationViewed.Add(key); break;
+                    case SimulationActions.TreinamentoConcluido: trained.Add(key); opened.Add(key); break;
+                }
+            }
 
             result.Add(new DashboardTrendPointDto
             {
                 BucketStart = cursor,
                 Label = cursor.ToString(days >= 90 ? "dd MMM" : "dd/MM", culture),
-                Sent = KeysForAction(visibleLogs, SimulationActions.Envio).Count,
-                Opened = UnionKeys(observedOpened, clicked, compromised, trained).Count,
+                Sent = sent.Count,
+                Opened = opened.Count,
                 Clicked = clicked.Count,
                 Compromised = compromised.Count,
                 EducationViewed = educationViewed.Count,

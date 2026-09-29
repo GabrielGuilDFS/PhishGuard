@@ -36,7 +36,7 @@
     <EmbeddedResource Include="Resources\OfficialBaits\amazon-notificacao-geral.html" />
     <EmbeddedResource Include="Resources\OfficialBaits\amazon-notificacao-seguranca.html" />
     <EmbeddedResource Include="Resources\OfficialBaits\microcorp-expiracao-senha.html" />
-    <EmbeddedResource Include="Resources\OfficialBaits\mercadoliv-novo-acesso.html" />
+    <EmbeddedResource Include="Resources\OfficialBaits\mercado-liv-novo-acesso.html" />
   </ItemGroup>
 
   <ItemGroup>

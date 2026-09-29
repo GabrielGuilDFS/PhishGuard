@@ -133,7 +133,7 @@ public class RegisterControllerTests
     }
 
     [Fact]
-    public async Task Registrar_ComEmailDuplicado_DeveRetornarBadRequestComMensagemEspecifica()
+    public async Task Registrar_ComEmailDuplicado_DeveRetornarConflict()
     {
         // Arrange
         var context = CriarContexto();
@@ -164,8 +164,64 @@ public class RegisterControllerTests
         var resultado = await controller.Registrar(request);
 
         // Assert
-        var badRequest = Assert.IsType<BadRequestObjectResult>(resultado);
-        var mensagem = Assert.IsType<string>(badRequest.Value);
-        Assert.Contains("Este e-mail já está em uso", mensagem);
+        var conflict = Assert.IsType<ConflictObjectResult>(resultado);
+        Assert.Equal(409, conflict.StatusCode);
+        Assert.Empty(await context.Tenants.IgnoreQueryFilters().ToListAsync());
+        Assert.Single(await context.Administradores.IgnoreQueryFilters().ToListAsync());
+    }
+
+    [Fact]
+    public async Task Registrar_ComCnpjDuplicado_DeveRetornarConflictSemCriarAdministrador()
+    {
+        var context = CriarContexto();
+        context.Tenants.Add(new Tenant
+        {
+            Id = Guid.NewGuid(),
+            NomeEmpresa = "Empresa Existente",
+            Cnpj = "12345678000199",
+            Ativo = true,
+            CriadoEm = DateTime.UtcNow
+        });
+        await context.SaveChangesAsync();
+
+        var controller = new RegisterController(context);
+        var request = new RegisterDto
+        {
+            NomeEmpresa = "Nova Empresa",
+            Cnpj = "12345678000199",
+            Nome = "Novo Admin",
+            Email = "novo@teste.com",
+            Password = SenhaValida
+        };
+
+        var resultado = await controller.Registrar(request);
+
+        var conflict = Assert.IsType<ConflictObjectResult>(resultado);
+        Assert.Equal(409, conflict.StatusCode);
+        Assert.Single(await context.Tenants.IgnoreQueryFilters().ToListAsync());
+        Assert.Empty(await context.Administradores.IgnoreQueryFilters().ToListAsync());
+    }
+
+    [Fact]
+    public async Task Registrar_ComCancelamento_DevePropagarOperationCanceledException()
+    {
+        var context = CriarContexto();
+        var controller = new RegisterController(context);
+        var request = new RegisterDto
+        {
+            NomeEmpresa = "Empresa Cancelada",
+            Cnpj = "12345678000199",
+            Nome = "Admin Cancelado",
+            Email = "cancelado@teste.com",
+            Password = SenhaValida
+        };
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(
+            () => controller.Registrar(request, cancellation.Token));
+
+        Assert.Empty(await context.Tenants.IgnoreQueryFilters().ToListAsync());
+        Assert.Empty(await context.Administradores.IgnoreQueryFilters().ToListAsync());
     }
 }

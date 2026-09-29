@@ -12,11 +12,37 @@ import {
 } from '@mui/material';
 import { useNavigate, useSearchParams, Link as RouterLink } from 'react-router-dom';
 import { clearSession } from '../auth/session';
+import { useNotify } from '../context/NotificationContext';
 import { brandPalette } from '../theme';
 import PhishGuardMark from '../components/PhishGuardMark';
 
+const MIN_PASSWORD_LENGTH = 6;
+
+interface RegisterErrorResponse {
+  title?: string;
+  message?: string;
+  errors?: Record<string, unknown>;
+}
+
+async function readRegisterError(response: Response): Promise<RegisterErrorResponse> {
+  const contentType = response.headers.get('content-type') ?? '';
+  if (!contentType.includes('application/json')) {
+    return {};
+  }
+
+  try {
+    const body: unknown = await response.json();
+    return body !== null && typeof body === 'object'
+      ? body as RegisterErrorResponse
+      : {};
+  } catch {
+    return {};
+  }
+}
+
 export default function Register() {
   const navigate = useNavigate();
+  const { showNotify } = useNotify();
   const [searchParams] = useSearchParams();
   // Plano escolhido na landing (?plano=bronze|prata|ouro). Encaminhado ao checkout.
   const planoSelecionado = searchParams.get('plano');
@@ -97,8 +123,8 @@ export default function Register() {
       errosCliente.email = 'O formato do e-mail é inválido.';
     }
 
-    if (password.length < 3) {
-      errosCliente.password = 'A senha deve ter pelo menos 3 caracteres.';
+    if (password.length < MIN_PASSWORD_LENGTH) {
+      errosCliente.password = `A senha deve ter pelo menos ${MIN_PASSWORD_LENGTH} caracteres.`;
     }
 
     if (confirmarSenha !== password) {
@@ -127,31 +153,36 @@ export default function Register() {
       });
 
       if (!response.ok) {
-        const contentType = response.headers.get("content-type");
-        if (contentType && contentType.includes("application/json")) {
-          const errData = await response.json();
+        const errData = await readRegisterError(response);
 
-          if (errData.errors) {
-            const errosApi: Partial<Record<CampoFormulario, string>> = {};
-            for (const [campo, mensagens] of Object.entries(errData.errors)) {
-              const chave = mapaCamposApi[campo.toLowerCase()];
-              if (chave && Array.isArray(mensagens) && mensagens.length > 0) {
-                errosApi[chave] = mensagens[0] as string;
-              }
+        if (response.status === 400 && errData.errors) {
+          const errosApi: Partial<Record<CampoFormulario, string>> = {};
+          for (const [campo, mensagens] of Object.entries(errData.errors)) {
+            const chave = mapaCamposApi[campo.toLowerCase()];
+            if (chave && Array.isArray(mensagens) && mensagens.length > 0 && typeof mensagens[0] === 'string') {
+              errosApi[chave] = mensagens[0];
             }
-            setFieldErrors(errosApi);
-            if (Object.keys(errosApi).length === 0) {
-              throw new Error(errData.title || errData.message || 'Falha ao validar os dados.');
-            }
-          } else {
-            throw new Error(errData.title || errData.message || 'Falha ao validar os dados.');
           }
-        } else {
-          const mensagemErro = await response.text();
-          throw new Error(mensagemErro || 'Falha ao registrar.');
+
+          if (Object.keys(errosApi).length > 0) {
+            setFieldErrors(errosApi);
+            showNotify('Revise os campos destacados.', 'warning');
+            return;
+          }
         }
+
+        if (response.status === 409) {
+          throw new Error(errData.message ?? 'E-mail ou CNPJ já cadastrado.');
+        }
+
+        if (response.status >= 500) {
+          throw new Error('Não foi possível concluir o cadastro. Tente novamente em alguns instantes.');
+        }
+
+        throw new Error(errData.message ?? errData.title ?? 'Falha ao validar os dados.');
       } else {
         setSucesso(true);
+        showNotify('Conta criada com sucesso.', 'success');
 
         setTimeout(() => {
           // Planos self-service (Bronze/Prata) seguem para o checkout de faturamento.
@@ -165,7 +196,11 @@ export default function Register() {
       }
 
     } catch (err) {
-      setErro(err instanceof Error ? err.message : 'Erro inesperado.');
+      const mensagem = err instanceof TypeError
+        ? 'Não foi possível conectar à API. Verifique se o backend está em execução.'
+        : err instanceof Error ? err.message : 'Erro inesperado.';
+      setErro(mensagem);
+      showNotify(mensagem, 'error');
     } finally {
       setLoading(false);
     }

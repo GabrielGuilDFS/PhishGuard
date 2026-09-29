@@ -26,26 +26,26 @@ namespace PhishGuard.Backend.BackgroundServices
     {
         private readonly IServiceScopeFactory _scopeFactory;
         private readonly ILogger<CampaignSchedulerWorker> _logger;
+        private readonly CampaignDispatchSignal? _signal;
 
-        // Ciclo curto (10s): uma campanha reivindicada ("Processando") — pela ativação manual
-        // ou pelo horário agendado — é enviada em no máximo ~10s, em vez de esperar até 1 min.
-        // Combinado ao throttle enxuto do CampaignDispatchService, encurta drasticamente a
-        // transição "Processando" → "Em Andamento" que o usuário via demorar. O disparo em si já
-        // roda FORA da thread HTTP (a API só faz o claim e retorna), então nada bloqueia a API.
+        // Ativação/retry acordam o worker após persistir o claim. O intervalo é
+        // fallback para agendamentos e recuperação. Um lote em execução continua
+        // até concluir; o aviso permanece pendente para o próximo ciclo.
         private static readonly TimeSpan Intervalo = TimeSpan.FromSeconds(10);
 
-        public CampaignSchedulerWorker(IServiceScopeFactory scopeFactory, ILogger<CampaignSchedulerWorker> logger)
+        public CampaignSchedulerWorker(IServiceScopeFactory scopeFactory, ILogger<CampaignSchedulerWorker> logger,
+            CampaignDispatchSignal? signal = null)
         {
             _scopeFactory = scopeFactory;
             _logger = logger;
+            _signal = signal;
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
             _logger.LogInformation("CampaignSchedulerWorker iniciado. Ciclo a cada {Intervalo}.", Intervalo);
 
-            using var timer = new PeriodicTimer(Intervalo);
-            do
+            while (!stoppingToken.IsCancellationRequested)
             {
                 try
                 {
@@ -53,15 +53,20 @@ namespace PhishGuard.Backend.BackgroundServices
                 }
                 catch (OperationCanceledException)
                 {
-                    // Encerramento normal do host — não é erro.
+                    if (stoppingToken.IsCancellationRequested) break;
                 }
                 catch (Exception ex)
                 {
                     // Um erro no ciclo NÃO pode derrubar o worker; loga e aguarda o próximo tick.
                     _logger.LogError(ex, "Erro inesperado no ciclo do CampaignSchedulerWorker.");
                 }
+                try
+                {
+                    if (_signal is not null) await _signal.WaitAsync(Intervalo, stoppingToken);
+                    else await Task.Delay(Intervalo, stoppingToken);
+                }
+                catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { break; }
             }
-            while (!stoppingToken.IsCancellationRequested && await timer.WaitForNextTickAsync(stoppingToken));
         }
 
         internal async Task ProcessarCampanhasElegiveisAsync(CancellationToken stoppingToken)

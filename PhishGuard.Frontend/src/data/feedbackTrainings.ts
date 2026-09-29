@@ -1,6 +1,7 @@
 import { templatesPredefinidos, type SimulationScenario } from './predefinedTemplates';
 import { landingTemplates } from './landingTemplates';
 import { educationalTemplates } from './educationalTemplates';
+import { prepararEmailParaPreview } from './emailAssets';
 import { formatarExpiracaoLink, formatarDataAcessoBRT } from '../utils/emailExpiration';
 
 // ============================================================================
@@ -9,7 +10,7 @@ import { formatarExpiracaoLink, formatarDataAcessoBRT } from '../utils/emailExpi
 //
 // Objeto de configuração LIMPO e SEPARADO da renderização: o componente
 // `components/FeedbackTraining.tsx` é 100% genérico e é dirigido por um destes
-// registros. Para adicionar o treinamento de uma nova isca (bho MAX, NetsFlix),
+// registros. Para adicionar o treinamento de uma nova isca,
 // basta acrescentar uma entrada em `feedbackTrainings` — sem tocar no componente.
 //
 // A rota /educational-feedback resolve a config pelo `?template=<id>`; se não
@@ -59,7 +60,7 @@ export interface FeedbackCard {
 /** Configuração completa de uma Tela Educacional de Feedback. */
 export interface FeedbackTrainingConfig {
   id: string;
-  /** Nome da marca simulada, exibido no cabeçalho ("Simulação: amzprime"). */
+  /** Nome da marca simulada, exibido no cabeçalho ("Simulação: Amazon"). */
   marca: string;
   header: {
     badge: string;
@@ -81,7 +82,7 @@ export interface FeedbackTrainingConfig {
 // mockup educativo nada dispara rastreamento nem navega para lugar nenhum.
 function resolverEmailHtml(templateId: string): string {
   const t = templatesPredefinidos.find((x) => x.id === templateId);
-  return neutralizarPlaceholders(t?.corpoHtml ?? '');
+  return neutralizarPlaceholders(prepararEmailParaPreview(t?.corpoHtml ?? ''));
 }
 
 function resolverLandingHtml(landingId: string): string {
@@ -105,7 +106,7 @@ function neutralizarPlaceholders(html: string): string {
 export const feedbackTrainings: Record<string, FeedbackTrainingConfig> = {
   amzprime: {
     id: 'amzprime',
-    marca: 'amzprime',
+    marca: 'Amazon',
     header: {
       badge: 'Atenção: Esta foi uma simulação de treinamento de segurança do PhishGuard.',
       titulo: 'Você interagiu com um e-mail de phishing simulado.',
@@ -120,8 +121,8 @@ export const feedbackTrainings: Record<string, FeedbackTrainingConfig> = {
         titulo: 'O e-mail que você recebeu',
         chrome: {
           tipo: 'email',
-          remetenteNome: 'amzprime',
-          remetenteEmail: 'account-security@amzprime.com',
+          remetenteNome: 'Amazon',
+          remetenteEmail: 'account-security@amazon.com.br',
           assunto: 'Alerta de segurança: atividade incomum na sua conta',
         },
         html: resolverEmailHtml('amazon-notificacao-seguranca'),
@@ -157,7 +158,7 @@ export const feedbackTrainings: Record<string, FeedbackTrainingConfig> = {
         icone: '📧',
         titulo: 'Remetente e saudação suspeitos',
         pontos: [
-          'O domínio "amzprime.com" imita uma marca real, mas não é o domínio oficial dela.',
+          'O nome e o endereço exibidos no remetente não comprovam a autenticidade da mensagem; confira também o destino dos links.',
           'A saudação é genérica ("Olá,") — empresas legítimas costumam usar seu nome.',
           'Não há foto de perfil/avatar verificado do remetente no cliente de e-mail.',
         ],
@@ -207,9 +208,9 @@ export const feedbackTrainings: Record<string, FeedbackTrainingConfig> = {
         icone: '🏢',
         titulo: 'CNPJ e logotipo',
         pontos: [
-          'O CNPJ do rodapé é inventado — compare com o registro oficial da empresa.',
-          'A logo é uma imitação textual ("amzprime"), não a marca registrada real.',
-          'Detalhes de identidade visual e dados cadastrais denunciam a falsificação.',
+          'Dados cadastrais verdadeiros podem ser copiados para uma página falsa.',
+          'O logotipo da Amazon também pode ser reproduzido por um atacante.',
+          'Confira o endereço da página; a aparência familiar não comprova a autenticidade.',
         ],
       },
     ],
@@ -221,7 +222,7 @@ export const feedbackTrainings: Record<string, FeedbackTrainingConfig> = {
 
   netsflix: {
     id: 'netsflix',
-    marca: 'NetsFlix',
+    marca: 'Netflix',
     header: {
       badge: 'Atenção: Esta foi uma simulação de treinamento de segurança do PhishGuard.',
       titulo: 'Você interagiu com um e-mail de phishing simulado.',
@@ -236,15 +237,15 @@ export const feedbackTrainings: Record<string, FeedbackTrainingConfig> = {
         titulo: 'O e-mail que você recebeu',
         chrome: {
           tipo: 'email',
-          remetenteNome: 'NetsFlix',
-          remetenteEmail: 'info@account.netsflix.com',
+          remetenteNome: 'Netflix',
+          remetenteEmail: 'info@account.netflix.com',
           assunto: 'Ação necessária: faltam dados da conta',
         },
         html: resolverEmailHtml('netflix-atualizacao-cobranca'),
         larguraLogica: 600,
         altura: 460,
         hotspots: [
-          { numero: 2, xPct: 30, yPct: 16, dica: 'Saudação genérica e marca alterada' },
+          { numero: 2, xPct: 30, yPct: 16, dica: 'Saudação genérica e identidade visual copiada' },
           { numero: 1, xPct: 60, yPct: 42, dica: 'Falsa exigência de autoridades' },
           { numero: 3, xPct: 28, yPct: 66, dica: 'Botão de ação com destino suspeito' },
         ],
@@ -277,10 +278,10 @@ export const feedbackTrainings: Record<string, FeedbackTrainingConfig> = {
       {
         numero: 2,
         icone: '👋',
-        titulo: 'Saudação Genérica e Alteração da Marca',
+        titulo: 'Saudação Genérica e Identidade Visual Copiada',
         pontos: [
           "O e-mail utiliza 'Olá, Cliente' em vez do seu nome.",
-          "Além disso, observe a grafia alterada para 'NetsFlix' e o uso do ícone genérico 'N'.",
+          'O nome e o logotipo da Netflix podem ser copiados; eles não garantem que a mensagem seja autêntica.',
         ],
       },
       {
@@ -308,7 +309,7 @@ export const feedbackTrainings: Record<string, FeedbackTrainingConfig> = {
 
   bhomax: {
     id: 'bhomax',
-    marca: 'bho MAX',
+    marca: 'HBO Max',
     header: {
       badge: 'Atenção: Esta foi uma simulação de treinamento de segurança do PhishGuard.',
       titulo: 'Você interagiu com um e-mail de phishing simulado.',
@@ -323,8 +324,8 @@ export const feedbackTrainings: Record<string, FeedbackTrainingConfig> = {
         titulo: 'O e-mail que você recebeu',
         chrome: {
           tipo: 'email',
-          remetenteNome: 'bho MAX',
-          remetenteEmail: 'no-reply@alerts.bhomax.com',
+          remetenteNome: 'HBO Max',
+          remetenteEmail: 'no-reply@alerts.hbomax.com',
           assunto: 'Seu link para alteração de senha solicitado',
         },
         html: resolverEmailHtml('hbomax-redefinicao-senha'),
@@ -332,8 +333,8 @@ export const feedbackTrainings: Record<string, FeedbackTrainingConfig> = {
         altura: 460,
         hotspots: [
           { numero: 5, xPct: 26, yPct: 3, dica: 'Domínio do remetente (subdomínio "alerts.")' },
-          { numero: 1, xPct: 13, yPct: 15, dica: 'Nome da marca invertido' },
-          { numero: 2, xPct: 55, yPct: 27, dica: 'Horário em fuso EST + prazo curto' },
+          { numero: 1, xPct: 30, yPct: 15, dica: 'Logotipo copiado não comprova autenticidade' },
+          { numero: 2, xPct: 55, yPct: 27, dica: 'Prazo de expiração e pedido não solicitado' },
         ],
       },
       {
@@ -357,10 +358,10 @@ export const feedbackTrainings: Record<string, FeedbackTrainingConfig> = {
       {
         numero: 1,
         icone: '🔤',
-        titulo: 'Inversão do Nome da Marca',
+        titulo: 'Identidade Visual Copiada',
         pontos: [
-          "O e-mail e a página utilizam 'bho MAX'.",
-          'Leitura rápida e desatenção costumam esconder pequenas alterações de letras nas marcas.',
+          'O e-mail e a página reproduzem o nome e a identidade visual da HBO Max.',
+          'Mesmo uma marca escrita corretamente pode aparecer em uma página falsa; confira o destino do link.',
         ],
       },
       {
@@ -368,8 +369,8 @@ export const feedbackTrainings: Record<string, FeedbackTrainingConfig> = {
         icone: '⏰',
         titulo: 'Pressão de Tempo e Padrão Estrangeiro',
         pontos: [
-          "O horário aparece em fuso 'EST' (ex.: 2:19pm EST) — um padrão estrangeiro que destoa de comunicações locais legítimas.",
-          "Combinado a um prazo curto de expiração ('ainda hoje'), cria um gatilho emocional de urgência para induzir a ação impulsiva antes da verificação.",
+          'O prazo de expiração pode criar pressão para agir antes de verificar a origem do pedido.',
+          'Se você não solicitou a alteração, confira sua conta pelo aplicativo ou site oficial.',
         ],
       },
       {
@@ -393,9 +394,9 @@ export const feedbackTrainings: Record<string, FeedbackTrainingConfig> = {
       {
         numero: 5,
         icone: '📧',
-        titulo: 'Domínio do Remetente Falsificado',
+        titulo: 'Verificação do Remetente',
         pontos: [
-          "O e-mail vem de 'no-reply@alerts.bhomax.com' — um subdomínio de aparência oficial, mas não é o domínio real do serviço.",
+          'O endereço exibido no remetente pode ser falsificado; sua aparência oficial, isoladamente, não autentica a mensagem.',
           'Confira sempre o domínio completo do remetente antes de agir.',
         ],
       },
@@ -408,7 +409,7 @@ export const feedbackTrainings: Record<string, FeedbackTrainingConfig> = {
 
   microsft365: {
     id: 'microsft365',
-    marca: 'Microsft 365',
+    marca: 'Microsoft',
     header: {
       badge: 'Atenção: Esta foi uma simulação de treinamento de segurança do PhishGuard.',
       titulo: 'Você interagiu com um e-mail de phishing simulado.',
@@ -422,7 +423,7 @@ export const feedbackTrainings: Record<string, FeedbackTrainingConfig> = {
         titulo: 'O e-mail que você recebeu',
         chrome: {
           tipo: 'email',
-          remetenteNome: 'Microsft 365',
+          remetenteNome: 'Microsoft',
           remetenteEmail: 'no-reply@microsft365.com',
           assunto: 'Ação Necessária: Expiração de Senha',
         },
@@ -430,7 +431,7 @@ export const feedbackTrainings: Record<string, FeedbackTrainingConfig> = {
         larguraLogica: 600,
         altura: 460,
         hotspots: [
-          { numero: 1, xPct: 20, yPct: 9, dica: 'Nome da marca com erro de digitação' },
+          { numero: 1, xPct: 20, yPct: 9, dica: 'Marca conhecida não comprova a origem' },
           { numero: 2, xPct: 52, yPct: 34, dica: 'Urgência artificial: expira em 24 horas' },
           { numero: 3, xPct: 30, yPct: 60, dica: 'Botão leva a uma página externa' },
           { numero: 4, xPct: 25, yPct: 74, dica: 'Assinatura de TI impessoal' },
@@ -456,10 +457,10 @@ export const feedbackTrainings: Record<string, FeedbackTrainingConfig> = {
       {
         numero: 1,
         icone: '🔤',
-        titulo: 'Erro Sutil no Nome da Empresa',
+        titulo: 'Identidade Visual Copiada',
         pontos: [
-          "Observe a omissão da letra 'o' em 'Microsft 365'.",
-          'Atacantes usam pequenos erros de digitação (typosquatting) para enganar a leitura rápida do usuário.',
+          'O nome Microsoft e os quadrados coloridos podem ser reproduzidos em mensagens falsas.',
+          'Confira o domínio do remetente e o destino dos links; uma marca conhecida não comprova a origem da mensagem.',
         ],
       },
       {
@@ -507,14 +508,14 @@ export const feedbackTrainings: Record<string, FeedbackTrainingConfig> = {
 
   mercadoliv: {
     id: 'mercadoliv',
-    marca: 'Mercado Liv',
+    marca: 'Mercado Livre',
     header: {
       badge: 'Atenção: Esta foi uma simulação de treinamento de segurança do PhishGuard.',
       titulo: 'Você interagiu com um e-mail de phishing simulado.',
       mensagem:
-        'Nenhum dado real foi comprometido — apenas a interação foi registrada. Golpes ' +
-        'que se passam por lojas e serviços de pagamento são comuns; use os pontos abaixo ' +
-        'para reconhecer esse tipo de ataque e proteger sua conta no futuro.',
+        'Não se preocupe: nenhum dado real foi comprometido — apenas o clique foi ' +
+        'registrado. Use os pontos destacados abaixo para aprender a identificar esse ' +
+        'tipo de ataque no futuro.',
     },
     mockups: [
       {
@@ -522,17 +523,17 @@ export const feedbackTrainings: Record<string, FeedbackTrainingConfig> = {
         titulo: 'O e-mail que você recebeu',
         chrome: {
           tipo: 'email',
-          remetenteNome: 'Mercado Liv',
-          remetenteEmail: 'seguranca@mercadoliv.com',
+          remetenteNome: 'Mercado Livre',
+          remetenteEmail: 'no-reply@mercadoliv.com',
           assunto: 'Detectamos um novo acesso à sua conta',
         },
-        html: resolverEmailHtml('mercadoliv-novo-acesso'),
-        larguraLogica: 640,
+        html: resolverEmailHtml('mercado-liv-novo-acesso'),
+        larguraLogica: 600,
         altura: 460,
         hotspots: [
-          { numero: 1, xPct: 30, yPct: 6, dica: 'Domínio do remetente não é o oficial' },
-          { numero: 2, xPct: 45, yPct: 24, dica: 'Alerta falso de "novo acesso" gera pânico' },
-          { numero: 3, xPct: 30, yPct: 60, dica: 'Passe o mouse no botão antes de clicar' },
+          { numero: 1, xPct: 26, yPct: 3, dica: 'Domínio do remetente falsificado' },
+          { numero: 2, xPct: 55, yPct: 44, dica: 'Alerta de acesso com data/hora fabricada' },
+          { numero: 3, xPct: 30, yPct: 68, dica: 'Botão de ação com destino suspeito' },
         ],
       },
       {
@@ -540,14 +541,15 @@ export const feedbackTrainings: Record<string, FeedbackTrainingConfig> = {
         titulo: 'A página falsa de login',
         chrome: {
           tipo: 'navegador',
-          url: 'mercadoliv-conta-verificar.help/login',
+          url: 'mercadoliv-seguranca-conta.help/entrar',
           seguro: false,
         },
-        html: resolverLandingHtml('mercadoliv-login'),
+        html: resolverLandingHtml('mercado-liv-login'),
         larguraLogica: 1024,
         altura: 460,
         hotspots: [
-          { numero: 4, xPct: 74, yPct: 42, dica: 'Pede e-mail e senha sem 2FA' },
+          { numero: 4, xPct: 74, yPct: 48, dica: 'Pede e-mail e senha atual direto' },
+          { numero: 5, xPct: 26, yPct: 56, dica: 'Selos e links de ajuda decorativos' },
         ],
       },
     ],
@@ -555,51 +557,46 @@ export const feedbackTrainings: Record<string, FeedbackTrainingConfig> = {
       {
         numero: 1,
         icone: '📧',
-        titulo: 'Domínio do Remetente',
+        titulo: 'Domínio do Remetente Falsificado',
         pontos: [
-          'O e-mail veio de "seguranca@mercadoliv.com" — um domínio que imita a marca, mas não é o oficial.',
-          'Confira sempre o endereço completo do remetente; pequenas variações de letras denunciam a fraude.',
-          'O nome de exibição ("Mercado Liv") é fácil de falsificar — o que importa é o domínio real.',
+          "O e-mail vem de 'no-reply@mercadoliv.com' — imita a marca, mas não é o domínio oficial do serviço.",
+          'Confira sempre o domínio completo do remetente antes de agir.',
         ],
       },
       {
         numero: 2,
-        icone: '🚨',
-        titulo: 'Urgência e Alerta Falso',
+        icone: '⏰',
+        titulo: 'Alerta de Acesso com Urgência',
         pontos: [
-          'A mensagem de "novo acesso à sua conta" cria pânico para você agir por impulso.',
-          'Golpes de e-commerce exploram o medo de conta invadida para acelerar o clique.',
-          'Na dúvida, respire: comunicações legítimas não punem você por verificar com calma.',
+          "A mensagem afirma detectar um 'novo acesso' com data e hora específicas para gerar medo e pressa.",
+          'Detalhes fabricados (data/hora/dispositivo) dão falsa credibilidade e induzem a ação impulsiva.',
         ],
       },
       {
         numero: 3,
         icone: '🔗',
-        titulo: 'Links e Botões',
+        titulo: 'Botão de Ação Suspeito',
         pontos: [
-          'Antes de clicar em "Redefinir Senha de Acesso", passe o mouse sobre o botão e confira a URL real (no rodapé do navegador).',
-          'Se o endereço não for o site oficial que você mesmo digitaria, não clique.',
-          'Prefira acessar a loja pelo app ou digitando o endereço oficial no navegador.',
+          "O botão 'Redefinir Senha de Acesso' leva a um endereço fora do serviço oficial.",
+          'Passe o mouse sobre o botão e confira a URL real antes de clicar.',
         ],
       },
       {
         numero: 4,
         icone: '🔑',
-        titulo: 'Página Falsa sem 2FA',
+        titulo: 'Captura de E-mail e Senha Atual',
         pontos: [
-          'A página de login pedia e-mail e senha diretamente, sem verificação em duas etapas (2FA).',
-          'É exatamente a credencial que o golpista quer para acessar sua conta e meios de pagamento.',
-          'Nunca digite sua senha em uma página aberta a partir de um link de e-mail.',
+          "A página pede seu e-mail e a 'senha atual' logo na primeira tela, sem verificação em duas etapas (2FA).",
+          'É exatamente a credencial válida que o atacante precisa para invadir sua conta.',
         ],
       },
       {
         numero: 5,
         icone: '🛡️',
-        titulo: 'Boas Práticas (E-commerce e Pagamentos)',
+        titulo: 'Falso Senso de Segurança',
         pontos: [
-          'Ative a autenticação em dois fatores (2FA) nas suas contas de compras e pagamentos.',
-          'Na dúvida, abra o app/site oficial você mesmo e verifique as notificações lá — nunca pelo botão do e-mail.',
-          'Nunca compartilhe códigos de verificação ou senhas por e-mail, telefone ou chat.',
+          "Selos como 'Protegido por reCAPTCHA' e botões de ajuda ('Tenho um problema de segurança', 'Preciso de ajuda') são decorativos e não funcionam.",
+          'Aparência de legitimidade não substitui a verificação do endereço real da página.',
         ],
       },
     ],
@@ -636,12 +633,20 @@ export interface PaginaEducativaDescriptor {
   html: string;
 }
 
-/** Indica se uma linha persistida, já identificada pelo HTML estável, precisa ser reconciliada. */
+/** Reconhece também o marcador legado, cujo texto incluía o nome da marca. */
+export function paginaEducativaPertenceAoCenario(html: string, descritor: PaginaEducativaDescriptor): boolean {
+  if (html === descritor.html) return true;
+  const marcador = /data-feedback-training=["']([^"']+)["']/.exec(html)?.[1];
+  return Boolean(feedbackTrainings[descritor.feedbackId]) && marcador === descritor.feedbackId;
+}
+
+/** Atualiza a mesma linha quando a marca ou o texto do marcador mudou. */
 export function paginaEducativaPrecisaReconciliar(
   pagina: Pick<PaginaEducativaDescriptor, 'nome' | 'html'>,
   descritor: PaginaEducativaDescriptor,
 ): boolean {
-  return pagina.html === descritor.html && pagina.nome !== descritor.nome;
+  return paginaEducativaPertenceAoCenario(pagina.html, descritor)
+    && (pagina.nome !== descritor.nome || pagina.html !== descritor.html);
 }
 
 /**
@@ -666,7 +671,7 @@ export function resolverPaginaEducativaDoCenario(cenario: SimulationScenario): P
         `<div data-feedback-training="${feedbackId}" style="font-family:'Segoe UI',Arial,sans-serif;` +
         `padding:2rem;text-align:center;color:#334155">` +
         `<p>O treinamento interativo desta campanha é exibido automaticamente ao final da simulação.</p>` +
-        `<p><a href="/educational-feedback?template=${feedbackId}">Abrir treinamento (${training.marca})</a></p></div>`,
+        `<p><a href="/educational-feedback?template=${feedbackId}">Abrir treinamento</a></p></div>`,
     };
   }
 

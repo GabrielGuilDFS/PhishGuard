@@ -23,6 +23,7 @@ namespace PhishGuard.Backend.Controllers
         private readonly IConfiguration _configuration;
         private readonly ISmtpCredentialProtector? _smtpCredentialProtector;
         private readonly ILogger<CampaignsController>? _logger;
+        private readonly CampaignDispatchSignal? _dispatchSignal;
 
         // O disparo de e-mails NÃO é responsabilidade deste controller: ele apenas
         // transiciona o estado da campanha. O envio assíncrono fica a cargo do
@@ -32,13 +33,15 @@ namespace PhishGuard.Backend.Controllers
             ITenantProvider tenantProvider,
             IConfiguration? configuration = null,
             ISmtpCredentialProtector? smtpCredentialProtector = null,
-            ILogger<CampaignsController>? logger = null)
+            ILogger<CampaignsController>? logger = null,
+            CampaignDispatchSignal? dispatchSignal = null)
         {
             _context = context;
             _tenantProvider = tenantProvider;
             _configuration = configuration ?? new ConfigurationBuilder().Build();
             _smtpCredentialProtector = smtpCredentialProtector;
             _logger = logger;
+            _dispatchSignal = dispatchSignal;
         }
 
         [HttpGet]
@@ -227,6 +230,7 @@ namespace PhishGuard.Backend.Controllers
             // fica bloqueada por minutos nem segura a conexão do banco durante o disparo.
             campaign.Status = CampaignStatus.Processando;
             await _context.SaveChangesAsync();
+            _dispatchSignal?.Notify();
 
             _logger?.LogInformation(
                 "Campanha {CampaignId} enfileirada pelo tenant {TenantId} usando {ProviderType}/{ApiProvider}.",
@@ -272,6 +276,7 @@ namespace PhishGuard.Backend.Controllers
             campaign.DispatchErrorMessage = null;
             campaign.DispatchFailedAtUtc = null;
             await _context.SaveChangesAsync();
+            if (campaign.Status == CampaignStatus.Processando) _dispatchSignal?.Notify();
 
             _logger?.LogInformation(
                 "Campanha {CampaignId} reenfileirada pelo tenant {TenantId} usando {ProviderType}/{ApiProvider}.",

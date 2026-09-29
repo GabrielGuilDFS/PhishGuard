@@ -8,10 +8,8 @@ import FeedbackTraining from '../components/FeedbackTraining';
 import { TRACKING_RETRY_STORAGE_KEY } from '../shared/trackingRetryQueue';
 
 // ============================================================================
-// Suíte do CENÁRIO "amzprime" (identidade própria, compliance de IP).
-// Mesmo BLUEPRINT, adaptado à isca real:
-//   • E-mail (amazon-notificacao-seguranca): identidade é WORDMARK textual
-//     ("amz"+"prime", CSS — sem logo raster/cid); placeholder {{LINK_PHISHING}}.
+// Suíte do cenário Amazon restaurado a partir de 6e885ba^.
+//   • E-mail (amazon-notificacao-seguranca): logotipo e nome históricos.
 //   • Página falsa (amazon-login): captura nova senha + confirmação.
 //   • Tela educacional (feedbackTrainings.amzprime).
 // ============================================================================
@@ -41,12 +39,12 @@ describe('amzprime — Template de E-mail', () => {
     expect(container.innerHTML).not.toMatch(/\{\{.*?\}\}/);
   });
 
-  it('usa wordmark textual próprio (sem logo raster/cid) e conforma a marca "amzprime"', () => {
+  it('restaura o nome e a imagem histórica da Amazon', () => {
     const isca = templatesPredefinidos.find((t) => t.id === IDS.email)!;
     const { container } = render(<div dangerouslySetInnerHTML={{ __html: emailComProps() }} />);
-    expect(container.textContent).toContain('amzprime');
-    expect(isca.corpoHtml).not.toContain('data:image/png');
-    expect(isca.corpoHtml).not.toContain('cid:');
+    expect(isca.remetenteNome).toBe('Amazon');
+    expect(container.querySelector('img[alt="Amazon.com.br"]')).toHaveAttribute('src', expect.stringContaining('m.media-amazon.com'));
+    expect(isca.corpoHtml).not.toContain('amzprime');
   });
 });
 

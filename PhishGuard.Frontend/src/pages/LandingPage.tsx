@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { landingTemplates } from '../data/landingTemplates';
+import { normalizarIdLanding } from '../data/scenarioAliases';
 import { API_BASE } from '../config';
 import {
     TRACKING_ACTIONS,
@@ -13,7 +14,7 @@ const TRAINING_BY_LANDING: Record<string, string> = {
     'netflix-login': 'netsflix',
     'amazon-login': 'amzprime',
     'microcorp-login': 'microsft365',
-    'mercadoliv-login': 'mercadoliv',
+    'mercado-liv-login': 'mercadoliv',
 };
 
 export default function LandingPage() {
@@ -48,7 +49,7 @@ export default function LandingPage() {
                     // ID do molde oficial. Resolve o ID para o HTML do catálogo; se não
                     // casar, trata o valor como HTML bruto (compatibilidade com registros
                     // legados criados antes da refatoração do MVP).
-                    const molde = landingTemplates.find((t) => t.id === data.conteudoHtml);
+                    const molde = landingTemplates.find((t) => t.id === normalizarIdLanding(data.conteudoHtml));
                     const rawHtml = molde ? molde.html : data.conteudoHtml;
                     setLandingTemplateId(molde?.id ?? '');
 

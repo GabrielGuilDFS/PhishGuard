@@ -47,6 +47,11 @@ namespace PhishGuard.Backend.Content
                 mapa[id] = reader.ReadToEnd();
             }
 
+            // Campanhas criadas após 460dc77 persistiram o ID sem hífen. O recurso
+            // restaurado usa o ID original; ambos devem continuar entregando HTML.
+            if (mapa.TryGetValue("mercado-liv-novo-acesso", out var mercadoLivHtml))
+                mapa["mercadoliv-novo-acesso"] = mercadoLivHtml;
+
             return mapa;
         }
 

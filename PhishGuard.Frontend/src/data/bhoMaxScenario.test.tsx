@@ -47,19 +47,15 @@ describe('bho MAX — Template de E-mail', () => {
     expect(container.innerHTML).not.toMatch(/\{\{.*?\}\}/);
   });
 
-  it('exibe somente a logo principal no topo esquerdo, com padding reduzido', () => {
+  it('restaura as imagens históricas no cabeçalho e no rodapé', () => {
     const html = emailComProps();
     const { container } = render(<div dangerouslySetInnerHTML={{ __html: html }} />);
 
-    expect(html).toContain('.es-header-body td:has(img[alt="bho MAX"][width="140"])');
-    expect(html).toContain('padding:10px 0!important');
-    expect(html).toContain('text-align:left!important');
-    expect(html).toContain("background:url('/bho-max-logo-onlight.svg')");
-    expect(html).toContain('.es-header-body img[alt="bho MAX"][width="140"]');
-    expect(html).toContain('display:none!important');
-
-    expect(container.querySelector('img[alt="bho MAX"][width="92"]')).not.toBeInTheDocument();
-    expect(html).not.toContain('width="92"');
+    const logos = container.querySelectorAll('img.img-2003, img.img-4005');
+    expect(logos).toHaveLength(2);
+    expect(logos[0].getAttribute('src')).toMatch(/^https:\/\/braze-images.com\//);
+    expect(logos[0].closest('td')).toHaveAttribute('align', 'left');
+    expect(html).not.toContain("background:url('/bho-max-logo-onlight.svg')");
   });
 
   it('data de expiração no formato dinâmico do template', () => {
@@ -89,16 +85,14 @@ describe('bho MAX — Página Simulada (Phishing)', () => {
     expect(container.querySelector('#new-password')).toBeInTheDocument();
   });
 
-  it('mantém o círculo de perfil e adiciona o ícone branco sobre ele', () => {
+  it('restaura a marca HBO Max e o círculo de perfil históricos', () => {
     const html = landingHtml();
     const { container } = render(<div dangerouslySetInnerHTML={{ __html: html }} />);
-    const avatar = container.querySelector('.hbo-avatar[aria-label="Perfil do usuário"]');
+    const avatar = container.querySelector('.hbo-avatar');
 
     expect(avatar).toBeInTheDocument();
-    expect(avatar?.querySelector('svg[aria-hidden="true"]')).toBeInTheDocument();
-    expect(html).toContain('.hbo-avatar svg');
-    expect(html).toContain('color: #ffffff');
-    expect(html).not.toContain('<div class="hbo-avatar"></div>');
+    expect(container.querySelector('.hbo-logo')).toHaveTextContent('HBOmax');
+    expect(html).not.toContain('bho-max-logo');
   });
 
   it('ao submeter: envia só metadados (LGPD) para /api/tracking/submit e redireciona ao treinamento', async () => {
@@ -159,14 +153,14 @@ describe('bho MAX — Tela Educacional (Just-in-Time)', () => {
     renderEdu();
     expect(screen.getByText(/simulação de treinamento de segurança do PhishGuard/i)).toBeInTheDocument();
     expect(screen.getByText(/Você interagiu com um e-mail de phishing simulado/i)).toBeInTheDocument();
-    expect(screen.getByText(/Inversão do Nome da Marca/i)).toBeInTheDocument();
+    expect(screen.getByText(/Identidade Visual Copiada/i)).toBeInTheDocument();
     expect(screen.getByText(/Pressão de Tempo e Padrão Estrangeiro/i)).toBeInTheDocument();
     expect(screen.getByText(/Captura da Credencial Ativa/i)).toBeInTheDocument();
     expect(screen.getByText(/Elementos Estáticos e Ausência do Seu E-mail/i)).toBeInTheDocument();
-    expect(screen.getByText(/Domínio do Remetente Falsificado/i)).toBeInTheDocument();
+    expect(screen.getByText(/Verificação do Remetente/i)).toBeInTheDocument();
   });
 
-  it('reutiliza nos mockups educacionais a logo corrigida e o perfil com ícone', () => {
+  it('reutiliza o e-mail restaurado no treinamento e mantém o perfil da landing', () => {
     renderEdu();
 
     const emailFrame = screen.getByTitle('O e-mail que você recebeu') as HTMLIFrameElement;
@@ -174,17 +168,15 @@ describe('bho MAX — Tela Educacional (Just-in-Time)', () => {
     const emailSrcDoc = emailFrame.getAttribute('srcdoc') ?? '';
     const landingSrcDoc = landingFrame.getAttribute('srcdoc') ?? '';
 
-    expect(emailSrcDoc).toContain("background:url('/bho-max-logo-onlight.svg')");
-    expect(emailSrcDoc).toContain('padding:10px 0!important');
-    expect(emailSrcDoc).not.toContain('width="92"');
+    expect(emailSrcDoc).toContain('https://braze-images.com/');
+    expect(emailSrcDoc).toContain('width="63"');
     expect(landingSrcDoc).toContain('class="hbo-avatar"');
-    expect(landingSrcDoc).toContain('aria-label="Perfil do usuário"');
-    expect(landingSrcDoc).toContain('<svg viewBox="0 0 24 24"');
+    expect(landingSrcDoc).toContain('<span>HBO</span><span>max</span>');
 
     const logoHotspot = feedbackTrainings[IDS.feedback].mockups
       .find((mockup) => mockup.id === 'email')
       ?.hotspots.find((hotspot) => hotspot.numero === 1);
-    expect(logoHotspot?.xPct).toBe(13);
+    expect(logoHotspot?.xPct).toBe(30);
   });
 
   it('o botão de conclusão registra a participação e encerra o fluxo', async () => {

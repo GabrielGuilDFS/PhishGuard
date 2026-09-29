@@ -16,11 +16,23 @@ if [ ! -f .env ]; then
   exit 1
 fi
 
+# Valida o contrato sem imprimir os valores. O backend iniciado diretamente no
+# host precisa receber as mesmas variaveis que o Docker Compose recebe.
+set -a
+# shellcheck disable=SC1091
+. ./.env
+set +a
+: "${POSTGRES_DB:?ERRO: POSTGRES_DB ausente no .env}"
+: "${POSTGRES_USER:?ERRO: POSTGRES_USER ausente no .env}"
+: "${POSTGRES_PASSWORD:?ERRO: POSTGRES_PASSWORD ausente no .env}"
+: "${AppSettings__Token:?ERRO: AppSettings__Token ausente no .env}"
+POSTGRES_PORT="${POSTGRES_PORT:-5433}"
+
 echo "[1/2] Subindo apenas o Postgres (servico db) via Docker..."
-docker compose up -d db
+docker compose up -d --wait db
 
 echo "[2/2] Suba o backend e o frontend em terminais separados:"
-echo "      Terminal A:  cd PhishGuard.Backend  && dotnet watch run"
+echo '      Terminal A:  cd PhishGuard.Backend && set -a && source ../.env && set +a && export ConnectionStrings__DefaultConnection="Host=localhost;Port=${POSTGRES_PORT:-5433};Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}" && dotnet watch run'
 echo "      Terminal B:  cd PhishGuard.Frontend && npm install && npm run dev"
 echo
 echo "API:      http://localhost:5000  (Swagger em /swagger)"

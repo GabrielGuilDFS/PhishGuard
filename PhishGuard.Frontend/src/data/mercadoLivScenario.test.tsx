@@ -29,8 +29,8 @@ vi.mock('react-router-dom', async (importOriginal) => {
 });
 
 const IDS = {
-  email: 'mercadoliv-novo-acesso',
-  landing: 'mercadoliv-login',
+  email: 'mercado-liv-novo-acesso',
+  landing: 'mercado-liv-login',
   feedback: 'mercadoliv',
 } as const;
 const CAMP = 'camp-1';
@@ -45,7 +45,7 @@ describe('Mercado Liv — Template de E-mail', () => {
   // alvo), {{LINK_PHISHING}} (URL de clique/track) e {{DATA_ACESSO}} (data no fuso BRT).
   function emailComProps(nome: string, click: string, data: string) {
     const isca = templatesPredefinidos.find((t) => t.id === IDS.email);
-    if (!isca) throw new Error('isca mercadoliv-novo-acesso não encontrada');
+    if (!isca) throw new Error('isca mercado-liv-novo-acesso não encontrada');
     return isca.corpoHtml
       .replaceAll('{{NOME}}', nome)
       .replaceAll('{{LINK_PHISHING}}', click)
@@ -74,18 +74,11 @@ describe('Mercado Liv — Template de E-mail', () => {
     expect(container.innerHTML).not.toMatch(/\{\{.*?\}\}/);
   });
 
-  it('marca em caixa baixa "mercado/liv" e logo injetada como PNG (fallback data-URI no preview)', () => {
+  it('usa a logo Mercado Livre incorporada por CID no e-mail', () => {
     render(<div dangerouslySetInnerHTML={{ __html: emailComProps('X', '#', formatarDataAcessoBRT()) }} />);
 
-    // Wordmark estritamente minúsculo (o cid usa "mercado" + "liv", sem "Mercado Liv").
-    const header = screen.getByTestId('ml-header');
-    expect(header.textContent?.replace(/\s+/g, '')).toBe('mercadoliv');
-    expect(header.textContent).not.toMatch(/Mercado Liv/);
-
-    // No previewer a logo é o PNG em data-URI (fallback); no disparo real vira cid:logo-mercadoliv.
-    const logo = screen.getByTestId('ml-logo') as HTMLImageElement;
-    expect(logo.getAttribute('src')).toMatch(/^data:image\/png;base64,/);
-    expect(logo).toHaveAttribute('alt', 'Mercado Liv');
+    expect(screen.getByTestId('ml-header').querySelector('img')).toHaveAttribute('alt', 'Mercado Livre');
+    expect(screen.getByTestId('ml-logo').querySelector('img')).toHaveAttribute('src', 'cid:logo-mercadoliv');
   });
 
   it('exibe data/hora no padrão do fuso de Brasília (America/Sao_Paulo → "(BRT)")', () => {
@@ -105,7 +98,7 @@ describe('Mercado Liv — Página Simulada (Phishing)', () => {
   // LandingPage.tsx substitui {{CAMPAIGN_ID}}/{{TARGET_ID}} antes de injetar o HTML.
   function landingHtml() {
     const l = landingTemplates.find((x) => x.id === IDS.landing);
-    if (!l) throw new Error('landing mercadoliv-login não encontrada');
+    if (!l) throw new Error('landing mercado-liv-login não encontrada');
     return l.html.replaceAll('{{CAMPAIGN_ID}}', CAMP).replaceAll('{{TARGET_ID}}', TGT).replaceAll('{{TRACKING_TOKEN}}', TRACKING_TOKEN);
   }
 
@@ -116,8 +109,7 @@ describe('Mercado Liv — Página Simulada (Phishing)', () => {
     expect(container.querySelector('#ml-email')).toBeInTheDocument();
     expect(container.querySelector('#ml-password')).toBeInTheDocument();
     expect(screen.getByText('Continuar')).toBeInTheDocument();
-    // Identidade da marca em caixa baixa no cabeçalho.
-    expect(container.textContent?.replace(/\s+/g, '')).toContain('mercadoliv');
+    expect(container.querySelector('.ml-logo img')).toHaveAttribute('src', '/scenarios/mercado-livre-logo.png');
   });
 
   it('ao submeter: chama a API de comprometimento com os args corretos e redireciona ao treinamento', async () => {
@@ -198,10 +190,10 @@ describe('Mercado Liv — Tela Educacional (Just-in-Time)', () => {
 
     // Vetores de ataque (cards) exigidos para o cenário de e-commerce.
     expect(screen.getByText(/Domínio do Remetente/i)).toBeInTheDocument();
-    expect(screen.getByText(/Urgência e Alerta Falso/i)).toBeInTheDocument();
-    expect(screen.getByText(/Links e Botões/i)).toBeInTheDocument();
-    expect(screen.getByText(/Página Falsa sem 2FA/i)).toBeInTheDocument();
-    expect(screen.getByText(/Boas Práticas/i)).toBeInTheDocument();
+    expect(screen.getByText(/Alerta de Acesso com Urgência/i)).toBeInTheDocument();
+    expect(screen.getByText(/Botão de Ação Suspeito/i)).toBeInTheDocument();
+    expect(screen.getByText(/Captura de E-mail e Senha Atual/i)).toBeInTheDocument();
+    expect(screen.getByText(/Falso Senso de Segurança/i)).toBeInTheDocument();
   });
 
   it('o botão de conclusão registra a participação (auditoria) e encerra o fluxo', async () => {

@@ -123,7 +123,7 @@ describe('AdminDashboard — visão executiva essencial', () => {
     expect(screen.getAllByText('6,3%').length).toBeGreaterThan(0);
     expect(screen.getByText('Aprendizado Concluído')).toBeInTheDocument();
     expect(screen.getByText('40 treinamentos concluídos')).toBeInTheDocument();
-    expect(screen.getByText('Tendência do Funil de Simulação')).toBeInTheDocument();
+    expect(await screen.findByText('Tendência do Funil de Simulação')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Efetividade do Treinamento' })).toBeInTheDocument();
     expect(screen.getByLabelText('Recuperação após comprometimento: 75,0%')).toBeInTheDocument();
     expect(screen.getByText(/3 campanhas · 280 destinatários únicos · 320 e-mails enviados/)).toBeInTheDocument();
@@ -155,7 +155,7 @@ describe('AdminDashboard — visão executiva essencial', () => {
 
     expect(screen.getByRole('button', { name: 'Como E-mails Enviados é calculado' })).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Como são calculadas?' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Como são calculadas?' }));
     expect(await screen.findByRole('dialog')).toBeInTheDocument();
     await act(async () => { await new Promise((resolve) => setTimeout(resolve, 250)); });
     expect(screen.getByRole('heading', { name: 'Como as métricas são calculadas?' })).toBeInTheDocument();

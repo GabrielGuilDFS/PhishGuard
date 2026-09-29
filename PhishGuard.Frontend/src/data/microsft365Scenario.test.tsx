@@ -53,7 +53,9 @@ describe('Microsft 365 — Template de E-mail', () => {
     const { container } = render(
       <div dangerouslySetInnerHTML={{ __html: emailComProps('X', formatarDataAcessoBRT()) }} />,
     );
-    expect(container.textContent).toContain('Microsft 365');
+    expect(container.textContent).toContain('Microsoft');
+    expect(container.textContent).not.toContain('Microsft');
+    expect(container.textContent).not.toContain('Microsoft 365');
     expect(isca.corpoHtml).not.toContain('data:image/png');
     expect(isca.corpoHtml).not.toContain('cid:');
   });
@@ -135,7 +137,7 @@ describe('Microsft 365 — Tela Educacional (Just-in-Time)', () => {
     renderEdu();
     expect(screen.getByText(/simulação de treinamento de segurança do PhishGuard/i)).toBeInTheDocument();
     expect(screen.getByText(/Você interagiu com um e-mail de phishing simulado/i)).toBeInTheDocument();
-    expect(screen.getByText(/Erro Sutil no Nome da Empresa/i)).toBeInTheDocument();
+    expect(screen.getByText(/Identidade Visual Copiada/i)).toBeInTheDocument();
     expect(screen.getByText(/Falso Alerta de Expiração de Senha/i)).toBeInTheDocument();
     expect(screen.getByText(/Link Externo para Captura de Credenciais/i)).toBeInTheDocument();
     expect(screen.getByText(/Remetente Automático e Sem Assinatura Oficial/i)).toBeInTheDocument();

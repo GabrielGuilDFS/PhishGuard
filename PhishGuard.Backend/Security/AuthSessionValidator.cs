@@ -19,17 +19,21 @@ public interface IAuthSessionValidator
 /// </summary>
 public sealed class AuthSessionValidator(
     AppDbContext context,
-    TimeProvider timeProvider) : IAuthSessionValidator
+    TimeProvider timeProvider,
+    AuthSessionCache? cache = null) : IAuthSessionValidator
 {
-    public Task<bool> IsActiveAsync(
+    public async Task<bool> IsActiveAsync(
         Guid administratorId,
         Guid tenantId,
         Guid sessionId,
         CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (cache?.Contains(administratorId, tenantId, sessionId) == true) return true;
+        var generation = cache?.Generation ?? 0;
         var nowUtc = timeProvider.GetUtcNow().UtcDateTime;
 
-        return (
+        var expiry = await (
             from session in context.AuthSessions.IgnoreQueryFilters()
             join administrator in context.Administradores.IgnoreQueryFilters()
                 on session.AdministratorId equals administrator.Id
@@ -44,7 +48,10 @@ public sealed class AuthSessionValidator(
                 && tenant.Ativo
                 && session.RevokedAtUtc == null
                 && session.ExpiresAtUtc > nowUtc
-            select session.Id)
-            .AnyAsync(cancellationToken);
+            select (DateTime?)session.ExpiresAtUtc)
+            .SingleOrDefaultAsync(cancellationToken);
+        if (expiry is null) return false;
+        cache?.Store(administratorId, tenantId, sessionId, expiry.Value, generation);
+        return true;
     }
 }

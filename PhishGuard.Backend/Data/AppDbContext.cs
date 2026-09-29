@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.DataProtection.EntityFrameworkCore;
 using PhishGuard.Backend.Models;
+using PhishGuard.Backend.Security;
  
 namespace PhishGuard.Backend.Data
 {
@@ -14,9 +15,25 @@ namespace PhishGuard.Backend.Data
 
         public AppDbContext(
             DbContextOptions<AppDbContext> options, 
-            ITenantProvider tenantProvider) : base(options) 
+            ITenantProvider tenantProvider,
+            AuthSessionCache? sessionCache = null) : base(options)
         { 
             _tenantProvider = tenantProvider;
+            if (sessionCache is not null)
+            {
+                var authenticationWrite = false;
+                SavingChanges += (_, _) =>
+                {
+                    authenticationWrite = ChangeTracker.Entries().Any(e =>
+                        e.State is EntityState.Added or EntityState.Modified or EntityState.Deleted
+                        && e.Entity is AuthSession or Administrador or Tenant);
+                    if (authenticationWrite)
+                        sessionCache.Invalidate(Database.CurrentTransaction is not null
+                            || System.Transactions.Transaction.Current is not null);
+                };
+                SavedChanges += (_, _) => { if (authenticationWrite) sessionCache.Invalidate(); };
+                SaveChangesFailed += (_, _) => { if (authenticationWrite) sessionCache.Invalidate(); };
+            }
         }
 
         public DbSet<Tenant> Tenants { get; set; }

@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, Box, Button, LinearProgress } from '@mui/material';
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
+import { Alert, Box, Button, LinearProgress, Skeleton } from '@mui/material';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import { useNavigate } from 'react-router-dom';
 import PageContainer from '../components/PageContainer';
@@ -9,10 +9,7 @@ import { authFetch, clearSession } from '../auth/session';
 import { useSessionIdentity } from '../auth/useSessionIdentity';
 import DashboardHeader from './dashboard/DashboardHeader';
 import DashboardKpiGrid from './dashboard/DashboardKpiGrid';
-import SimulationTrendChart from './dashboard/SimulationTrendChart';
-import TrainingEffectivenessPanel from './dashboard/TrainingEffectivenessPanel';
 import RecentCampaignsTable from './dashboard/RecentCampaignsTable';
-import MetricsGlossaryDialog from './dashboard/MetricsGlossaryDialog';
 import type { DashboardOverview, DashboardPeriod } from './dashboard/dashboard.types';
 import {
   buildDashboardQuery,
@@ -22,6 +19,11 @@ import {
 } from './dashboard/dashboard.export';
 
 const EMPTY_SCOPE = { campaignCount: 0, uniqueTargetCount: 0, campaignTargetCount: 0 };
+const SimulationTrendChart = lazy(() => import('./dashboard/SimulationTrendChart'));
+const TrainingEffectivenessPanel = lazy(() => import('./dashboard/TrainingEffectivenessPanel'));
+const MetricsGlossaryDialog = lazy(() => import('./dashboard/MetricsGlossaryDialog'));
+
+const chartsPlaceholder = <Skeleton variant="rounded" height={420} sx={{ mb: 3 }} aria-label="Carregando gráficos" />;
 
 async function extractErrorMessage(response: Response): Promise<string> {
   const raw = await response.text().catch(() => '');
@@ -168,6 +170,7 @@ export default function AdminDashboard() {
 
       <Box aria-busy={loading || refreshing}>
         <DashboardKpiGrid kpis={data?.kpis} loading={loading} />
+        {loading ? chartsPlaceholder : <Suspense fallback={chartsPlaceholder}>
         <SimulationTrendChart
           data={data?.trend ?? []}
           loading={loading}
@@ -182,6 +185,7 @@ export default function AdminDashboard() {
           loading={loading}
           hasSent={(data?.kpis.sent.total ?? 0) > 0}
         />
+        </Suspense>}
         <RecentCampaignsTable
           campaigns={data?.recentCampaigns ?? []}
           loading={loading}
@@ -189,7 +193,9 @@ export default function AdminDashboard() {
           onViewCampaign={(id) => navigate(`/admin/campaigns?editar=${encodeURIComponent(id)}`)}
         />
       </Box>
-      <MetricsGlossaryDialog open={glossaryOpen} onClose={() => setGlossaryOpen(false)} />
+      {glossaryOpen && <Suspense fallback={null}>
+        <MetricsGlossaryDialog open onClose={() => setGlossaryOpen(false)} />
+      </Suspense>}
     </PageContainer>
   );
 }

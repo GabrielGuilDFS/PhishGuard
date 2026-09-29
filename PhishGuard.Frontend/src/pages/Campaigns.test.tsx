@@ -89,6 +89,18 @@ afterEach(() => {
 });
 
 describe('Campaigns — atualização reativa do status (polling inteligente)', () => {
+  it('atualiza Processando em dois segundos e encerra polling ao concluir', async () => {
+    statusAtual = 'Processando';
+    renderTela();
+    await flush();
+    statusAtual = 'Em Andamento';
+    await act(async () => { await vi.advanceTimersByTimeAsync(2000); });
+    expect(screen.getByText('Em Andamento')).toBeInTheDocument();
+    const count = chamadasCampaigns();
+    await act(async () => { await vi.advanceTimersByTimeAsync(10000); });
+    expect(chamadasCampaigns()).toBe(count);
+  });
+
   it('exibe alerta acionável quando o SMTP não está pronto', async () => {
     statusAtual = 'Rascunho';
     smtpConfigurado = false;

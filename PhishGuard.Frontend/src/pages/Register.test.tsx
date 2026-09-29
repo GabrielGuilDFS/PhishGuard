@@ -6,6 +6,7 @@ import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import Register from './Register';
 import { TOKEN_KEY } from '../auth/session';
 import { jwtDeTeste } from '../test/jwt';
+import { NotificationProvider } from '../context/NotificationContext';
 
 function SondaHome() {
   return <div>sonda-home</div>;
@@ -13,12 +14,14 @@ function SondaHome() {
 
 function renderRegister() {
   return render(
-    <MemoryRouter initialEntries={['/register']}>
-      <Routes>
-        <Route path="/" element={<SondaHome />} />
-        <Route path="/register" element={<Register />} />
-      </Routes>
-    </MemoryRouter>
+    <NotificationProvider>
+      <MemoryRouter initialEntries={['/register']}>
+        <Routes>
+          <Route path="/" element={<SondaHome />} />
+          <Route path="/register" element={<Register />} />
+        </Routes>
+      </MemoryRouter>
+    </NotificationProvider>
   );
 }
 
@@ -84,6 +87,20 @@ async function preencherCamposBase(user: ReturnType<typeof userEvent.setup>) {
 }
 
 describe('Register — confirmação de senha', () => {
+  it('bloqueia senha com menos de seis caracteres antes de chamar a API', async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.mocked(fetch);
+    renderRegister();
+
+    await preencherCamposBase(user);
+    await user.type(screen.getByLabelText('Senha *'), '12345');
+    await user.type(screen.getByLabelText(/confirmar senha/i), '12345');
+    await user.click(screen.getByRole('button', { name: /cadastrar/i }));
+
+    expect(await screen.findByText('A senha deve ter pelo menos 6 caracteres.')).toBeInTheDocument();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it('bloqueia o cadastro e avisa quando as senhas divergem, sem chamar a API', async () => {
     const user = userEvent.setup();
     const fetchMock = vi.mocked(fetch);
@@ -116,5 +133,56 @@ describe('Register — confirmação de senha', () => {
     await screen.findByText(/cadastro realizado/i);
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(screen.queryByText('As senhas não coincidem.')).not.toBeInTheDocument();
+  });
+});
+
+describe('Register — falhas da API', () => {
+  it('exibe a mensagem segura de conflito retornada pela API', async () => {
+    const user = userEvent.setup();
+    vi.mocked(fetch).mockResolvedValueOnce(new Response(JSON.stringify({
+      code: 'EMAIL_ALREADY_EXISTS',
+      message: 'Este e-mail já está em uso.',
+    }), {
+      status: 409,
+      headers: { 'Content-Type': 'application/json' },
+    }));
+    renderRegister();
+
+    await preencherCamposBase(user);
+    await user.type(screen.getByLabelText('Senha *'), 'senha123');
+    await user.type(screen.getByLabelText(/confirmar senha/i), 'senha123');
+    await user.click(screen.getByRole('button', { name: /cadastrar/i }));
+
+    expect((await screen.findAllByText('Este e-mail já está em uso.')).length).toBeGreaterThan(0);
+  });
+
+  it('não expõe o corpo de uma falha interna', async () => {
+    const user = userEvent.setup();
+    vi.mocked(fetch).mockResolvedValueOnce(new Response('stack trace sensível', {
+      status: 500,
+      headers: { 'Content-Type': 'text/plain' },
+    }));
+    renderRegister();
+
+    await preencherCamposBase(user);
+    await user.type(screen.getByLabelText('Senha *'), 'senha123');
+    await user.type(screen.getByLabelText(/confirmar senha/i), 'senha123');
+    await user.click(screen.getByRole('button', { name: /cadastrar/i }));
+
+    expect((await screen.findAllByText(/não foi possível concluir o cadastro/i)).length).toBeGreaterThan(0);
+    expect(screen.queryByText('stack trace sensível')).not.toBeInTheDocument();
+  });
+
+  it('distingue falha de rede de erro de validação', async () => {
+    const user = userEvent.setup();
+    vi.mocked(fetch).mockRejectedValueOnce(new TypeError('Failed to fetch'));
+    renderRegister();
+
+    await preencherCamposBase(user);
+    await user.type(screen.getByLabelText('Senha *'), 'senha123');
+    await user.type(screen.getByLabelText(/confirmar senha/i), 'senha123');
+    await user.click(screen.getByRole('button', { name: /cadastrar/i }));
+
+    expect((await screen.findAllByText(/não foi possível conectar à API/i)).length).toBeGreaterThan(0);
   });
 });

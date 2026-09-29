@@ -10,8 +10,8 @@ import Templates from './Templates';
 // preview — E-mail, Página Falsa e Página Educacional. Um Cenário amarra a isca de
 // e-mail à sua página falsa e ao seu treinamento. Registrar/Descartar cenário foram
 // REMOVIDOS: o par de linhas nasce sob demanda ao salvar a campanha (Campaigns.tsx).
-// Cenário renomeado para "amzprime" (identidade própria, compliance de IP).
-const CENARIO_AMAZON = 'amzprime — Alerta de Segurança';
+// Nome histórico restaurado; o ID do cenário continua compatível.
+const CENARIO_AMAZON = 'Amazon — Alerta de Segurança';
 
 // A tela é 100% estática (não faz fetch): o mock existe só para flagrar qualquer
 // escrita indevida que uma regressão venha a introduzir.
@@ -48,8 +48,8 @@ describe('Templates (Biblioteca de Modelos)', () => {
 
     // Cenários do catálogo aparecem direto na tabela.
     expect(screen.getByText(CENARIO_AMAZON)).toBeInTheDocument();
-    expect(screen.getByText('NetsFlix — Atualização de Cobrança')).toBeInTheDocument();
-    expect(screen.getByText('bho MAX — Redefinição de Senha')).toBeInTheDocument();
+    expect(screen.getByText('Netflix — Atualização de Cobrança')).toBeInTheDocument();
+    expect(screen.getByText('HBO Max — Redefinição de Senha')).toBeInTheDocument();
 
     // Coluna renomeada: "Observação" no lugar de "Amarração".
     expect(screen.getByRole('columnheader', { name: /Observação/i })).toBeInTheDocument();

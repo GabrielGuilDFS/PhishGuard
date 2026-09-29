@@ -6,6 +6,30 @@ namespace PhishGuard.Tests.Services.Delivery;
 
 public sealed class EmailMessageComposerTests
 {
+    [Theory]
+    [InlineData("mercado-liv-novo-acesso")]
+    [InlineData("mercadoliv-novo-acesso")]
+    public void Compose_MercadoLivre_IncorporaLogoEPersonalizaIscaOficial(string templateId)
+    {
+        var campaign = new Campaign
+        {
+            Id = Guid.NewGuid(),
+            Template = new Template { CorpoHtml = templateId, RemetenteNome = "Mercado Livre", Assunto = "Novo acesso" }
+        };
+        var target = new Target { Id = Guid.NewGuid(), Nome = "Pessoa de teste", Email = "target@example.test" };
+        var composer = new EmailMessageComposer(new TrackingTokenService(), "https://api.example.test");
+
+        var message = composer.Compose(campaign, target, "training@example.test");
+
+        Assert.Equal("Mercado Livre", message.FromName);
+        Assert.Contains("Pessoa de teste", message.HtmlBody);
+        Assert.Contains("cid:logo-mercadoliv", message.HtmlBody);
+        Assert.DoesNotContain("{{", message.HtmlBody);
+        var attachment = Assert.Single(message.InlineAttachments);
+        Assert.Equal("logo-mercadoliv", attachment.ContentId);
+        Assert.True(attachment.Bytes.Length > 1000);
+    }
+
     private sealed class TrackingTokenService : ITrackingTokenService
     {
         public string Create(Guid campaignId, Guid targetId) => "signed-token";

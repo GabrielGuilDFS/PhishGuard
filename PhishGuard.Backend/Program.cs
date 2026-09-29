@@ -244,6 +244,9 @@ builder.Services.AddCors(options =>
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ITenantProvider, TenantProvider>();
 builder.Services.AddScoped<IAuthSessionValidator, AuthSessionValidator>();
+// Habilite somente se todas as escritas de autenticação passam por este processo.
+if (builder.Configuration.GetValue<bool>("AuthSessionCache:SingleInstanceEnabled"))
+    builder.Services.AddSingleton<AuthSessionCache>();
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<ITrackingTokenService, TrackingTokenService>();
 builder.Services.AddSingleton(serviceProvider => new DashboardReportingTime(
@@ -293,6 +296,7 @@ builder.Services.AddScoped<IDashboardOverviewService, DashboardOverviewService>(
 builder.Services.AddSingleton<IDashboardExportService, DashboardExportService>();
 builder.Services.AddScoped<IAdminBootstrapProvisioner, AdminBootstrapProvisioner>();
 builder.Services.AddHostedService<CampaignSchedulerWorker>();
+builder.Services.AddSingleton<CampaignDispatchSignal>();
 
 var app = builder.Build();
 

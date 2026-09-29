@@ -43,33 +43,32 @@ public class OfficialBaitCatalogTests
 
         Assert.NotEqual(chave, html);
         Assert.Contains("<!DOCTYPE html>", html);
-        Assert.Contains("Microsft 365", html);
+        Assert.Contains("Microsoft", html);
+        Assert.DoesNotContain("Microsft 365", html);
         Assert.Contains("{{LINK_PHISHING}}", html);
         Assert.True(OfficialBaitCatalog.IsKnownId(chave));
     }
 
-    // Regressão da nova isca "Mercado Liv" (alerta de novo acesso). O disparo persiste
-    // apenas o id 'mercadoliv-novo-acesso'; o catálogo precisa resolvê-lo para o HTML
-    // embutido — que referencia a logo inline via CID (cid:logo-mercadoliv) e a data
-    // dinâmica {{DATA_ACESSO}}.
-    [Fact]
-    public void ResolveHtml_ComChaveMercadoLiv_RetornaHtmlEmbutido()
+    // O ID original e o usado após 460dc77 precisam resolver o mesmo recurso:
+    // campanhas existentes não podem passar a enviar o identificador como texto.
+    [Theory]
+    [InlineData("mercado-liv-novo-acesso")]
+    [InlineData("mercadoliv-novo-acesso")]
+    public void ResolveHtml_ComChaveMercadoLiv_RetornaHtmlEmbutido(string chave)
     {
-        const string chave = "mercadoliv-novo-acesso";
         var html = OfficialBaitCatalog.ResolveHtml(chave);
 
         Assert.NotEqual(chave, html);
         Assert.Contains("<!DOCTYPE html>", html);
-        Assert.Contains("Mercado Liv", html);
-        // Logo injetada via CID (o Gmail não renderiza data-URI no e-mail real).
+        Assert.Contains("Mercado Livre", html);
         Assert.Contains("cid:logo-mercadoliv", html);
-        // Wordmark parodiado em CAIXA BAIXA e quebrado em duas linhas ("mercado"/"liv").
-        Assert.Contains("mercado<br>liv", html);
+        Assert.Equal(OfficialBaitCatalog.ResolveHtml("mercado-liv-novo-acesso"), html);
         // Variáveis dinâmicas resolvidas no disparo (nome, link e data no fuso BRT).
         Assert.Contains("{{NOME}}", html);
         Assert.Contains("{{LINK_PHISHING}}", html);
         Assert.Contains("{{DATA_ACESSO}}", html);
         Assert.True(OfficialBaitCatalog.IsKnownId(chave));
+        Assert.Contains(chave, OfficialBaitCatalog.Ids);
     }
 
     [Fact]

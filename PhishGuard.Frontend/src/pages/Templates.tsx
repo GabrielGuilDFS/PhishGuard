@@ -10,6 +10,7 @@ import MarkEmailReadIcon from '@mui/icons-material/MarkEmailRead';
 import WebIcon from '@mui/icons-material/Web';
 import SchoolIcon from '@mui/icons-material/School';
 import { templatesPredefinidos } from '../data/predefinedTemplates';
+import { prepararEmailParaPreview } from '../data/emailAssets';
 import { simulationScenarios, type SimulationScenario } from '../data/predefinedTemplates';
 import { landingTemplates } from '../data/landingTemplates';
 import { educationalTemplates } from '../data/educationalTemplates';
@@ -57,7 +58,7 @@ export default function Templates() {
     if (tab === 'email') {
       const isca = iscaPorId.get(preview.emailTemplateId);
       if (!isca) return '<div style="padding:24px;font-family:sans-serif;color:#999;">Isca não encontrada.</div>';
-      return isca.corpoHtml
+      return prepararEmailParaPreview(isca.corpoHtml)
         .replaceAll('{{LINK_PHISHING}}', '#')
         .replaceAll('{{LINK}}', '#')
         .replaceAll('{{NOME}}', 'Colaborador(a)')

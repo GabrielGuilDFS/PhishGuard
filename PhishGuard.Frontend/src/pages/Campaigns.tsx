@@ -17,8 +17,9 @@ import DoneAllIcon from '@mui/icons-material/DoneAll';
 import ClearAllIcon from '@mui/icons-material/ClearAll';
 import ReplayIcon from '@mui/icons-material/Replay';
 import { simulationScenarios, templatesPredefinidos, type SimulationScenario } from '../data/predefinedTemplates';
+import { normalizarIdIsca, normalizarIdLanding } from '../data/scenarioAliases';
 import { landingTemplates } from '../data/landingTemplates';
-import { paginaEducativaPrecisaReconciliar, resolverPaginaEducativaDoCenario } from '../data/feedbackTrainings';
+import { paginaEducativaPertenceAoCenario, paginaEducativaPrecisaReconciliar, resolverPaginaEducativaDoCenario } from '../data/feedbackTrainings';
 import { CampaignStatus } from '../data/campaignStatus';
 import { useNotify } from '../context/NotificationContext';
 import { toDateTimeLocal } from '../utils/dateTime';
@@ -56,6 +57,9 @@ interface LookupItem {
     email?: string;
     departamento?: string;
     corpoHtml?: string;    // Templates: carrega o id da isca de e-mail.
+    assunto?: string;
+    remetenteNome?: string;
+    remetenteEmail?: string;
     conteudoHtml?: string; // PhishingPages/EducationalPages: id da landing / html educativo.
 }
 
@@ -93,10 +97,9 @@ const mensagemAmigavel = (erro: string): string => {
 const emailValido = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
 
 // ---- Atualização reativa do status (short polling inteligente) ----
-// Intervalo de checagem enquanto houver campanha "em trânsito" de status. 8s fica na
-// faixa pedida (5–10s): responsivo o suficiente para o disparo (worker roda a cada 1min)
-// sem martelar a API.
+// Agendadas usam 8s; durante o envio a atualização ocorre a cada 2s após a resposta.
 const POLL_INTERVAL_MS = 8000;
+const PROCESSING_POLL_INTERVAL_MS = 2000;
 // Janela em que a badge "pisca" após uma transição de status (casa com o fade de 1s do tema).
 const FLASH_MS = 1800;
 
@@ -266,6 +269,7 @@ export default function Campaigns() {
         () => campaigns.some(c => STATUS_PENDENTES.includes(c.status)),
         [campaigns]
     );
+    const processing = campaigns.some(c => c.status === CampaignStatus.Processando);
 
     // POLLING INTELIGENTE: só cria o intervalo quando há campanhas pendentes; quando a
     // última pendente resolve, `temPendentes` vira false, este efeito re-executa e o
@@ -273,10 +277,17 @@ export default function Campaigns() {
     // limpo ao desmontar a tela.
     useEffect(() => {
         if (!temPendentes) return;
-        const intervalo = window.setInterval(() => { fetchCampaigns(); }, POLL_INTERVAL_MS);
-        return () => window.clearInterval(intervalo);
+        let stopped = false;
+        let timer: number;
+        const poll = async () => {
+            if (document.visibilityState !== 'hidden') await fetchCampaigns();
+            if (!stopped) timer = window.setTimeout(poll,
+                processing ? PROCESSING_POLL_INTERVAL_MS : POLL_INTERVAL_MS);
+        };
+        timer = window.setTimeout(poll, processing ? PROCESSING_POLL_INTERVAL_MS : POLL_INTERVAL_MS);
+        return () => { stopped = true; window.clearTimeout(timer); };
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [temPendentes]);
+    }, [temPendentes, processing]);
 
     const fetchCampaigns = async () => {
         try {
@@ -363,7 +374,7 @@ export default function Campaigns() {
                     // cenário estático pelo corpoHtml (= id da isca) que a linha carrega.
                     const emailRowDaCampanha = loadedTemplates.find((t) => t.id === data.emailTemplateId);
                     const cenarioReconstruido = emailRowDaCampanha
-                        ? simulationScenarios.find((s) => s.emailTemplateId === emailRowDaCampanha.corpoHtml) ?? null
+                        ? simulationScenarios.find((s) => s.emailTemplateId === normalizarIdIsca(emailRowDaCampanha.corpoHtml)) ?? null
                         : null;
 
                     // A página educativa NÃO é mais escolhida manualmente: ela deriva 1:1 do
@@ -441,7 +452,23 @@ export default function Campaigns() {
         const landing = landingPorId.get(s.landingTemplateId);
         if (!isca || !landing) throw new Error('Cenário inválido: molde não encontrado no catálogo.');
 
-        let emailRow = templates.find((t) => t.corpoHtml === s.emailTemplateId);
+        let emailRow = templates.find((t) => normalizarIdIsca(t.corpoHtml) === s.emailTemplateId);
+        const marcaAtualizada = s.id === 'cenario-microcorp' || s.id === 'cenario-mercado-liv';
+        if (emailRow && marcaAtualizada && (emailRow.nome !== isca.nome || emailRow.remetenteNome !== isca.remetenteNome)) {
+            const atualizado = {
+                id: emailRow.id, nome: isca.nome,
+                assunto: emailRow.assunto ?? isca.assunto,
+                remetenteNome: isca.remetenteNome,
+                remetenteEmail: emailRow.remetenteEmail ?? isca.remetenteEmail,
+                corpoHtml: emailRow.corpoHtml ?? isca.id,
+            };
+            const res = await authFetch(`${API_BASE}/Templates/${emailRow.id}`, {
+                method: 'PUT', headers, body: JSON.stringify(atualizado),
+            });
+            if (!res.ok) throw new Error(await extrairMensagemDeErro(res));
+            emailRow = atualizado;
+            setTemplates(prev => prev.map(item => item.id === atualizado.id ? atualizado : item));
+        }
         if (!emailRow) {
             const res = await authFetch(`${API_BASE}/Templates`, {
                 method: 'POST', headers,
@@ -457,7 +484,17 @@ export default function Campaigns() {
             setTemplates(prev => [...prev, emailRow!]);
         }
 
-        let landingRow = phishingPages.find((p) => p.conteudoHtml === s.landingTemplateId);
+        let landingRow = phishingPages.find((p) => normalizarIdLanding(p.conteudoHtml) === s.landingTemplateId);
+        if (landingRow && marcaAtualizada && landingRow.nome !== landing.nome) {
+            const atualizado = { ...landingRow, nome: landing.nome };
+            const res = await authFetch(`${API_BASE}/PhishingPages/${landingRow.id}`, {
+                method: 'PUT', headers,
+                body: JSON.stringify({ nome: atualizado.nome, conteudoHtml: atualizado.conteudoHtml }),
+            });
+            if (!res.ok) throw new Error(await extrairMensagemDeErro(res));
+            landingRow = atualizado;
+            setPhishingPages(prev => prev.map(item => item.id === atualizado.id ? atualizado : item));
+        }
         if (!landingRow) {
             const res = await authFetch(`${API_BASE}/PhishingPages`, {
                 method: 'POST', headers,
@@ -479,7 +516,7 @@ export default function Campaigns() {
     const garantirPaginaEducativa = async (cenario: SimulationScenario): Promise<string> => {
         const descritor = resolverPaginaEducativaDoCenario(cenario);
 
-        const existente = educationalPages.find(p => p.conteudoHtml === descritor.html);
+        const existente = educationalPages.find(p => paginaEducativaPertenceAoCenario(p.conteudoHtml ?? '', descritor));
         if (existente) {
             // O catálogo é a fonte canônica do rótulo. Páginas antigas podem manter
             // nomes de migrations de descontinuação mesmo após o cenário ser reativado.
@@ -587,6 +624,8 @@ export default function Campaigns() {
             const res = await authFetch(`${API_BASE}/Campaigns/${id}/ativar`, { method: 'POST', headers });
             if (res.ok) {
                 const data = await res.json().catch(() => null);
+                if (data?.status) setCampaigns(previous => previous.map(c =>
+                    c.id === id ? { ...c, status: data.status } : c));
                 showNotify(
                     data?.message ??
                     'Campanha agendada/iniciada com sucesso! O serviço em segundo plano está processando os disparos.',
@@ -613,6 +652,8 @@ export default function Campaigns() {
                 return;
             }
             const data = await res.json().catch(() => null);
+            if (data?.status) setCampaigns(previous => previous.map(c =>
+                c.id === id ? { ...c, status: data.status } : c));
             showNotify(data?.message ?? 'Campanha reenfileirada.', 'success');
             await fetchCampaigns();
         } catch {

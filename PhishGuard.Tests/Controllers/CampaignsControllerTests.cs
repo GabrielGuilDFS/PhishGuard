@@ -174,7 +174,8 @@ public class CampaignsControllerTests : CampaignTestBase
 
         var campanha = await SemearCampanhaRascunhoAsync(context, tenantProvider, tenant.Id, DateTime.UtcNow.AddMinutes(-5));
 
-        var controller = new CampaignsController(context, tenantProvider);
+        using var signal = new CampaignDispatchSignal();
+        var controller = new CampaignsController(context, tenantProvider, dispatchSignal: signal);
 
         // Act
         var resultado = await controller.AtivarCampanha(campanha.Id);
@@ -185,6 +186,7 @@ public class CampaignsControllerTests : CampaignTestBase
 
         var persistida = await context.Campaigns.IgnoreQueryFilters().FirstAsync(c => c.Id == campanha.Id);
         Assert.Equal(CampaignStatus.Processando, persistida.Status);
+        Assert.True(await signal.WaitAsync(TimeSpan.Zero, CancellationToken.None));
     }
 
     [Fact]

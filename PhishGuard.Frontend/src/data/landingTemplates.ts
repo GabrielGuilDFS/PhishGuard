@@ -2,7 +2,7 @@ import { type TemplateModel } from './templateTypes';
 
 // Moldes estáticos de LANDING PAGES (páginas de captura) do PhishGuard.
 //
-// Consolidação da interface "bho MAX - Redefinição de Senha": os subcomponentes
+// Consolidação da interface "HBO Max - Redefinição de Senha": os subcomponentes
 // React originais do v0 (SiteHeader, SiteFooter, ChangePasswordForm, MUI theme e
 // globals.css) foram unificados em UMA única string de HTML com CSS embutido.
 //
@@ -21,7 +21,7 @@ const hboMaxRedefinicaoSenhaHtml = `<!DOCTYPE html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Mude sua senha | bho MAX</title>
+<title>Mude sua senha | HBO Max</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Figtree:wght@400;600;700;800&display=swap');
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -37,16 +37,15 @@ const hboMaxRedefinicaoSenhaHtml = `<!DOCTYPE html>
   a { text-decoration: none; color: inherit; }
   /* ---------- Header (SiteHeader) ---------- */
   .hbo-header { display: flex; align-items: center; justify-content: space-between; padding: 20px 24px; }
-  /* Novo logo "bho MAX" (asset SVG em public/, variante p/ fundo escuro). */
-  .hbo-logo { display: block; height: 44px; width: auto; }
+  .hbo-logo { line-height: 0.85; }
+  .hbo-logo span { display: block; font-size: 20px; font-weight: 800; letter-spacing: -0.02em; }
   .hbo-nav { display: none; gap: 32px; }
   .hbo-nav a { font-size: 15px; font-weight: 700; color: rgba(255,255,255,0.9); }
   .hbo-nav a:hover { color: #ffffff; }
   .hbo-nav a.muted { color: #a3a3a3; }
   .hbo-actions { display: flex; align-items: center; gap: 20px; }
   .hbo-actions svg { width: 24px; height: 24px; color: rgba(255,255,255,0.9); }
-  .hbo-avatar { position: relative; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 9999px; overflow: hidden; box-shadow: 0 0 0 2px rgba(255,255,255,0.2); background: linear-gradient(135deg,#4b4b4b,#222); }
-  .hbo-avatar svg { position: relative; z-index: 1; width: 18px; height: 18px; color: #ffffff; }
+  .hbo-avatar { width: 32px; height: 32px; border-radius: 9999px; overflow: hidden; box-shadow: 0 0 0 2px rgba(255,255,255,0.2); background: linear-gradient(135deg,#4b4b4b,#222); }
   @media (min-width: 768px) { .hbo-nav { display: flex; } }
   /* ---------- Main / título ---------- */
   .hbo-main { flex: 1; display: flex; flex-direction: column; align-items: center; padding: 32px 24px 0; }
@@ -93,24 +92,19 @@ const hboMaxRedefinicaoSenhaHtml = `<!DOCTYPE html>
 </head>
 <body>
   <header class="hbo-header">
-    <img class="hbo-logo" src="/bho-max-logo-ondark.svg" alt="bho MAX">
+    <div class="hbo-logo"><span>HBO</span><span>max</span></div>
     <nav class="hbo-nav">
       <a href="#">Início</a>
       <a href="#">Séries</a>
       <a href="#">Filmes</a>
-      <a href="#" class="muted">bho MAX</a>
+      <a href="#" class="muted">HBO</a>
       <a href="#">Esportes</a>
       <a href="#">Crianças &amp; Família</a>
     </nav>
     <div class="hbo-actions">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"></path></svg>
-      <div class="hbo-avatar" role="img" aria-label="Perfil do usuário">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <circle cx="12" cy="8" r="3.25"></circle>
-          <path d="M5.5 19c.8-3.3 3.2-5 6.5-5s5.7 1.7 6.5 5"></path>
-        </svg>
-      </div>
+      <div class="hbo-avatar"></div>
     </div>
   </header>
 
@@ -144,7 +138,7 @@ const hboMaxRedefinicaoSenhaHtml = `<!DOCTYPE html>
 
           <div class="hbo-actions-row">
             <button type="submit" class="hbo-btn hbo-btn-primary">Salvar</button>
-            <button type="button" class="hbo-btn hbo-btn-outline" onclick="window.location.href='/educational-feedback?template=bhomax&c={{CAMPAIGN_ID}}&t={{TARGET_ID}}';">Cancele</button>
+            <button type="button" class="hbo-btn hbo-btn-outline" onclick="window.location.href='/educational-feedback?template=basico_phishing';">Cancele</button>
           </div>
         </form>
       </div>
@@ -167,7 +161,7 @@ const hboMaxRedefinicaoSenhaHtml = `<!DOCTYPE html>
       <a href="#">Informações</a>
       <a href="#">Ajuda</a>
     </nav>
-    <p class="hbo-copy">© 2026 bho MAX. Todos os direitos reservados.</p>
+    <p class="hbo-copy">© 2026 WarnerMedia Direct, LLC. Todos os direitos reservados.</p>
   </footer>
 
   <button class="hbo-chat" type="button" aria-label="Abrir chat de ajuda">
@@ -176,10 +170,8 @@ const hboMaxRedefinicaoSenhaHtml = `<!DOCTYPE html>
 </body>
 </html>`;
 
-// Interface simulada "NetsFlix - Acesse sua conta" (login/captura). Identidade própria
-// (compliance de IP: sem logo/fita curvada, sem a marca real no texto; logo = "N" plano em
-// CSS #E50914). Consolidação do clone Next.js + MUI + Tailwind originalmente em ".Pagina"
-// (Hero): os
+// Interface simulada "Netflix - Acesse sua conta", restaurada de 631acbe^.
+// Consolidação do clone Next.js + MUI + Tailwind originalmente em ".Pagina": os
 // componentes React e o estilo utilitário foram unificados numa ÚNICA string de
 // HTML com CSS embutido (Tailwind não compila neste frontend — ver a nota do HBO).
 //
@@ -187,7 +179,7 @@ const hboMaxRedefinicaoSenhaHtml = `<!DOCTYPE html>
 // referenciada por caminho absoluto `/netflix-bg.png` — resolvido contra a origem do
 // app tanto no preview (iframe srcDoc) quanto na landing servida (/landing/:id).
 //
-// Telemetria: mesmo padrão do bho MAX. O <form> intercepta o submit via `onsubmit`
+// Telemetria: mesmo padrão do HBO Max. O <form> intercepta o submit via `onsubmit`
 // inline, dispara o gatilho de rastreamento (POST /api/tracking/submit/...) enviando
 // apenas flags de validação — NUNCA a senha em texto (LGPD) — e então redireciona
 // para a rota educacional interna (/educational-feedback?template=basico_phishing).
@@ -196,23 +188,19 @@ const netflixLoginHtml = `<!DOCTYPE html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>NetsFlix</title>
+<title>Netflix</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased; }
   .nfx-root { position: relative; min-height: 100vh; width: 100%; overflow: hidden; background-color: #000; }
-  /* Colagem de fundo: blur + brightness MODERADOS — suaviza os pôsteres (ainda dá p/
-     perceber alguns), sem escurecer a tela por completo. O scale(1.1) evita que o blur
-     revele as bordas transparentes do container. */
-  .nfx-bg { position: absolute; inset: 0; background-image: url('/netflix-bg.png'); background-size: cover; background-position: center; filter: blur(8px) brightness(0.8); transform: scale(1.1); }
-  .nfx-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.5); }
+  /* Colagem de fundo + overlay escuro p/ legibilidade (equivalente ao bg-black/60). */
+  .nfx-bg { position: absolute; inset: 0; background-image: url('/netflix-bg.png'); background-size: cover; background-position: center; }
+  .nfx-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.6); }
   .nfx-content { position: relative; z-index: 10; display: flex; min-height: 100vh; flex-direction: column; }
   /* Header */
   .nfx-header { display: flex; align-items: center; justify-content: space-between; padding: 20px 24px; }
-  /* Logo próprio: letra "N" plana (2D), Arial Black / geométrica, vermelho de marca,
-     leve escala vertical p/ manter o peso visual — sem imagem/SVG da fita curvada. */
-  .nfx-logo { user-select: none; display: inline-block; font-family: 'Arial Black', 'Helvetica Neue', Arial, sans-serif; font-size: 2.25rem; font-weight: 900; line-height: 1; letter-spacing: -0.02em; color: #E50914; transform: scaleY(1.1); }
-  @media (min-width: 768px) { .nfx-header { padding: 20px 48px; } .nfx-logo { font-size: 2.6rem; } }
+  .nfx-logo { user-select: none; font-size: 1.75rem; font-weight: 800; letter-spacing: -0.02em; color: #e50914; }
+  @media (min-width: 768px) { .nfx-header { padding: 20px 48px; } .nfx-logo { font-size: 1.9rem; } }
   /* Hero */
   .nfx-hero { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px 24px 96px; text-align: center; }
   .nfx-title { max-width: 42rem; font-size: 2.25rem; font-weight: 800; line-height: 1.15; color: #fff; }
@@ -247,7 +235,7 @@ const netflixLoginHtml = `<!DOCTYPE html>
     <div class="nfx-overlay" aria-hidden="true"></div>
     <div class="nfx-content">
       <header class="nfx-header">
-        <span class="nfx-logo">N</span>
+        <span class="nfx-logo">NETFLIX</span>
       </header>
       <section class="nfx-hero">
         <h1 class="nfx-title">Filmes, séries e muito mais, sem limites</h1>
@@ -272,8 +260,7 @@ const netflixLoginHtml = `<!DOCTYPE html>
 </body>
 </html>`;
 
-// Interface simulada "amzprime - Alterar Senha" (login/captura). Identidade própria p/
-// compliance de IP (sem logo/marca/dados cadastrais reais). Consolidação do
+// Interface simulada "Amazon - Alterar Senha", restaurada de 6e885ba^. Consolidação do
 // clone Next.js originalmente em ".pagina" (Header + ChangePasswordForm + Footer).
 //
 // ⚠️ AUTO-CONTIDO (correção 2026-07-17): antes esta era a ÚNICA landing que dependia
@@ -290,9 +277,7 @@ const netflixLoginHtml = `<!DOCTYPE html>
 //    precisamos mais do CDN). O reset `a{text-decoration:none;color:inherit}` mata de vez
 //    o "tudo azul sublinhado".
 //
-// Sem imagens externas: o logo "amzprime" (wordmark próprio, fonte de design em
-// .logoFalsa/) é textual e todos os ícones são SVG inline (sem caminhos de arquivo
-// que possam quebrar). Identidade própria p/ compliance de IP: sem marca/dados cadastrais reais.
+// Sem imagens externas: o logo Amazon é textual e os ícones são SVG inline.
 //
 // Telemetria: mesmo padrão do HBO/Netflix — <form onsubmit> inline dispara o
 // gatilho de rastreamento (só flags de validação, NUNCA a senha — LGPD) e então
@@ -302,24 +287,15 @@ const amazonLoginHtml = `<!DOCTYPE html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Alterar Senha - amzprime</title>
+<title>Alterar Senha - Amazon</title>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;700;800&display=swap');
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { min-height: 100vh; display: flex; flex-direction: column; background: #ffffff; color: #0f1111; font-family: 'Nunito Sans', Arial, Helvetica, sans-serif; -webkit-font-smoothing: antialiased; }
+  body { min-height: 100vh; display: flex; flex-direction: column; background: #ffffff; color: #0f1111; font-family: "Amazon Ember", Arial, Helvetica, sans-serif; -webkit-font-smoothing: antialiased; }
   /* Reset dos links — SEM isto o navegador pinta tudo de azul sublinhado no preview. */
   a { color: inherit; text-decoration: none; }
   svg { display: block; }
   button { font-family: inherit; cursor: pointer; }
   input { font-family: inherit; }
-
-  /* ---------- Wordmark próprio "amzprime" (fonte de design em .logoFalsa/) ----------
-     Nunito Sans (livre) no lugar do Amazon Ember. Em fundo ESCURO (header/rodapé desta
-     landing) "amz" vai em branco por legibilidade — no e-mail (fundo branco) "amz" usa
-     #232F3E. "prime" fica sempre no azul-marca #00A8E1 (gatilho cognitivo). */
-  .amz-wordmark { font-family: 'Nunito Sans', Arial, sans-serif; font-weight: 800; letter-spacing: -1px; line-height: 1; }
-  .amz-wordmark .w-amz { color: #ffffff; }
-  .amz-wordmark .w-prime { color: #00A8E1; }
 
   /* ---------- Header ---------- */
   .amz-header { background: #131921; color: #fff; }
@@ -365,7 +341,7 @@ const amazonLoginHtml = `<!DOCTYPE html>
   .amz-back:hover { background: #485769; }
   .amz-foot { background: #232f3e; color: #fff; padding: 36px 24px; }
   .amz-grid { max-width: 900px; margin: 0 auto; display: grid; grid-template-columns: repeat(2, 1fr); gap: 28px; }
-  .amz-grid h2 { font-size: 15px; margin-bottom: 8px; font-weight: 700; }
+  .amz-grid h3 { font-size: 15px; margin-bottom: 8px; }
   .amz-grid ul { list-style: none; display: flex; flex-direction: column; gap: 8px; }
   .amz-grid a { font-size: 13px; color: #ddd; }
   .amz-grid a:hover { text-decoration: underline; }
@@ -387,12 +363,12 @@ const amazonLoginHtml = `<!DOCTYPE html>
 <body>
   <header class="amz-header">
     <div class="amz-top">
-      <a href="#" class="amz-box amz-logo" aria-label="amzprime">
-        <span class="amz-wordmark" style="font-size:24px;"><span class="w-amz">amz</span><span class="w-prime">prime</span></span>
+      <a href="#" class="amz-box amz-logo" aria-label="Amazon">
+        <b>amazon</b><span class="tld">.com.br</span>
       </a>
       <div class="amz-search">
         <span class="cat">Todos <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true"><path d="M7 10l5 5 5-5z"></path></svg></span>
-        <input placeholder="Pesquisar amzprime" aria-label="Pesquisar">
+        <input placeholder="Pesquisar Amazon.com.br" aria-label="Pesquisar">
         <button class="go" aria-label="Pesquisar"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#111" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg></button>
       </div>
       <button class="amz-box amz-act amz-hide-sm">
@@ -413,13 +389,13 @@ const amazonLoginHtml = `<!DOCTYPE html>
     </div>
     <nav class="amz-nav">
       <span class="ham"><svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"></path></svg> Todos</span>
-      <a href="#">Venda na amzprime</a>
+      <a href="#">Venda na Amazon</a>
       <a href="#">Prime</a>
       <a href="#">Ofertas do Dia</a>
       <a href="#">Comprar novamente</a>
       <a href="#">Ideias de Presente</a>
       <a href="#">Atendimento ao Cliente</a>
-      <a href="#">Sua amzprime</a>
+      <a href="#">Sua Amazon.com.br</a>
       <a href="#">eBooks Kindle</a>
       <a href="#">Mais Vendidos</a>
       <a href="#">Livros</a>
@@ -430,7 +406,7 @@ const amazonLoginHtml = `<!DOCTYPE html>
     <div class="amz-col">
       <h1 class="amz-h1">Alterar Senha</h1>
       <div class="amz-card">
-        <p class="amz-lead">Use o formulário a seguir para alterar a senha de sua conta amzprime</p>
+        <p class="amz-lead">Use o formulário a seguir para alterar a senha de sua conta Amazon</p>
         <form onsubmit="event.preventDefault();var np=document.getElementById('amz-new').value;var cp=document.getElementById('amz-confirm').value;var meta={camposPreenchidos:(np.length>0&&cp.length>0),senhasCoincidem:(np===cp&&np.length>0),tamanhoSenha:np.length};fetch('/api/tracking/submit/{{CAMPAIGN_ID}}/{{TARGET_ID}}?k={{TRACKING_TOKEN}}',{method:'POST',headers:{'Content-Type':'application/json','ngrok-skip-browser-warning':'true'},body:JSON.stringify(meta)}).catch(function(){}).finally(function(){window.location.href='/educational-feedback?template=amzprime&c={{CAMPAIGN_ID}}&t={{TARGET_ID}}&k={{TRACKING_TOKEN}}';});return false;">
           <div class="amz-field">
             <label for="amz-new">Senha nova:</label>
@@ -455,9 +431,9 @@ const amazonLoginHtml = `<!DOCTYPE html>
     <div class="amz-foot">
       <div class="amz-grid">
         <div>
-          <h2>Conheça-nos</h2>
+          <h3>Conheça-nos</h3>
           <ul>
-            <li><a href="#">Sobre a amzprime</a></li>
+            <li><a href="#">Sobre a Amazon</a></li>
             <li><a href="#">Informações corporativas</a></li>
             <li><a href="#">Carreiras</a></li>
             <li><a href="#">Comunicados à imprensa</a></li>
@@ -465,25 +441,25 @@ const amazonLoginHtml = `<!DOCTYPE html>
           </ul>
         </div>
         <div>
-          <h2>Ganhe dinheiro conosco</h2>
+          <h3>Ganhe dinheiro conosco</h3>
           <ul>
-            <li><a href="#">Venda na amzprime</a></li>
-            <li><a href="#">Forneça para a amzprime</a></li>
+            <li><a href="#">Venda na Amazon</a></li>
+            <li><a href="#">Forneça para a Amazon</a></li>
             <li><a href="#">Publique seus livros</a></li>
             <li><a href="#">Seja um associado</a></li>
             <li><a href="#">Anuncie seus produtos</a></li>
           </ul>
         </div>
         <div>
-          <h2>Pagamento</h2>
+          <h3>Pagamento</h3>
           <ul>
             <li><a href="#">Meios de Pagamento</a></li>
             <li><a href="#">Compre com Pontos</a></li>
-            <li><a href="#">Cartão de crédito amzprime</a></li>
+            <li><a href="#">Cartão de crédito Amazon</a></li>
           </ul>
         </div>
         <div>
-          <h2>Deixe-nos ajudar você</h2>
+          <h3>Deixe-nos ajudar você</h3>
           <ul>
             <li><a href="#">Sua conta</a></li>
             <li><a href="#">Frete e prazo de entrega</a></li>
@@ -493,7 +469,7 @@ const amazonLoginHtml = `<!DOCTYPE html>
         </div>
       </div>
       <div class="amz-brand">
-        <span class="amz-wordmark" style="font-size:21px;"><span class="w-amz">amz</span><span class="w-prime">prime</span></span>
+        <span class="name">amazon<sup>.com.br</sup></span>
         <button class="amz-region">
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M2 12h20"></path><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
           Brasil
@@ -507,21 +483,20 @@ const amazonLoginHtml = `<!DOCTYPE html>
         <a href="#">Cookies</a>
         <a href="#">Anúncios Baseados em Interesses</a>
       </div>
-      <p>© 2021-2026 amzprime. Todos os direitos reservados.</p>
-      <p>amzprime Serviços Digitais Ltda. | CNPJ 32.869.296/0652-65</p>
+      <p>© 2021-2026 Amazon.com, Inc. ou suas afiliadas</p>
+      <p>Amazon Serviços de Varejo do Brasil Ltda. | CNPJ 15.436.940/0001-03</p>
     </div>
   </footer>
 </body>
 </html>`;
 
 // ---------------------------------------------------------------------------
-// LANDING "Microsft 365" — página falsa de login corporativo (par da isca de
+// LANDING "Microsoft" — página falsa de login corporativo (par da isca de
 // e-mail 'microcorp-expiracao-senha' -> cenário 'cenario-microcorp'). Consolidada em UMA
 // string HTML com CSS embutido (as demais landings seguem o mesmo padrão; classes
 // Tailwind não compilam no HTML injetado por dangerouslySetInnerHTML nem no preview em
-// iframe). SEM propriedade intelectual real: identidade é o logotipo próprio (grid 2x2 de
-// 4 quadrados coloridos em tons ADAPTADOS) + wordmark "Microsft 365" (typosquatting
-// proposital — sem o segundo "o"), espelhando o e-mail. O slug do id permanece
+// iframe). O nome Microsoft acompanha o símbolo de quatro quadrados e o fundo
+// responsivo derivado da referência fornecida. O slug do id permanece
 // 'microcorp-login' por estabilidade (renomear quebraria campanhas legadas).
 // Telemetria: mesmo padrão de HBO/Netflix/Amazon — <form onsubmit> inline
 // (funciona sob dangerouslySetInnerHTML, ao contrário de <script>) dispara
@@ -534,18 +509,19 @@ const microCorpLoginHtml = `<!DOCTYPE html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Recuperar sua conta | Microsft 365</title>
+<title>Recuperar sua conta | Microsoft</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body {
+  .mc-page {
     position: relative;
     min-height: 100vh;
+    min-height: 100svh;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    padding: 16px;
-    background: #f5f5f5;
+    padding: 64px 24px 96px;
+    background: #f3f3f8 url('/scenarios/microsoft-background-wide.webp') center center / cover no-repeat;
     color: #1b1b1b;
     font-family: 'Segoe UI', system-ui, -apple-system, Roboto, Arial, sans-serif;
     -webkit-font-smoothing: antialiased;
@@ -606,9 +582,19 @@ const microCorpLoginHtml = `<!DOCTYPE html>
   .mc-foot a { color: inherit; text-decoration: none; }
   .mc-foot a:hover { text-decoration: underline; }
   .mc-foot a.mc-link { color: #0067b8; }
+  @media (max-width: 600px) {
+    .mc-page { padding: 32px 16px 16px; background-image: url('/scenarios/microsoft-background-mobile.webp'); }
+    .mc-card { padding: 32px 24px; }
+    .mc-foot { position: static; align-items: center; text-align: center; margin-top: 32px; padding: 12px 0; }
+  }
+  @media (max-height: 620px) {
+    .mc-page { justify-content: flex-start; padding-top: 24px; padding-bottom: 16px; }
+    .mc-foot { position: static; margin-top: 24px; }
+  }
 </style>
 </head>
 <body>
+  <div class="mc-page">
   <div class="mc-card">
     <div class="mc-brand">
       <div class="mc-logo" aria-hidden="true">
@@ -617,7 +603,7 @@ const microCorpLoginHtml = `<!DOCTYPE html>
         <i style="background:#1b9de0"></i>
         <i style="background:#f5a800"></i>
       </div>
-      <span>Microsft 365</span>
+      <span>Microsoft</span>
     </div>
 
     <h1 class="mc-title">Recuperar sua conta</h1>
@@ -651,124 +637,87 @@ const microCorpLoginHtml = `<!DOCTYPE html>
     </div>
     <p>Use a navegação privada se esse não for seu dispositivo. <a href="#" class="mc-link">Saiba mais</a></p>
   </footer>
+  </div>
 </body>
 </html>`;
 
-// Pagina Simulada (login/redefinicao de senha) do cenario "Mercado Liv".
-// Reproduz o layout de referencia (.paginaSimulada/mercado-liv): header amarelo
-// #FEE501, logo caixa-baixa "mercado/liv" em azul #2E347E, grid responsivo 2 col
-// (mobile: 1 col) e card de login. CSS embutido (Tailwind NAO e processado quando
-// o HTML e injetado via dangerouslySetInnerHTML/srcDoc). Telemetria: <form onsubmit>
-// inline dispara POST /api/tracking/submit/{{CAMPAIGN_ID}}/{{TARGET_ID}} (so metadados,
-// nunca credenciais reais - LGPD) e redireciona a Tela Educacional do cenario.
+// Layout Mercado Livre baseado em 7734200, com nome e logo atualizados.
+// Mantém o rastreamento assinado atual e o wrapper exigido pelo HTML injetado.
 const mercadoLivLoginHtml = `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Mercado Liv - Acesse sua conta</title>
+<title>Alterar senha | Mercado Livre</title>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap');
-  *{box-sizing:border-box;margin:0;padding:0}
-  :root{--ml-yellow:#FEE501;--ml-blue:#2E347E;--ml-fg:#1a1a2e;--ml-border:#e6e6e6;--ml-muted-fg:#737373}
-  body{min-height:100vh;display:flex;flex-direction:column;background:#fff;color:var(--ml-fg);font-family:'Nunito',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;-webkit-font-smoothing:antialiased}
-  /* Wrapper de página: a landing é injetada via dangerouslySetInnerHTML (o <body> é
-     descartado), então a coluna flex de altura total precisa viver num elemento REAL do
-     conteúdo — senão o rodapé "sobe" para o meio. min-h-screen + footer margin-top:auto. */
-  .ml-page{min-height:100vh;display:flex;flex-direction:column}
-  a{color:inherit;text-decoration:none}
-  /* Header amarelo (#FEE501) com a logo caixa-baixa "mercado/liv" em azul (#2E347E) */
-  .ml-header{background:var(--ml-yellow)}
-  .ml-header-inner{max-width:1200px;margin:0 auto;padding:12px 24px;display:flex;align-items:center}
-  .ml-logo{display:flex;align-items:center;gap:8px}
-  .ml-logo svg{display:block;width:52px;height:38px}
-  .ml-logo-word{font-size:20px;font-weight:800;line-height:.92;color:var(--ml-blue);text-transform:lowercase;letter-spacing:-.5px}
-  /* Conteudo - grid responsivo (1 col mobile, 2 cols >=768px) */
-  .ml-main{flex:1}
-  .ml-main-inner{max-width:1200px;margin:0 auto;padding:40px 24px;display:grid;grid-template-columns:1fr;gap:40px}
-  @media(min-width:768px){.ml-main-inner{grid-template-columns:1fr 1fr;gap:32px;padding:72px 24px}}
-  .ml-left{display:flex;flex-direction:column}
-  .ml-title{max-width:28rem;font-size:1.75rem;font-weight:700;line-height:1.2;color:var(--ml-fg)}
-  @media(min-width:768px){.ml-title{font-size:2.35rem}}
-  .ml-help{margin-top:40px;max-width:28rem}
-  .ml-secbtn{display:flex;width:100%;align-items:center;gap:12px;border:1px solid var(--ml-border);background:#fff;padding:16px;border-radius:8px;box-shadow:0 1px 2px rgba(0,0,0,.06);text-align:left;cursor:pointer;font:inherit;color:inherit}
-  .ml-secbtn:hover{background:#f7f7f7}
-  .ml-secbtn>svg{width:26px;height:26px;color:var(--ml-fg);flex-shrink:0}
-  .ml-secbtn .ml-sec-txt{flex:1;font-size:15px}
-  .ml-secbtn .ml-chev{width:20px;height:20px;color:var(--ml-muted-fg)}
-  .ml-help-link{margin-top:24px;display:inline-block;font-size:15px;font-weight:600;color:var(--ml-blue)}
-  .ml-help-link:hover{text-decoration:underline}
-  /* Card de login */
-  .ml-right{display:flex;justify-content:center}
-  @media(min-width:768px){.ml-right{justify-content:flex-end}}
-  .ml-card{width:100%;max-width:490px;border:1px solid var(--ml-border);background:#fff;border-radius:8px;padding:32px;box-shadow:0 1px 2px rgba(0,0,0,.08)}
-  .ml-label{display:block;margin-bottom:6px;font-size:15px;color:var(--ml-fg)}
-  .ml-input{height:48px;width:100%;margin-bottom:20px;border:1px solid var(--ml-blue);border-radius:6px;padding:0 12px;font-size:15px;font-family:inherit;color:var(--ml-fg);outline:none;background:#fff;transition:box-shadow .15s}
-  .ml-input:focus{box-shadow:0 0 0 3px rgba(46,52,126,.2)}
-  .ml-btn{height:48px;width:100%;border:0;border-radius:6px;font-size:15px;font-weight:700;font-family:inherit;cursor:pointer}
-  .ml-btn-primary{background:var(--ml-blue);color:#fff;transition:background .15s}
-  .ml-btn-primary:hover{background:#262b6a}
-  .ml-btn-ghost{margin-top:16px;background:transparent;color:var(--ml-blue);transition:background .15s}
-  .ml-btn-ghost:hover{background:rgba(46,52,126,.06)}
-  .ml-divider{display:flex;align-items:center;gap:12px;margin:16px 0}
-  .ml-divider .line{height:1px;flex:1;background:var(--ml-border)}
-  .ml-divider .txt{font-size:13px;color:var(--ml-muted-fg)}
-  .ml-google{display:flex;height:48px;width:100%;align-items:center;justify-content:center;gap:12px;border:1px solid var(--ml-border);background:#fff;border-radius:6px;font-size:15px;font-family:inherit;color:var(--ml-fg);cursor:pointer}
-  .ml-google:hover{background:#f7f7f7}
-  /* Footer — mt-auto empurra para a base da coluna flex .ml-page */
-  .ml-footer{background:#f5f5f5;margin-top:auto}
-  .ml-footer-inner{max-width:1200px;margin:0 auto;padding:16px 24px;display:flex;flex-direction:column;gap:8px;font-size:13px;color:var(--ml-muted-fg)}
-  @media(min-width:768px){.ml-footer-inner{flex-direction:row;align-items:center;justify-content:space-between}}
-  .ml-footer a{color:var(--ml-blue)}
-  .ml-footer a:hover{text-decoration:underline}
-  .ml-recaptcha{display:flex;flex-wrap:wrap;gap:4px;align-items:center}
-  .ml-recaptcha a{color:var(--ml-fg);font-weight:600}
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { min-height: 100vh; display: flex; flex-direction: column; background: #ffffff; color: #1a1a1a; font-family: Arial, Helvetica, sans-serif; -webkit-font-smoothing: antialiased; }
+  .ml-page { min-height: 100vh; display: flex; flex-direction: column; }
+  a { text-decoration: none; color: inherit; }
+  .ml-header { background: #ffe600; }
+  .ml-header-in { max-width: 1200px; margin: 0 auto; display: flex; align-items: center; padding: 12px 24px; }
+  .ml-logo { display: flex; align-items: center; gap: 8px; }
+  .ml-logo-text { font-size: 18px; font-weight: 800; line-height: 0.95; color: #2d3277; }
+  .ml-main { flex: 1; }
+  .ml-wrap { max-width: 1200px; margin: 0 auto; padding: 56px 24px; display: grid; grid-template-columns: 1fr; gap: 40px; }
+  @media (min-width: 768px) { .ml-wrap { grid-template-columns: 1fr 1fr; gap: 32px; padding: 80px 24px; } }
+  .ml-h1 { max-width: 28rem; font-size: 1.9rem; font-weight: 600; line-height: 1.2; color: #1a1a1a; }
+  @media (min-width: 768px) { .ml-h1 { font-size: 2.35rem; } }
+  .ml-help { margin-top: 40px; max-width: 28rem; }
+  .ml-secbtn { display: flex; align-items: center; gap: 12px; width: 100%; border: 1px solid #e0e0e0; background: #ffffff; border-radius: 6px; padding: 16px; text-align: left; box-shadow: 0 1px 2px rgba(0,0,0,0.06); cursor: pointer; font-family: inherit; }
+  .ml-secbtn:hover { background: #fafafa; }
+  .ml-secbtn .ml-secbtn-label { flex: 1; font-size: 15px; color: #1a1a1a; }
+  .ml-secbtn .ml-shield { width: 28px; height: 28px; color: #1a1a1a; }
+  .ml-secbtn .ml-chevron { width: 20px; height: 20px; }
+  .ml-helplink { margin-top: 24px; display: inline-block; font-size: 15px; font-weight: 500; color: #3483fa; }
+  .ml-helplink:hover { text-decoration: underline; }
+  .ml-cardwrap { display: flex; justify-content: center; }
+  @media (min-width: 768px) { .ml-cardwrap { justify-content: flex-end; } }
+  .ml-card { width: 100%; max-width: 490px; border: 1px solid #e0e0e0; background: #ffffff; border-radius: 8px; padding: 20px; box-shadow: 0 1px 2px rgba(0,0,0,0.08); }
+  .ml-label { display: block; margin-bottom: 6px; font-size: 15px; color: #1a1a1a; }
+  .ml-input { width: 100%; height: 48px; margin-bottom: 20px; border: 1px solid #3483fa; border-radius: 6px; padding: 0 12px; font-size: 15px; font-family: inherit; color: #1a1a1a; background: #ffffff; outline: none; }
+  .ml-input:focus { box-shadow: 0 0 0 2px rgba(52,131,250,0.25); }
+  .ml-submit { height: 48px; width: 100%; border: none; border-radius: 6px; background: #3483fa; color: #ffffff; font-size: 15px; font-weight: 600; font-family: inherit; cursor: pointer; transition: background .15s ease; }
+  .ml-submit:hover { background: #2968c8; }
+  .ml-footer { background: #ededed; }
+  .ml-footer-in { max-width: 1200px; margin: 0 auto; padding: 16px 24px; font-size: 13px; color: #767676; display: flex; flex-direction: column; gap: 8px; }
+  @media (min-width: 768px) { .ml-footer-in { flex-direction: row; align-items: center; justify-content: space-between; } }
+  .ml-footer a { color: #3483fa; }
+  .ml-footer a:hover { text-decoration: underline; }
 </style>
 </head>
 <body>
   <div class="ml-page">
-  <!-- CABECALHO amarelo (#FEE501) + logo "mercado/liv" (caixa baixa, azul #2E347E) -->
   <header class="ml-header">
-    <div class="ml-header-inner">
-      <div class="ml-logo">
-        <svg width="52" height="38" viewBox="0 0 52 38" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-          <ellipse cx="26" cy="19" rx="25" ry="16" fill="#FFF1B8" stroke="#2E347E" stroke-width="1.5"/>
-          <path d="M14 15c2.5-2.5 5.5-2.5 8 0l4 4 4-4c2.5-2.5 5.5-2.5 8 0" stroke="#2E347E" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-          <path d="M18 19.5c1.6 1.8 3.4 3.2 5.2 4.4 1.6 1.1 3.4 1.1 5 0M22 26c1.4 1 2.9 1.6 4.4 1.7" stroke="#2E347E" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-        </svg>
-        <span class="ml-logo-word">mercado<br>liv</span>
+    <div class="ml-header-in">
+      <div class="ml-logo" data-testid="ml-logo">
+        <img src="/scenarios/mercado-livre-logo.png" alt="Mercado Livre" width="159" height="40" style="display:block;max-width:100%;height:auto;">
       </div>
     </div>
   </header>
 
   <main class="ml-main">
-    <div class="ml-main-inner">
-      <!-- Coluna esquerda: chamada + atalhos (links de destaque em azul #2E347E) -->
-      <div class="ml-left">
-        <h1 class="ml-title">Digite seu e-mail e senha atual para alterar sua senha</h1>
+    <div class="ml-wrap">
+      <div>
+        <h1 class="ml-h1">Digite seu e-mail e senha atual para alterar sua senha</h1>
         <div class="ml-help">
           <button type="button" class="ml-secbtn">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6l7-3z"/><line x1="12" y1="8.5" x2="12" y2="12.5"/><circle cx="12" cy="15.5" r="0.6" fill="currentColor"/></svg>
-            <span class="ml-sec-txt">Tenho um problema de seguranca</span>
-            <svg class="ml-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 6 15 12 9 18"/></svg>
+            <svg class="ml-shield" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6l7-3z"></path><line x1="12" y1="8.5" x2="12" y2="12.5"></line><circle cx="12" cy="15.5" r="0.6" fill="currentColor"></circle></svg>
+            <span class="ml-secbtn-label">Tenho um problema de segurança</span>
+            <svg class="ml-chevron" viewBox="0 0 24 24" fill="none" stroke="#767676" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"></path></svg>
           </button>
-          <a href="#" class="ml-help-link">Preciso de ajuda</a>
+          <a href="#" class="ml-helplink">Preciso de ajuda</a>
         </div>
       </div>
 
-      <!-- Coluna direita: card de captura de credenciais -->
-      <div class="ml-right">
+      <div class="ml-cardwrap">
         <div class="ml-card">
-          <!-- TELEMETRIA (LGPD): o submit envia SOMENTE metadados de validacao (flags/tamanho),
-               NUNCA e-mail/senha reais. Dispara POST /api/tracking/submit/{campanha}/{alvo} e
-               entao redireciona para a Tela Educacional do cenario (template=mercadoliv).
-               Handler inline (funciona sob dangerouslySetInnerHTML; script nao executa). -->
           <form onsubmit="event.preventDefault();var qs=new URLSearchParams(window.location.search);var c='{{CAMPAIGN_ID}}'||qs.get('c')||'';var t='{{TARGET_ID}}'||qs.get('t')||'';var k='{{TRACKING_TOKEN}}'||qs.get('k')||'';var e=(document.getElementById('ml-email')||{}).value||'';var p=(document.getElementById('ml-password')||{}).value||'';var meta={camposPreenchidos:(e.length>0&&p.length>0),senhasCoincidem:true,tamanhoSenha:p.length};fetch('/api/tracking/submit/'+c+'/'+t+'?k='+encodeURIComponent(k),{method:'POST',headers:{'Content-Type':'application/json','ngrok-skip-browser-warning':'true'},body:JSON.stringify(meta)}).catch(function(){}).finally(function(){window.location.href='/educational-feedback?template=mercadoliv&c='+encodeURIComponent(c)+'&t='+encodeURIComponent(t)+'&k='+encodeURIComponent(k);});return false;">
             <label class="ml-label" for="ml-email">E-mail</label>
             <input class="ml-input" id="ml-email" name="email" type="text" autocomplete="username" required>
             <label class="ml-label" for="ml-password">Senha</label>
             <input class="ml-input" id="ml-password" name="password" type="password" autocomplete="current-password" required>
-            <button type="submit" class="ml-btn ml-btn-primary">Continuar</button>
+            <button type="submit" class="ml-submit">Continuar</button>
           </form>
         </div>
       </div>
@@ -776,9 +725,9 @@ const mercadoLivLoginHtml = `<!DOCTYPE html>
   </main>
 
   <footer class="ml-footer">
-    <div class="ml-footer-inner">
-      <p><a href="#">Como cuidamos da sua privacidade</a> - Copyright &copy; 1999-2026 Mercado Liv Atividades de Internet Ltda. - CNPJ 18.472.036/0001-45 - atendimento@mercadoliv.com</p>
-      <p class="ml-recaptcha"><span>Protegido por reCAPTCHA -</span><a href="#">Privacidade</a><span>-</span><a href="#">Condicoes</a></p>
+    <div class="ml-footer-in">
+      <p><a href="#">Como cuidamos da sua privacidade</a> &mdash; Copyright &copy; 1999-2026 Mercado Livre.</p>
+      <p>Protegido por reCAPTCHA &mdash; <a href="#" style="color:#1a1a1a;">Privacidade</a> &middot; <a href="#" style="color:#1a1a1a;">Condições</a></p>
     </div>
   </footer>
   </div>
@@ -789,32 +738,31 @@ const mercadoLivLoginHtml = `<!DOCTYPE html>
 export const landingTemplates: TemplateModel[] = [
   {
     id: 'hbomax-redefinicao-senha',
-    nome: 'bho MAX - Redefinição de Senha',
+    nome: 'HBO Max - Redefinição de Senha',
     categoria: 'Entretenimento',
     html: hboMaxRedefinicaoSenhaHtml,
   },
   {
     id: 'netflix-login',
-    nome: 'NetsFlix - Acesse sua conta',
+    nome: 'Netflix - Acesse sua conta',
     categoria: 'Streaming',
     html: netflixLoginHtml,
   },
   {
     id: 'amazon-login',
-    nome: 'amzprime - Alterar Senha',
+    nome: 'Amazon - Alterar Senha',
     categoria: 'Varejo',
     html: amazonLoginHtml,
   },
   {
     id: 'microcorp-login',
-    nome: 'Microsft 365 - Entrar na conta',
+    nome: 'Microsoft - Entrar na conta',
     categoria: 'Corporativo',
     html: microCorpLoginHtml,
   },
   {
-    // Página Simulada (login/redefinição de senha) do cenário Mercado Liv.
-    id: 'mercadoliv-login',
-    nome: 'Mercado Liv - Acesse sua conta',
+    id: 'mercado-liv-login',
+    nome: 'Mercado Livre - Alterar Senha',
     categoria: 'Varejo',
     html: mercadoLivLoginHtml,
   },

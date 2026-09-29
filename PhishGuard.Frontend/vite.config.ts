@@ -40,6 +40,11 @@ export default defineConfig({
   // classes utilitárias do Tailwind v4 automaticamente (substitui o antigo
   // @tailwindcss/postcss, que ficava sem efeito por causa das diretivas v3).
   plugins: [react(), tailwindcss()],
+  // Mantém hooks e contextos ligados a uma única instância, inclusive depois de
+  // atualizações de dependências ou quando o projeto é acessado por symlink.
+  resolve: {
+    dedupe: ['react', 'react-dom', '@emotion/react', '@emotion/styled'],
+  },
   server: {
     host: true,
     headers: developmentSecurityHeaders,
