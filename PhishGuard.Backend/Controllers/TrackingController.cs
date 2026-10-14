@@ -177,7 +177,9 @@ namespace PhishGuard.Backend.Controllers
                 return Redirect(url);
             }
 
-            return Redirect($"{_appBaseUrl}/");
+            // Um link recusado não deve parecer um clique bem-sucedido na página
+            // institucional. Não revela qual validação da capacidade falhou.
+            return NotFound("Link da simulação inválido ou expirado. Solicite um novo e-mail ao responsável pela campanha.");
         }
 
         [HttpPost("submit/{campaignId}/{targetId}")]

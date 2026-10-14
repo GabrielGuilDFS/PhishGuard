@@ -76,8 +76,11 @@ public class TrackingControllerTests
         };
     }
 
-    [Fact]
-    public async Task TrackClick_TokenInvalido_NaoConsultaNemRegistraERedirecionaParaHome()
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("token-adulterado")]
+    public async Task TrackClick_TokenInvalido_Retorna404SemRedirecionarNemRegistrar(string? token)
     {
         await using var ctx = NovoContexto();
         var camp = await AdicionarCampanhaAsync(ctx);
@@ -90,10 +93,11 @@ public class TrackingControllerTests
         var result = await controller.TrackClick(
             camp.Id,
             alvo.Id,
-            trackingToken: "token-adulterado");
+            trackingToken: token);
 
-        var redirect = Assert.IsType<RedirectResult>(result);
-        Assert.Equal($"{BaseUrl}/", redirect.Url);
+        var error = Assert.IsType<NotFoundObjectResult>(result);
+        Assert.Equal(404, error.StatusCode);
+        Assert.Contains("Link da simulação inválido ou expirado", Assert.IsType<string>(error.Value));
         Assert.Equal(0, await ContarLogs(ctx, camp.Id, alvo.Id, SimulationActions.Clique));
     }
 
@@ -186,10 +190,23 @@ public class TrackingControllerTests
         var tgt = alvo.Id;
         var controller = NovoControlador(ctx);
 
-        var result = await controller.TrackClick(camp.Id, tgt);
+        var result = await controller.TrackClick(camp.Id, tgt, trackingToken: "test-token");
 
         var redirect = Assert.IsType<RedirectResult>(result);
-        Assert.Equal($"{BaseUrl}/landing/{landingId}?c={camp.Id}&t={tgt}", redirect.Url);
+        Assert.Equal($"{BaseUrl}/landing/{landingId}?c={camp.Id}&t={tgt}&k=test-token", redirect.Url);
+    }
+
+    [Fact]
+    public async Task TrackClick_SemEnvioAnterior_Retorna404SemRedirecionarNemRegistrar()
+    {
+        await using var ctx = NovoContexto();
+        var camp = await AdicionarCampanhaAsync(ctx);
+        var alvo = await AdicionarAlvoAsync(ctx, camp);
+
+        var result = await NovoControlador(ctx).TrackClick(camp.Id, alvo.Id, trackingToken: "test-token");
+
+        Assert.IsType<NotFoundObjectResult>(result);
+        Assert.Equal(0, await ContarLogs(ctx, camp.Id, alvo.Id, SimulationActions.Clique));
     }
 
     // 3) LGPD (espelho server-side do teste de frontend): a submissão registra só o EVENTO.
