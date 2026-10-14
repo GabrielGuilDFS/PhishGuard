@@ -166,14 +166,30 @@ namespace PhishGuard.Backend.Services
         public async Task DispatchAsync(Campaign campaign, CancellationToken cancellationToken = default)
         {
             if (campaign.Template == null)
-                await _context.Entry(campaign).Reference(item => item.Template).LoadAsync(cancellationToken);
+                campaign.Template = await _context.Templates.IgnoreQueryFilters()
+                    .FirstOrDefaultAsync(t => t.TenantId == campaign.TenantId && t.Id == campaign.EmailTemplateId, cancellationToken)
+                    ?? throw new InvalidOperationException("Template de e-mail da campanha não encontrado.");
             if (campaign.Targets == null || !campaign.Targets.Any())
-                await _context.Entry(campaign).Collection(item => item.Targets).LoadAsync(cancellationToken);
+                campaign.Targets = await _context.CampaignTargets.IgnoreQueryFilters()
+                    .Where(p => p.TenantId == campaign.TenantId && p.CampaignsId == campaign.Id)
+                    .Select(p => p.Target).ToListAsync(cancellationToken);
+            // The worker has no HTTP tenant context. Scope the association explicitly.
+            await _context.CampaignTargets.IgnoreQueryFilters()
+                .Where(p => p.TenantId == campaign.TenantId && p.CampaignsId == campaign.Id)
+                .LoadAsync(cancellationToken);
 
             if (campaign.Template == null)
                 throw new InvalidOperationException("Template de e-mail da campanha não encontrado.");
             if (campaign.Targets == null || campaign.Targets.Count == 0)
                 throw new InvalidOperationException("A campanha não possui alvos selecionados.");
+
+            if (campaign.Template.TenantId != campaign.TenantId
+                || campaign.Targets.Any(target => target.TenantId != campaign.TenantId))
+                throw new InvalidOperationException("Os recursos da campanha não pertencem ao mesmo tenant.");
+            if (campaign.SnapshotCapturedAtUtc.HasValue && campaign.Targets.Any(target =>
+                !campaign.CampaignTargets.Any(p => p.TargetsId == target.Id && p.SnapshotCapturedAtUtc.HasValue
+                    && p.TargetNameSnapshot != null && p.TargetEmailSnapshot != null)))
+                throw new InvalidOperationException("Snapshot dos destinatários incompleto.");
 
             var deliveryConfig = await _context.SmtpConfigs
                 .IgnoreQueryFilters()
@@ -193,13 +209,13 @@ namespace PhishGuard.Backend.Services
             var sender = _senderResolver.Resolve(deliveryConfig);
             var sentTargetIds = (await _context.SimulationsLogs
                     .IgnoreQueryFilters()
-                    .Where(log => log.CampaignId == campaign.Id && log.Acao == SimulationActions.Envio)
+                    .Where(log => log.TenantId == campaign.TenantId && log.CampaignId == campaign.Id && log.Acao == SimulationActions.Envio)
                     .Select(log => log.TargetId)
                     .ToListAsync(cancellationToken))
                 .ToHashSet();
             var deliveries = (await _context.CampaignDeliveries
                     .IgnoreQueryFilters()
-                    .Where(delivery => delivery.CampaignId == campaign.Id)
+                    .Where(delivery => delivery.TenantId == campaign.TenantId && delivery.CampaignId == campaign.Id)
                     .ToListAsync(cancellationToken))
                 .ToDictionary(delivery => delivery.TargetId);
 
@@ -225,7 +241,9 @@ namespace PhishGuard.Backend.Services
                     continue;
                 }
 
-                if (!DestinoPermitido(target.Email))
+                var participant = campaign.CampaignTargets.SingleOrDefault(p => p.TargetsId == target.Id);
+                var targetEmail = participant?.SnapshotCapturedAtUtc.HasValue == true ? participant.TargetEmailSnapshot : target.Email;
+                if (targetEmail is null || !DestinoPermitido(targetEmail))
                 {
                     _logger.LogWarning(
                         "Alvo {TargetId} bloqueado pela allow-list de destino na campanha {CampaignId}.",
@@ -355,7 +373,7 @@ namespace PhishGuard.Backend.Services
                     .IgnoreQueryFilters()
                     .AsNoTracking()
                     .AnyAsync(
-                        item => item.CampaignId == campaign.Id && item.TargetId == target.Id,
+                        item => item.TenantId == campaign.TenantId && item.CampaignId == campaign.Id && item.TargetId == target.Id,
                         cancellationToken);
                 if (winnerExists) return null;
                 throw;
@@ -385,7 +403,7 @@ namespace PhishGuard.Backend.Services
             var existing = await _context.SimulationsLogs
                 .IgnoreQueryFilters()
                 .FirstOrDefaultAsync(
-                    log => log.CampaignId == campaign.Id
+                    log => log.TenantId == campaign.TenantId && log.CampaignId == campaign.Id
                         && log.TargetId == target.Id
                         && log.Acao == action,
                     cancellationToken);

@@ -137,6 +137,8 @@ public abstract class CampaignTestBase
             Email = "alvo@teste.com",
             Departamento = "TI"
         };
+        var landing = new PhishingPage { Id = Guid.NewGuid(), Nome = "Landing", HtmlCaptura = "hbomax-redefinicao-senha" };
+        var education = new EducationalPage { Id = Guid.NewGuid(), Nome = "Treinamento", HtmlEducacional = "<div data-feedback-training=\"bhomax\"></div>" };
         var campanha = new Campaign
         {
             Id = Guid.NewGuid(),
@@ -145,10 +147,12 @@ public abstract class CampaignTestBase
             Status = CampaignStatus.Rascunho,
             DataInicio = dataInicio,
             EmailTemplateId = template.Id,
-            LandingPageId = Guid.NewGuid(),
-            EducationalPageId = Guid.NewGuid(),
+            LandingPageId = landing.Id,
+            EducationalPageId = education.Id,
             CriadoEm = DateTime.UtcNow,
             Template = template,
+            PhishingPage = landing,
+            EducationalPage = education,
             Targets = new List<Target> { alvo }
         };
 

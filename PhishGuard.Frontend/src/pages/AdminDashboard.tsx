@@ -1,7 +1,7 @@
-import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Box, Button, LinearProgress, Skeleton } from '@mui/material';
 import RefreshIcon from '@mui/icons-material/Refresh';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import PageContainer from '../components/PageContainer';
 import { API_BASE } from '../config';
 import { useNotify } from '../context/NotificationContext';
@@ -11,6 +11,7 @@ import DashboardHeader from './dashboard/DashboardHeader';
 import DashboardKpiGrid from './dashboard/DashboardKpiGrid';
 import RecentCampaignsTable from './dashboard/RecentCampaignsTable';
 import type { DashboardOverview, DashboardPeriod } from './dashboard/dashboard.types';
+import { createDashboardDemoOverview } from './dashboard/dashboard.demo';
 import {
   buildDashboardQuery,
   downloadDashboardBlob,
@@ -39,11 +40,15 @@ async function extractErrorMessage(response: Response): Promise<string> {
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const demoMode = searchParams.get('demo') === '1';
   const { showNotify } = useNotify();
   const sessionIdentity = useSessionIdentity();
   const [period, setPeriod] = useState<DashboardPeriod>('30d');
   const [department, setDepartment] = useState('');
-  const [data, setData] = useState<DashboardOverview | null>(null);
+  const [apiData, setData] = useState<DashboardOverview | null>(null);
+  const demoData = useMemo(() => demoMode ? createDashboardDemoOverview(period, department) : null, [demoMode, period, department]);
+  const data = demoMode ? demoData : apiData;
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -59,6 +64,12 @@ export default function AdminDashboard() {
   }, [showNotify]);
 
   const loadDashboard = useCallback(async (signal: AbortSignal, requestId: number) => {
+    if (demoMode) {
+      setError(null);
+      setLoading(false);
+      setRefreshing(false);
+      return;
+    }
     const params = buildDashboardQuery(period, department);
 
     setError(null);
@@ -69,6 +80,7 @@ export default function AdminDashboard() {
       const response = await authFetch(`${API_BASE}/Dashboard/overview?${params.toString()}`, {
         signal,
       });
+      if (signal.aborted || requestId !== requestIdRef.current) return;
 
       if (response.status === 401) {
         clearSession();
@@ -95,9 +107,13 @@ export default function AdminDashboard() {
         setRefreshing(false);
       }
     }
-  }, [department, navigate, period]);
+  }, [demoMode, department, navigate, period]);
 
   const exportDashboard = useCallback(async (format: DashboardExportFormat) => {
+    if (demoMode) {
+      showNotify('Para exportar dados reais, saia do modo demonstração.', 'info');
+      return;
+    }
     if (exportingFormat) return;
     setExportingFormat(format);
     try {
@@ -126,7 +142,15 @@ export default function AdminDashboard() {
     } finally {
       setExportingFormat(null);
     }
-  }, [department, exportingFormat, navigate, period, showNotify]);
+  }, [demoMode, department, exportingFormat, navigate, period, showNotify]);
+
+  const viewCampaign = (id: string) => {
+    if (demoMode) {
+      showNotify('Esta campanha contém apenas dados de demonstração.', 'info');
+      return;
+    }
+    navigate(`/admin/campaigns?editar=${encodeURIComponent(id)}`);
+  };
 
   useEffect(() => {
     const controller = new AbortController();
@@ -153,6 +177,12 @@ export default function AdminDashboard() {
       />
 
       {refreshing && <LinearProgress aria-label="Atualizando dashboard" sx={{ mb: 2, borderRadius: 999 }} />}
+
+      {(data?.scope.legacyCampaignTargetCount ?? 0) > 0 && (
+        <Alert severity="warning" sx={{ mb: 3 }}>
+          Este período inclui {data?.scope.legacyCampaignTargetCount} participações de campanhas legadas. Seus dados foram preservados na atualização; o departamento e o conteúdo originais na data do envio não podem ser confirmados.
+        </Alert>
+      )}
 
       {error && !data && (
         <Alert
@@ -190,7 +220,7 @@ export default function AdminDashboard() {
           campaigns={data?.recentCampaigns ?? []}
           loading={loading}
           onNewCampaign={() => navigate('/admin/campaigns?nova=1')}
-          onViewCampaign={(id) => navigate(`/admin/campaigns?editar=${encodeURIComponent(id)}`)}
+          onViewCampaign={viewCampaign}
         />
       </Box>
       {glossaryOpen && <Suspense fallback={null}>

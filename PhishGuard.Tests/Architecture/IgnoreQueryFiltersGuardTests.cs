@@ -19,9 +19,8 @@ public class IgnoreQueryFiltersGuardTests
 {
     // Arquivos AUTORIZADOS a usar IgnoreQueryFilters, cada um com motivo legítimo:
     //  - CampaignSchedulerWorker / CampaignDispatchService: processos de sistema (sem HttpContext).
-    //  - TrackingController: endpoints [AllowAnonymous] (o alvo não tem sessão/tenant).
     //  - Login/Register: fluxo PRÉ-tenant (o JWT/tenant ainda não existe).
-    //  - PhishingPages: o GET da landing é [AllowAnonymous] (o alvo acessa sem login).
+    // Public campaign routes use a signed capability and keep query filters active.
     private static readonly HashSet<string> Allowlist = new(StringComparer.OrdinalIgnoreCase)
     {
         "BackgroundServices/CampaignSchedulerWorker.cs",
@@ -29,10 +28,8 @@ public class IgnoreQueryFiltersGuardTests
         // Processo de startup sem HttpContext: valida unicidade global de CNPJ/e-mail
         // antes de criar um tenant, reescopando o administrador pelo TenantId criado.
         "Services/AdminBootstrapProvisioner.cs",
-        "Controllers/TrackingController.cs",
         "Controllers/LoginController.cs",
         "Controllers/RegisterController.cs",
-        "Controllers/PhishingPagesController.cs",
         // OnTokenValidated roda antes de HttpContext.User; a implementacao reescopa
         // sessao, administrador e tenant pelos IDs assinados no JWT.
         "Security/AuthSessionValidator.cs",
@@ -48,6 +45,9 @@ public class IgnoreQueryFiltersGuardTests
         "Controllers/SmtpConfigController.cs",
         "Controllers/DashboardController.cs",
         "Controllers/TenantController.cs",
+        "Controllers/TrackingController.cs",
+        "Controllers/PhishingPagesController.cs",
+        "Security/TrackingCampaignScope.cs",
     };
 
     private static string BackendDir([CallerFilePath] string thisFile = "")

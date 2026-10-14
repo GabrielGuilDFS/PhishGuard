@@ -4,6 +4,7 @@ import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
 import LandingPage from './LandingPage';
+import { NotificationProvider } from '../context/NotificationContext';
 
 // ============================================================================
 // Testa o COMPONENTE REAL LandingPage — o que os testes de cenário NÃO faziam
@@ -25,15 +26,32 @@ const TRACKING_TOKEN = 'token-assinado';
 
 function renderLanding(pageId: string) {
   return render(
+    <NotificationProvider>
     <MemoryRouter initialEntries={[`/landing/${pageId}?c=${CAMP}&t=${TGT}&k=${TRACKING_TOKEN}`]}>
       <Routes>
         <Route path="/landing/:id" element={<LandingPage />} />
       </Routes>
-    </MemoryRouter>,
+    </MemoryRouter>
+    </NotificationProvider>,
   );
 }
 
 describe('LandingPage (componente real)', () => {
+  it('carrega o conteúdo preservado da campanha com a capability assinada', async () => {
+    let requestUrl: URL | undefined;
+    server.use(http.get('/api/PhishingPages/:id', ({ request }) => {
+      requestUrl = new URL(request.url);
+      return HttpResponse.json({ conteudoHtml: '<form id="snapshot-form"><p>Conteúdo preservado</p></form>', templateId: 'amazon-login' });
+    }));
+    const { container } = renderLanding('pp-snapshot');
+    expect(await screen.findByText('Conteúdo preservado')).toBeInTheDocument();
+    expect(container.querySelector('#snapshot-form')).toBeInTheDocument();
+    expect(container.querySelector('#amz-new')).not.toBeInTheDocument();
+    expect(requestUrl?.searchParams.get('c')).toBe(CAMP);
+    expect(requestUrl?.searchParams.get('t')).toBe(TGT);
+    expect(requestUrl?.searchParams.get('k')).toBe(TRACKING_TOKEN);
+  });
+
   it.each(['mercado-liv-login', 'mercadoliv-login'])(
     'resolve %s e mantém o rastreamento assinado sem transmitir credenciais', async (templateId) => {
       let submitted: { url: string; body: string } | undefined;

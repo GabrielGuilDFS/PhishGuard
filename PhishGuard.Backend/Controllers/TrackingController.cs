@@ -8,6 +8,9 @@ using PhishGuard.Backend.Data;
 using PhishGuard.Backend.DTOs;
 using PhishGuard.Backend.Models;
 using PhishGuard.Backend.Security;
+using PhishGuard.Backend.Services;
+using PhishGuard.Backend.Content;
+using System.Text.Json;
 using System;
 using System.Linq;
 using System.Threading;
@@ -22,15 +25,18 @@ namespace PhishGuard.Backend.Controllers
     {
         private readonly AppDbContext _context;
         private readonly string _appBaseUrl;
-        private readonly ITrackingTokenService _trackingTokenService;
+        private readonly TrackingCampaignScope _trackingCampaignScope;
+        private readonly IHtmlSanitizationService? _htmlSanitizer;
 
         public TrackingController(
             AppDbContext context,
             IConfiguration configuration,
-            ITrackingTokenService trackingTokenService)
+            TrackingCampaignScope trackingCampaignScope,
+            IHtmlSanitizationService? htmlSanitizer = null)
         {
             _context = context;
-            _trackingTokenService = trackingTokenService;
+            _trackingCampaignScope = trackingCampaignScope;
+            _htmlSanitizer = htmlSanitizer;
             // URL PÚBLICA do frontend (landing/feedback), destino dos redirects de rastreamento.
             // Precisa ser acessível PELO ALVO; default localhost apenas para dev local.
             var appBase = configuration["AppSettings:PublicAppBaseUrl"]?.TrimEnd('/');
@@ -44,35 +50,17 @@ namespace PhishGuard.Backend.Controllers
             string? trackingToken,
             CancellationToken cancellationToken = default)
         {
-            if (!_trackingTokenService.Validate(trackingToken, campaignId, targetId))
-                return null;
+            using var trackingScope = await _trackingCampaignScope.ResolveAsync(
+                campaignId, targetId, trackingToken, cancellationToken);
+            if (trackingScope is null) return null;
+            var campaign = trackingScope.Campaign;
 
-            // Busca a campanha no banco para obter o TenantId (sem sessão do alvo logado)
-            var campaign = await _context.Campaigns
-                .IgnoreQueryFilters()
-                .FirstOrDefaultAsync(c => c.Id == campaignId, cancellationToken);
-
-            if (campaign == null)
-            {
-                return null;
-            }
-
-            // HARDENING (anti-poluição de métricas): o endpoint é anônimo, então o targetId
-            // da rota é ARBITRÁRIO. Sem esta checagem, um caller podia POSTar
-            // submit/{campanhaReal}/{guidQualquer} e injetar logs órfãos, falseando os
-            // relatórios do tenant. Exige que o alvo exista e pertença ao MESMO tenant da
-            // campanha (IgnoreQueryFilters porque não há sessão/tenant no tracking).
-            var alvoValido = await _context.Campaigns
-                .IgnoreQueryFilters()
-                .AnyAsync(c => c.Id == campaignId
-                    && c.TenantId == campaign.TenantId
-                    && c.Targets.Any(t => t.Id == targetId && t.TenantId == campaign.TenantId),
-                    cancellationToken);
-
-            if (!alvoValido)
-            {
-                return null;
-            }
+            var eventTimeUtc = DateTime.UtcNow;
+            // A signed participant may still follow the educational flow after the
+            // collection ends. Its navigation must not create new historical events.
+            if (campaign.Status == CampaignStatus.Finalizada
+                || campaign.DataFim.HasValue && campaign.DataFim.Value <= eventTimeUtc)
+                return campaign;
 
             // Preserva a ordem mínima do funil e bloqueia chamadas anônimas que tentem
             // fabricar eventos apenas conhecendo os GUIDs. A conclusão aceita Clique
@@ -91,8 +79,7 @@ namespace PhishGuard.Backend.Controllers
             if (acaoAnteriorObrigatoria is not null)
             {
                 var possuiAcaoAnterior = await _context.SimulationsLogs
-                    .IgnoreQueryFilters()
-                    .AnyAsync(l => l.CampaignId == campaignId
+                    .AnyAsync(l => l.TenantId == campaign.TenantId && l.CampaignId == campaignId
                         && l.TargetId == targetId
                         && l.Acao == acaoAnteriorObrigatoria,
                         cancellationToken);
@@ -103,8 +90,7 @@ namespace PhishGuard.Backend.Controllers
 
             // Verifica se já existe um log idêntico para evitar duplicação (flood)
             var logExistente = await _context.SimulationsLogs
-                .IgnoreQueryFilters()
-                .FirstOrDefaultAsync(l => l.CampaignId == campaignId
+                .FirstOrDefaultAsync(l => l.TenantId == campaign.TenantId && l.CampaignId == campaignId
                     && l.TargetId == targetId
                     && l.Acao == acao,
                     cancellationToken);
@@ -128,7 +114,7 @@ namespace PhishGuard.Backend.Controllers
                     CampaignId = campaignId,
                     TargetId = targetId,
                     Acao = acao,
-                    DataHora = DateTime.UtcNow,
+                    DataHora = eventTimeUtc,
                     IpOrigem = ip
                 };
 
@@ -288,32 +274,40 @@ namespace PhishGuard.Backend.Controllers
         public async Task<IActionResult> GetEducational(
             Guid campaignId,
             [FromQuery(Name = TrackingContract.QueryTarget)] Guid targetId,
-            [FromQuery(Name = TrackingContract.QueryToken)] string? trackingToken)
+            [FromQuery(Name = TrackingContract.QueryToken)] string? trackingToken,
+            CancellationToken cancellationToken = default)
         {
-            if (!_trackingTokenService.Validate(trackingToken, campaignId, targetId))
+            using var trackingScope = await _trackingCampaignScope.ResolveAsync(
+                campaignId, targetId, trackingToken, cancellationToken);
+            if (trackingScope is null)
                 return NotFound(new { message = "Campanha não encontrada ou link expirado." });
-
-            // Resolve a campanha (sem sessão do alvo) para descobrir qual página
-            // educacional foi configurada como feedback do treinamento.
-            var campaign = await _context.Campaigns
-                .IgnoreQueryFilters()
-                .FirstOrDefaultAsync(c => c.Id == campaignId);
-
-            if (campaign == null)
-            {
-                return NotFound(new { message = "Campanha não encontrada ou link expirado." });
-            }
+            var campaign = trackingScope.Campaign;
 
             var pagina = await _context.EducationalPages
-                .IgnoreQueryFilters()
-                .FirstOrDefaultAsync(e => e.Id == campaign.EducationalPageId);
+                .FirstOrDefaultAsync(e => e.Id == campaign.EducationalPageId && e.TenantId == campaign.TenantId, cancellationToken);
 
             if (pagina == null)
             {
                 return NotFound(new { message = "Página educacional não configurada para esta campanha." });
             }
 
-            return Ok(new { conteudoHtml = pagina.HtmlEducacional });
+            var html = OfficialPageCatalog.ResolveEducationalHtml(campaign.EducationalHtmlSnapshot ?? pagina.HtmlEducacional);
+            if (_htmlSanitizer is null)
+                throw new InvalidOperationException("O serviço de sanitização é obrigatório para servir o treinamento.");
+            var feedbackJson = campaign.EducationalFeedbackConfigJsonSnapshot
+                ?? (campaign.SnapshotCapturedAtUtc.HasValue ? null : OfficialPageCatalog.ResolveFeedbackConfigJson(pagina.HtmlEducacional));
+            feedbackJson = CampaignSnapshotCapture.RestoreLegacyFeedbackClasses(feedbackJson, _htmlSanitizer,
+                campaign.SnapshotCapturedAtUtc ?? campaign.CriadoEm);
+            feedbackJson = CampaignSnapshotCapture.PrepareFeedbackJson(feedbackJson, _htmlSanitizer,
+                campaign.SnapshotCapturedAtUtc ?? campaign.CriadoEm);
+            JsonElement? feedbackConfig = string.IsNullOrEmpty(feedbackJson) ? null : JsonSerializer.Deserialize<JsonElement>(feedbackJson);
+            return Ok(new
+            {
+                conteudoHtml = OfficialPageCatalog.RestoreLegacyEducationalClasses(_htmlSanitizer.Sanitize(html), _htmlSanitizer.Sanitize),
+                feedbackConfigJson = feedbackConfig,
+                isSnapshot = campaign.SnapshotCapturedAtUtc.HasValue,
+                isLegacySnapshot = campaign.IsLegacySnapshot || !campaign.SnapshotCapturedAtUtc.HasValue
+            });
         }
     }
 }

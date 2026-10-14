@@ -341,7 +341,15 @@ namespace PhishGuard.Backend.Controllers
             var logsComDepto = await (
                 from l in _context.SimulationsLogs.Where(l => l.TenantId == tenantId)
                 join t in _context.Targets on l.TargetId equals t.Id
-                select new { t.Departamento, l.CampaignId, l.TargetId, l.Acao })
+                join participant in _context.CampaignTargets on new { l.CampaignId, l.TargetId }
+                    equals new { CampaignId = participant.CampaignsId, TargetId = participant.TargetsId } into participants
+                from participant in participants.DefaultIfEmpty()
+                select new
+                {
+                    Departamento = participant != null && participant.SnapshotCapturedAtUtc.HasValue
+                        ? participant.DepartmentSnapshot ?? string.Empty : t.Departamento,
+                    l.CampaignId, l.TargetId, l.Acao
+                })
                 .ToListAsync();
 
             var agregadoPorDepto = logsComDepto
@@ -357,10 +365,11 @@ namespace PhishGuard.Backend.Controllers
                                .Select(x => new { x.CampaignId, x.TargetId }).Distinct().Count()
                 });
 
-            var departamentos = colaboradoresPorDepto
-                .Select(d =>
+            var departamentos = colaboradoresPorDepto.Select(d => d.Departamento ?? string.Empty)
+                .Union(agregadoPorDepto.Keys)
+                .Select(chave =>
                 {
-                    var chave = d.Departamento ?? string.Empty;
+                    var employees = colaboradoresPorDepto.FirstOrDefault(d => (d.Departamento ?? string.Empty) == chave)?.Colaboradores ?? 0;
                     agregadoPorDepto.TryGetValue(chave, out var ag);
                     var emails = ag?.Emails ?? 0;
                     var cliques = ag?.Cliques ?? 0;
@@ -373,7 +382,7 @@ namespace PhishGuard.Backend.Controllers
                     {
                         id = string.IsNullOrWhiteSpace(chave) ? "(sem-departamento)" : chave,
                         name = string.IsNullOrWhiteSpace(chave) ? "(Sem departamento)" : chave,
-                        employees = d.Colaboradores,
+                        employees,
                         emails,
                         clicks = cliques,
                         risk = risco.ToString("0.#", CultureInfo.InvariantCulture) + "%"
@@ -402,11 +411,15 @@ namespace PhishGuard.Backend.Controllers
                 from l in _context.SimulationsLogs.Where(l => l.TenantId == tenantId)
                 join t in _context.Targets on l.TargetId equals t.Id
                 join c in _context.Campaigns on l.CampaignId equals c.Id
+                join participant in _context.CampaignTargets on new { l.CampaignId, l.TargetId }
+                    equals new { CampaignId = participant.CampaignsId, TargetId = participant.TargetsId } into participants
+                from participant in participants.DefaultIfEmpty()
                 select new
                 {
                     Ano = c.DataInicio.Year,
                     Mes = c.DataInicio.Month,
-                    Departamento = t.Departamento ?? string.Empty,
+                    Departamento = participant != null && participant.SnapshotCapturedAtUtc.HasValue
+                        ? participant.DepartmentSnapshot ?? string.Empty : t.Departamento ?? string.Empty,
                     l.CampaignId,
                     l.TargetId,
                     l.Acao

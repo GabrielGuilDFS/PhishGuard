@@ -1,5 +1,6 @@
 using System;
 using System.Globalization;
+using System.Net;
 using PhishGuard.Backend.Content;
 using PhishGuard.Backend.Models;
 using PhishGuard.Backend.Security;
@@ -20,12 +21,15 @@ namespace PhishGuard.Backend.Services.Delivery
     {
         private readonly ITrackingTokenService _trackingTokenService;
         private readonly string _baseTrackingUrl;
+        private readonly IHtmlSanitizationService? _htmlSanitizer;
 
         public EmailMessageComposer(
             ITrackingTokenService trackingTokenService,
-            string baseTrackingUrl)
+            string baseTrackingUrl,
+            IHtmlSanitizationService? htmlSanitizer = null)
         {
             _trackingTokenService = trackingTokenService;
+            _htmlSanitizer = htmlSanitizer;
             var normalized = baseTrackingUrl.TrimEnd('/');
             _baseTrackingUrl = normalized.EndsWith("/api/tracking", StringComparison.OrdinalIgnoreCase)
                 ? normalized
@@ -38,25 +42,37 @@ namespace PhishGuard.Backend.Services.Delivery
             string senderEmail,
             string? senderNameOverride = null)
         {
-            if (campaign.Template == null)
+            if (campaign.Template == null && campaign.EmailBodySnapshot is null)
                 throw new InvalidOperationException("Template de e-mail da campanha não encontrado.");
 
-            var corpoBase = OfficialBaitCatalog.ResolveHtml(campaign.Template.CorpoHtml);
+            var participant = campaign.CampaignTargets.FirstOrDefault(p => p.TargetsId == target.Id);
+            if (campaign.SnapshotCapturedAtUtc.HasValue && participant?.SnapshotCapturedAtUtc is null)
+                throw new InvalidOperationException("Snapshot do destinatário não encontrado.");
+            var targetName = participant?.SnapshotCapturedAtUtc.HasValue == true ? participant.TargetNameSnapshot : target.Nome;
+            var targetEmail = participant?.SnapshotCapturedAtUtc.HasValue == true ? participant.TargetEmailSnapshot : target.Email;
+            if (targetName is null || targetEmail is null)
+                throw new InvalidOperationException("Snapshot do destinatário incompleto.");
+            var corpoBase = OfficialBaitCatalog.ResolveHtml(campaign.EmailBodySnapshot ?? campaign.Template?.CorpoHtml
+                ?? throw new InvalidOperationException("Corpo do e-mail da campanha não encontrado."));
+            if (campaign.IsLegacySnapshot && _htmlSanitizer is null)
+                throw new InvalidOperationException("O serviço de sanitização é obrigatório para enviar conteúdo legado.");
+            if (_htmlSanitizer is not null) corpoBase = _htmlSanitizer.Sanitize(corpoBase);
 
             var trackingToken = Uri.EscapeDataString(_trackingTokenService.Create(campaign.Id, target.Id));
             var linkClique = $"{_baseTrackingUrl}/click/{campaign.Id}/{target.Id}?k={trackingToken}";
             var linkPixel = $"{_baseTrackingUrl}/open/{campaign.Id}/{target.Id}?k={trackingToken}";
 
-            var expiraEm = HorarioBrasilia.Converter(DateTime.UtcNow.AddHours(2));
+            var snapshotTime = campaign.SnapshotCapturedAtUtc ?? DateTime.UtcNow;
+            var expiraEm = HorarioBrasilia.Converter(snapshotTime.AddHours(2));
             var dataExpiracao = expiraEm.ToString("MMM dd, yyyy", CultureInfo.GetCultureInfo("en-US"))
                 + " às " + expiraEm.ToString("hh:mm tt", CultureInfo.GetCultureInfo("en-US"));
 
-            var agora = HorarioBrasilia.Agora();
+            var agora = HorarioBrasilia.Converter(snapshotTime);
             var dataAcesso = agora.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture)
                 + " às " + agora.ToString("HH:mm", CultureInfo.InvariantCulture) + " (BRT)";
 
             var corpoPersonalizado = corpoBase
-                .Replace("{{NOME}}", target.Nome)
+                .Replace("{{NOME}}", WebUtility.HtmlEncode(targetName))
                 .Replace("{{LINK_PHISHING}}", linkClique)
                 .Replace("{{LINK}}", linkClique)
                 .Replace("{{DATA_EXPIRACAO}}", dataExpiracao)
@@ -66,11 +82,11 @@ namespace PhishGuard.Backend.Services.Delivery
 
             var message = new OutboundEmailMessage
             {
-                FromName = !string.IsNullOrWhiteSpace(senderNameOverride) ? senderNameOverride : campaign.Template.RemetenteNome,
-                FromEmail = senderEmail,
-                ToName = target.Nome,
-                ToEmail = target.Email,
-                Subject = campaign.Template.Assunto,
+                FromName = campaign.SenderNameSnapshot ?? (!string.IsNullOrWhiteSpace(senderNameOverride) ? senderNameOverride : campaign.Template?.RemetenteNome ?? string.Empty),
+                FromEmail = campaign.SenderEmailSnapshot ?? senderEmail,
+                ToName = targetName,
+                ToEmail = targetEmail,
+                Subject = campaign.EmailSubjectSnapshot ?? campaign.Template?.Assunto ?? string.Empty,
                 HtmlBody = corpoPersonalizado
             };
 

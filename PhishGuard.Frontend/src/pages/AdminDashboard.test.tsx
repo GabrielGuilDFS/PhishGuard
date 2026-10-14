@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
+import { createMemoryRouter, RouterProvider, useLocation } from 'react-router-dom';
 import { axe } from 'vitest-axe';
 import AdminDashboard from './AdminDashboard';
 import { NotificationProvider } from '../context/NotificationContext';
@@ -77,20 +77,19 @@ function response(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
 }
 
-function renderDashboard() {
-  return render(
+function renderDashboard(initialEntry = '/admin/dashboard') {
+  const router = createMemoryRouter([
+    { path: '/login', element: <div>sonda-login</div> },
+    { path: '/admin/dashboard', element: <AdminDashboard /> },
+    { path: '/admin/campaigns', element: <CampaignRouteProbe /> },
+  ], { initialEntries: [initialEntry] });
+  return { ...render(
     <ThemeModeProvider>
       <NotificationProvider>
-        <MemoryRouter initialEntries={['/admin/dashboard']}>
-          <Routes>
-            <Route path="/login" element={<div>sonda-login</div>} />
-            <Route path="/admin/dashboard" element={<AdminDashboard />} />
-            <Route path="/admin/campaigns" element={<CampaignRouteProbe />} />
-          </Routes>
-        </MemoryRouter>
+        <RouterProvider router={router} />
       </NotificationProvider>
     </ThemeModeProvider>,
-  );
+  ), router };
 }
 
 beforeEach(() => {
@@ -111,6 +110,72 @@ afterEach(() => {
 });
 
 describe('AdminDashboard — visão executiva essencial', () => {
+  it('preenche o protótipo com dados fictícios e aplica os filtros sem consultar a API', async () => {
+    const user = userEvent.setup();
+    renderDashboard('/admin/dashboard?demo=1');
+
+    expect(await screen.findByText('Empresa Exemplo')).toBeInTheDocument();
+    expect(screen.queryByText('Demonstração')).not.toBeInTheDocument();
+    expect(screen.getByText('1.732')).toBeInTheDocument();
+    expect(await screen.findByText(/5 campanhas · 386 destinatários únicos · 1.732 e-mails enviados/)).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Efetividade do Treinamento' })).toBeInTheDocument();
+
+    await user.click(screen.getByRole('combobox', { name: 'Departamento' }));
+    await user.click(screen.getByRole('option', { name: 'Comercial' }));
+    expect(await screen.findByText('426')).toBeInTheDocument();
+    await user.click(screen.getByRole('combobox', { name: 'Período' }));
+    await user.click(screen.getByRole('option', { name: 'Últimos 7 dias' }));
+    expect(await screen.findByText('163')).toBeInTheDocument();
+    expect(screen.getByText(/2 campanhas · 86 destinatários únicos · 163 e-mails enviados/)).toBeInTheDocument();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('volta a consultar dados reais ao remover o parâmetro demo, sem manter métricas fictícias', async () => {
+    const { router } = renderDashboard('/admin/dashboard?demo=1');
+    await screen.findByText('Empresa Exemplo');
+
+    await act(async () => { await router.navigate('/admin/dashboard'); });
+
+    expect(await screen.findByText('Empresa Segura')).toBeInTheDocument();
+    expect(screen.queryByText('Empresa Exemplo')).not.toBeInTheDocument();
+    expect(screen.getByText('320')).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(String(fetchMock.mock.calls[0][0])).toContain('/Dashboard/overview?period=30d');
+  });
+
+  it('não abre campanhas inexistentes no modo demonstração', async () => {
+    const user = userEvent.setup();
+    renderDashboard('/admin/dashboard?demo=1');
+    await screen.findByText('Empresa Exemplo');
+
+    await user.click(screen.getByRole('button', { name: 'Ver campanha Microsoft 365 — acesso seguro' }));
+    expect(await screen.findByText('Esta campanha contém apenas dados de demonstração.')).toBeInTheDocument();
+    expect(screen.queryByText(/sonda-campanhas/)).not.toBeInTheDocument();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('não exporta dados reais no modo demonstração', async () => {
+    const user = userEvent.setup();
+    renderDashboard('/admin/dashboard?demo=1');
+    await screen.findByText('Empresa Exemplo');
+
+    await user.click(screen.getByRole('button', { name: 'Exportar' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Relatório PDF' }));
+    expect(await screen.findByText('Para exportar dados reais, saia do modo demonstração.')).toBeInTheDocument();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('informa a limitação dos departamentos preservados de campanhas legadas', async () => {
+    fetchMock.mockResolvedValue(response({
+      ...payload,
+      scope: { ...payload.scope, legacyCampaignTargetCount: 2 },
+      recentCampaigns: payload.recentCampaigns.map((campaign) => ({ ...campaign, isLegacySnapshot: true })),
+    }));
+    renderDashboard();
+    expect(await screen.findByText(/Este período inclui 2 participações de campanhas legadas/)).toBeInTheDocument();
+    expect(screen.getByText('Histórico legado')).toBeInTheDocument();
+  });
+
   it('carrega um contrato consolidado e renderiza KPIs, tendência e campanhas', async () => {
     renderDashboard();
 

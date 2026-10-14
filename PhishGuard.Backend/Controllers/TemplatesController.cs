@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using PhishGuard.Backend.Data;
 using PhishGuard.Backend.Models;
+using PhishGuard.Backend.Security;
 using PhishGuard.Backend.Services;
 using System;
 using System.Collections.Generic;
@@ -14,6 +15,7 @@ namespace PhishGuard.Backend.Controllers
     [Authorize]
     [Route("api/[controller]")]
     [ApiController]
+    [ServiceFilter(typeof(TenantMutationFilter))]
     public class TemplatesController : ControllerBase
     {
         private readonly AppDbContext _context;
@@ -45,7 +47,7 @@ namespace PhishGuard.Backend.Controllers
         }
 
         [HttpPost]
-        public async Task<ActionResult<Template>> PostTemplate(Template template)
+        public async Task<ActionResult<Template>> PostTemplate(Template template, CancellationToken cancellationToken = default)
         {
             template.Id = Guid.NewGuid();
             template.TenantId = _tenantProvider.GetTenantId();
@@ -55,18 +57,23 @@ namespace PhishGuard.Backend.Controllers
             template.CorpoHtml = _htmlSanitizer.Sanitize(template.CorpoHtml);
 
             _context.Templates.Add(template);
-            await _context.SaveChangesAsync();
+            await _context.SaveChangesAsync(cancellationToken);
 
             return CreatedAtAction(nameof(GetTemplate), new { id = template.Id }, template);
         }
 
         [HttpPut("{id}")]
-        public async Task<IActionResult> PutTemplate(Guid id, Template template)
+        public async Task<IActionResult> PutTemplate(Guid id, Template template, CancellationToken cancellationToken = default)
         {
             if (id != template.Id) return BadRequest();
 
-            var templateExistente = await _context.Templates.FirstOrDefaultAsync(t => t.Id == id);
+            var templateExistente = await _context.Templates.FirstOrDefaultAsync(t => t.Id == id, cancellationToken);
             if (templateExistente == null) return NotFound();
+
+            if (await _context.Campaigns.AnyAsync(c => c.TenantId == _tenantProvider.GetTenantId()
+                && c.EmailTemplateId == id && c.Status != CampaignStatus.Rascunho
+                && (!c.SnapshotCapturedAtUtc.HasValue || c.EmailBodySnapshot == null), cancellationToken))
+                return Conflict(new { message = "Este modelo possui campanha legada sem snapshot. Crie uma cópia até concluir a atualização do histórico." });
 
             templateExistente.Nome = template.Nome;
             templateExistente.Assunto = template.Assunto;
@@ -75,18 +82,21 @@ namespace PhishGuard.Backend.Controllers
             // Anti-XSS: higieniza o HTML hostil do cliente antes de persistir (allow-list).
             templateExistente.CorpoHtml = _htmlSanitizer.Sanitize(template.CorpoHtml);
 
-            await _context.SaveChangesAsync();
+            await _context.SaveChangesAsync(cancellationToken);
             return NoContent();
         }
 
         [HttpDelete("{id}")]
-        public async Task<IActionResult> DeleteTemplate(Guid id)
+        public async Task<IActionResult> DeleteTemplate(Guid id, CancellationToken cancellationToken = default)
         {
-            var template = await _context.Templates.FirstOrDefaultAsync(t => t.Id == id);
+            var template = await _context.Templates.FirstOrDefaultAsync(t => t.Id == id, cancellationToken);
             if (template == null) return NotFound();
 
+            if (await _context.Campaigns.AnyAsync(c => c.TenantId == _tenantProvider.GetTenantId() && c.EmailTemplateId == id, cancellationToken))
+                return Conflict(new { message = "Este modelo possui campanhas vinculadas e não pode ser excluído." });
+
             _context.Templates.Remove(template);
-            await _context.SaveChangesAsync();
+            await _context.SaveChangesAsync(cancellationToken);
 
             return NoContent();
         }

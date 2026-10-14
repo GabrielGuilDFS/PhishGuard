@@ -21,9 +21,9 @@ namespace PhishGuard.Tests.Controllers;
 // toca sem autenticar. Cobre idempotência, contrato de redirect, a garantia LGPD server-side
 // (o evento é registrado, a credencial NUNCA) e o gap do targetId forjado (Passo 6).
 //
-// O tracking roda SEM contexto de tenant (anônimo): o FakeTenantProvider devolve Guid.Empty,
-// então o SaveChangesAsync NÃO carimba e o log preserva o TenantId da própria campanha.
-// Por isso as asserções sobre logs usam IgnoreQueryFilters (o tenant ativo é Guid.Empty).
+// InMemory fixtures have an explicit tenant: this provider cannot execute scalar SQL
+// discovery for an anonymous request. Relational anonymous/cross-tenant coverage lives
+// in TrackingOpenHttpTests and CampaignSnapshotControllerTests.
 public class TrackingControllerTests
 {
     private const string BaseUrl = "https://phish.example";
@@ -50,7 +50,7 @@ public class TrackingControllerTests
     private static AppDbContext NovoContexto() =>
         new(new DbContextOptionsBuilder<AppDbContext>()
                 .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options,
-            new FakeTenantProvider { TenantIdAtivo = Guid.Empty });
+            new FakeTenantProvider { TenantIdAtivo = Guid.NewGuid() });
 
     private static TrackingController NovoControlador(
         AppDbContext ctx,
@@ -68,7 +68,9 @@ public class TrackingControllerTests
         if (ip != null)
             http.Connection.RemoteIpAddress = IPAddress.Parse(ip);
 
-        return new TrackingController(ctx, config, trackingTokenService ?? new PermissiveTrackingTokenService())
+        return new TrackingController(ctx, config,
+            new TrackingCampaignScope(ctx, trackingTokenService ?? new PermissiveTrackingTokenService()),
+            htmlSanitizer: new PhishGuard.Backend.Services.HtmlSanitizationService())
         {
             ControllerContext = new ControllerContext { HttpContext = http },
         };
@@ -100,7 +102,7 @@ public class TrackingControllerTests
         var campanha = new Campaign
         {
             Id = Guid.NewGuid(),
-            TenantId = Guid.NewGuid(),
+            TenantId = ctx.TenantIdAtual,
             NomeCampanha = "Campanha de Teste",
             Status = "Em Andamento",
             DataInicio = DateTime.UtcNow,
@@ -401,5 +403,43 @@ public class TrackingControllerTests
 
         Assert.IsType<NotFoundObjectResult>(result);
         Assert.Equal(0, await ctx.SimulationsLogs.IgnoreQueryFilters().CountAsync());
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task CollectionClosed_ReturnsPixelAndKeepsEducationalNavigation_WithoutNewEvents(bool finalized)
+    {
+        await using var ctx = NovoContexto();
+        var campaign = await AdicionarCampanhaAsync(ctx);
+        var target = await AdicionarAlvoAsync(ctx, campaign);
+        await AdicionarEventoAsync(ctx, campaign, target, SimulationActions.Envio);
+        campaign.Status = finalized ? CampaignStatus.Finalizada : CampaignStatus.EmAndamento;
+        campaign.DataFim = finalized ? null : DateTime.UtcNow.AddMinutes(-1);
+        await ctx.SaveChangesAsync();
+        var controller = NovoControlador(ctx);
+        Assert.IsType<FileContentResult>(await controller.TrackOpen(campaign.Id, target.Id));
+        var click = Assert.IsType<RedirectResult>(await controller.TrackClick(campaign.Id, target.Id));
+        Assert.Contains($"/landing/{campaign.LandingPageId}", click.Url);
+        Assert.IsType<OkObjectResult>(await controller.TrackSubmit(campaign.Id, target.Id, new CaptureMetadataDto()));
+        Assert.IsType<OkObjectResult>(await controller.TrackEducationalView(campaign.Id, target.Id));
+        Assert.IsType<OkObjectResult>(await controller.TrackComplete(campaign.Id, target.Id));
+        var logs = await ctx.SimulationsLogs.IgnoreQueryFilters().ToListAsync();
+        Assert.Equal(SimulationActions.Envio, Assert.Single(logs).Acao);
+    }
+
+    [Fact]
+    public async Task CollectionOpen_RecordsObservedOpeningBeforeDeadlineWithoutClick()
+    {
+        await using var ctx = NovoContexto();
+        var campaign = await AdicionarCampanhaAsync(ctx);
+        var target = await AdicionarAlvoAsync(ctx, campaign);
+        await AdicionarEventoAsync(ctx, campaign, target, SimulationActions.Envio);
+        campaign.Status = CampaignStatus.EmAndamento;
+        campaign.DataFim = DateTime.UtcNow.AddMinutes(10);
+        await ctx.SaveChangesAsync();
+        Assert.IsType<FileContentResult>(await NovoControlador(ctx).TrackOpen(campaign.Id, target.Id));
+        Assert.Equal(1, await ContarLogs(ctx, campaign.Id, target.Id, SimulationActions.Abertura));
+        Assert.Equal(0, await ContarLogs(ctx, campaign.Id, target.Id, SimulationActions.Clique));
     }
 }

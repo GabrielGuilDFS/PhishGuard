@@ -40,6 +40,13 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Versionable sources used to capture the complete public campaign experience. -->
+    <EmbeddedResource Include="Resources\OfficialLandings\*.html" />
+    <EmbeddedResource Include="Resources\OfficialFeedback\*.json" />
+    <EmbeddedResource Include="Resources\EducationalTemplates\*.html" />
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- Logos rasterizadas (PNG) anexadas via CID (inline) no disparo. O Gmail NÃO
          renderiza SVG nem data-URI, mas exibe anexos inline (Content-ID) por padrão,
          sem o "exibir imagens". Resolvidas por token em EmailLogoCatalog. -->

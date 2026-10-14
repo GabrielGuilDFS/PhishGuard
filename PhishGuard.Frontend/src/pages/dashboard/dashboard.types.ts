@@ -46,6 +46,7 @@ export interface DashboardScope {
   campaignCount: number;
   uniqueTargetCount: number;
   campaignTargetCount: number;
+  legacyCampaignTargetCount?: number;
 }
 
 export interface DashboardTrendPoint {
@@ -63,6 +64,7 @@ export interface DashboardRecentCampaign {
   id: string;
   name: string;
   status: string;
+  isLegacySnapshot?: boolean;
   date: string;
   sent: number;
   openedTotal: number;

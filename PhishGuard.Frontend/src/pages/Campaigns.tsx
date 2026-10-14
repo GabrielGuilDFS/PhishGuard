@@ -16,6 +16,7 @@ import UploadFileIcon from '@mui/icons-material/UploadFile';
 import DoneAllIcon from '@mui/icons-material/DoneAll';
 import ClearAllIcon from '@mui/icons-material/ClearAll';
 import ReplayIcon from '@mui/icons-material/Replay';
+import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
 import { simulationScenarios, templatesPredefinidos, type SimulationScenario } from '../data/predefinedTemplates';
 import { normalizarIdIsca, normalizarIdLanding } from '../data/scenarioAliases';
 import { landingTemplates } from '../data/landingTemplates';
@@ -42,13 +43,30 @@ interface Campaign {
     dispatchErrorCode?: string;
     dispatchErrorMessage?: string;
     dispatchFailedAtUtc?: string;
+    snapshotCapturedAtUtc?: string | null;
+    isLegacySnapshot?: boolean;
+    hasHistory?: boolean;
 }
+
+const campaignIsEditable = (campaign: Campaign) => campaign.status === CampaignStatus.Rascunho
+    && !campaign.snapshotCapturedAtUtc && !campaign.hasHistory;
 
 interface SmtpStatus {
     configurado: boolean;
     transporteDisponivel: boolean;
     transporteIndisponivelMotivo?: string;
     ultimoErroCodigo?: string;
+}
+
+interface CampaignHistory extends Campaign {
+    targetsSnapshot: {
+        targetId: string;
+        name: string | null;
+        email: string | null;
+        department: string | null;
+        snapshotCapturedAtUtc?: string | null;
+        isLegacySnapshot?: boolean;
+    }[];
 }
 
 interface LookupItem {
@@ -211,6 +229,7 @@ export default function Campaigns() {
 
     const [open, setOpen] = useState(false);
     const [currentId, setCurrentId] = useState<string | null>(null);
+    const [history, setHistory] = useState<CampaignHistory | null>(null);
 
     const [formData, setFormData] = useState({
         nomeCampanha: '',
@@ -326,7 +345,24 @@ export default function Campaigns() {
         }
     };
 
+    const openHistory = async (id: string) => {
+        try {
+            const response = await authFetch(`${API_BASE}/Campaigns/${id}`, { headers });
+            if (!response.ok) {
+                showNotify(await extrairMensagemDeErro(response), 'error');
+                return;
+            }
+            setHistory(await response.json() as CampaignHistory);
+        } catch {
+            showNotify('Não foi possível carregar os dados preservados da campanha.', 'error');
+        }
+    };
+
     const openModal = async (campaign?: Campaign) => {
+        if (campaign && !campaignIsEditable(campaign)) {
+            await openHistory(campaign.id);
+            return;
+        }
         let loadedTemplates = templates;
         let loadedPhishingPages = phishingPages;
         let loadedEduPages = educationalPages;
@@ -366,6 +402,10 @@ export default function Campaigns() {
                 const res = await authFetch(`${API_BASE}/Campaigns/${campaign.id}`, { headers });
                 if (res.ok) {
                     const data = await res.json();
+                    if (!campaignIsEditable(data as Campaign)) {
+                        await openHistory(campaign.id);
+                        return;
+                    }
                     setCurrentId(data.id);
 
                     const alvosPreSelecionados = loadedTargets.filter(t => data.targetIds?.includes(t.id));
@@ -452,8 +492,10 @@ export default function Campaigns() {
         const landing = landingPorId.get(s.landingTemplateId);
         if (!isca || !landing) throw new Error('Cenário inválido: molde não encontrado no catálogo.');
 
-        let emailRow = templates.find((t) => normalizarIdIsca(t.corpoHtml) === s.emailTemplateId);
         const marcaAtualizada = s.id === 'cenario-microcorp' || s.id === 'cenario-mercado-liv';
+        let emailRow = templates.find(t => normalizarIdIsca(t.corpoHtml) === s.emailTemplateId
+            && (!marcaAtualizada || (t.nome === isca.nome && t.remetenteNome === isca.remetenteNome)))
+            ?? templates.find(t => normalizarIdIsca(t.corpoHtml) === s.emailTemplateId);
         if (emailRow && marcaAtualizada && (emailRow.nome !== isca.nome || emailRow.remetenteNome !== isca.remetenteNome)) {
             const atualizado = {
                 id: emailRow.id, nome: isca.nome,
@@ -465,9 +507,14 @@ export default function Campaigns() {
             const res = await authFetch(`${API_BASE}/Templates/${emailRow.id}`, {
                 method: 'PUT', headers, body: JSON.stringify(atualizado),
             });
-            if (!res.ok) throw new Error(await extrairMensagemDeErro(res));
-            emailRow = atualizado;
-            setTemplates(prev => prev.map(item => item.id === atualizado.id ? atualizado : item));
+            if (res.status === 409) {
+                // Recursos usados por campanhas ativadas preservam seu conteúdo.
+                emailRow = undefined;
+            } else {
+                if (!res.ok) throw new Error(await extrairMensagemDeErro(res));
+                emailRow = atualizado;
+                setTemplates(prev => prev.map(item => item.id === atualizado.id ? atualizado : item));
+            }
         }
         if (!emailRow) {
             const res = await authFetch(`${API_BASE}/Templates`, {
@@ -480,20 +527,26 @@ export default function Campaigns() {
             });
             if (!res.ok) throw new Error(await extrairMensagemDeErro(res));
             const nova = await res.json();
-            emailRow = { id: nova.id, nome: isca.nome, corpoHtml: isca.id };
+            emailRow = { id: nova.id, nome: isca.nome, corpoHtml: isca.id, remetenteNome: isca.remetenteNome };
             setTemplates(prev => [...prev, emailRow!]);
         }
 
-        let landingRow = phishingPages.find((p) => normalizarIdLanding(p.conteudoHtml) === s.landingTemplateId);
+        let landingRow = phishingPages.find(p => normalizarIdLanding(p.conteudoHtml) === s.landingTemplateId
+            && (!marcaAtualizada || p.nome === landing.nome))
+            ?? phishingPages.find(p => normalizarIdLanding(p.conteudoHtml) === s.landingTemplateId);
         if (landingRow && marcaAtualizada && landingRow.nome !== landing.nome) {
             const atualizado = { ...landingRow, nome: landing.nome };
             const res = await authFetch(`${API_BASE}/PhishingPages/${landingRow.id}`, {
                 method: 'PUT', headers,
                 body: JSON.stringify({ nome: atualizado.nome, conteudoHtml: atualizado.conteudoHtml }),
             });
-            if (!res.ok) throw new Error(await extrairMensagemDeErro(res));
-            landingRow = atualizado;
-            setPhishingPages(prev => prev.map(item => item.id === atualizado.id ? atualizado : item));
+            if (res.status === 409) {
+                landingRow = undefined;
+            } else {
+                if (!res.ok) throw new Error(await extrairMensagemDeErro(res));
+                landingRow = atualizado;
+                setPhishingPages(prev => prev.map(item => item.id === atualizado.id ? atualizado : item));
+            }
         }
         if (!landingRow) {
             const res = await authFetch(`${API_BASE}/PhishingPages`, {
@@ -516,7 +569,9 @@ export default function Campaigns() {
     const garantirPaginaEducativa = async (cenario: SimulationScenario): Promise<string> => {
         const descritor = resolverPaginaEducativaDoCenario(cenario);
 
-        const existente = educationalPages.find(p => paginaEducativaPertenceAoCenario(p.conteudoHtml ?? '', descritor));
+        const existente = educationalPages.find(p => paginaEducativaPertenceAoCenario(p.conteudoHtml ?? '', descritor)
+            && !paginaEducativaPrecisaReconciliar({ nome: p.nome, html: p.conteudoHtml ?? '' }, descritor))
+            ?? educationalPages.find(p => paginaEducativaPertenceAoCenario(p.conteudoHtml ?? '', descritor));
         if (existente) {
             // O catálogo é a fonte canônica do rótulo. Páginas antigas podem manter
             // nomes de migrations de descontinuação mesmo após o cenário ser reativado.
@@ -529,8 +584,17 @@ export default function Campaigns() {
                     method: 'PUT', headers,
                     body: JSON.stringify({ nome: descritor.nome, conteudoHtml: descritor.html }),
                 });
+                if (res.status === 409) {
+                    const copy = await authFetch(`${API_BASE}/EducationalPages`, {
+                        method: 'POST', headers,
+                        body: JSON.stringify({ nome: descritor.nome, conteudoHtml: descritor.html }),
+                    });
+                    if (!copy.ok) throw new Error(await extrairMensagemDeErro(copy));
+                    const created: LookupItem = await copy.json();
+                    setEducationalPages(prev => [...prev, created]);
+                    return created.id;
+                }
                 if (!res.ok) throw new Error(await extrairMensagemDeErro(res));
-
                 setEducationalPages(prev => prev.map(p =>
                     p.id === existente.id ? { ...p, nome: descritor.nome } : p));
             }
@@ -548,6 +612,11 @@ export default function Campaigns() {
     };
 
     const handleSave = async () => {
+        const currentCampaign = campaigns.find((campaign) => campaign.id === currentId);
+        if (currentCampaign && !campaignIsEditable(currentCampaign)) {
+            showNotify('Esta campanha possui dados preservados ou histórico e não pode ser editada.', 'error');
+            return;
+        }
         if (!formData.nomeCampanha || !formData.dataInicio || !formData.cenario ||
             formData.targetsSelecionados.length === 0) {
             showNotify('Preencha os campos obrigatórios (Cenário) e selecione ao menos um alvo.', 'error');
@@ -592,6 +661,11 @@ export default function Campaigns() {
     };
 
     const handleDelete = async (id: string) => {
+        const campaign = campaigns.find((item) => item.id === id);
+        if (!campaign || !campaignIsEditable(campaign)) {
+            showNotify('Esta campanha possui dados preservados ou histórico e não pode ser excluída.', 'error');
+            return;
+        }
         if (!window.confirm('Excluir esta campanha?')) return;
         try {
             const res = await authFetch(`${API_BASE}/Campaigns/${id}`, { method: 'DELETE', headers });
@@ -610,6 +684,11 @@ export default function Campaigns() {
             : 'A entrega de e-mail ainda não foi configurada. Configure SMTP ou uma API HTTPS antes de ativar uma campanha.');
 
     const handleActivateCampaign = async (id: string) => {
+        const campaign = campaigns.find((item) => item.id === id);
+        if (!campaign || !campaignIsEditable(campaign)) {
+            showNotify('Somente rascunhos sem dados preservados e sem histórico podem ser ativados.', 'error');
+            return;
+        }
         if (!smtpStatus?.configurado || !smtpStatus.transporteDisponivel) {
             showNotify(
                 smtpBlockingMessage,
@@ -761,10 +840,8 @@ export default function Campaigns() {
                 sx={{ mb: 3 }}
             />
 
-            {/* Aviso: a exclusão de campanhas é destrutiva e retira os logs históricos que
-                alimentam os gráficos/KPIs do dashboard (cliques únicos, funil, etc.). */}
-            <Alert severity="warning" sx={{ mb: 3 }}>
-                Atenção: A exclusão permanente de campanhas antigas impactará diretamente os dados e o histórico exibidos nos gráficos da dashboard.
+            <Alert severity="info" sx={{ mb: 3 }}>
+                Após a ativação, a campanha preserva seus destinatários e conteúdos. Somente rascunhos sem histórico podem ser excluídos.
             </Alert>
 
             <TableContainer component={Paper}>
@@ -788,6 +865,11 @@ export default function Campaigns() {
                                 <TableCell>
                                     <Stack spacing={0.5} alignItems="flex-start">
                                         <StatusBadge status={c.status} flashing={flashingIds.has(c.id)} />
+                                        {c.isLegacySnapshot && (
+                                            <Tooltip title="Os dados disponíveis foram preservados na atualização. O departamento e o conteúdo originais de campanhas antigas não podem ser reconstruídos com certeza.">
+                                                <Chip label="Histórico legado" size="small" variant="outlined" />
+                                            </Tooltip>
+                                        )}
                                         {c.status === CampaignStatus.FalhaNoDisparo && c.dispatchErrorMessage && (
                                             <Tooltip title={c.dispatchErrorMessage}>
                                                 <Typography variant="caption" color="error" sx={{ maxWidth: 180 }} noWrap>
@@ -803,7 +885,12 @@ export default function Campaigns() {
                                 <TableCell>{c.landingPageNome}</TableCell>
                                 <TableCell>{c.educationalPageNome}</TableCell>
                                 <TableCell align="center">
-                                    {c.status === CampaignStatus.Rascunho && (
+                                    {!campaignIsEditable(c) && (
+                                        <IconButton color="primary" onClick={() => { void openHistory(c.id); }} aria-label={`Ver dados preservados de ${c.nomeCampanha}`}>
+                                            <VisibilityOutlinedIcon />
+                                        </IconButton>
+                                    )}
+                                    {campaignIsEditable(c) && (
                                         activatingId === c.id ? (
                                             <Tooltip title="Processando disparo...">
                                                 <span>
@@ -831,10 +918,10 @@ export default function Campaigns() {
                                             </span>
                                         </Tooltip>
                                     )}
-                                    <IconButton onClick={() => openModal(c)} color="primary" title="Editar">
+                                    <IconButton disabled={!campaignIsEditable(c)} onClick={() => openModal(c)} color="primary" title={campaignIsEditable(c) ? 'Editar' : 'Campanhas ativadas ou com histórico preservam sua configuração'}>
                                         <EditIcon />
                                     </IconButton>
-                                    <IconButton onClick={() => handleDelete(c.id)} color="error" title="Excluir">
+                                    <IconButton disabled={!campaignIsEditable(c)} onClick={() => handleDelete(c.id)} color="error" title={campaignIsEditable(c) ? 'Excluir' : 'Campanhas ativadas ou com histórico preservam seu histórico'}>
                                         <DeleteIcon />
                                     </IconButton>
                                 </TableCell>
@@ -843,6 +930,47 @@ export default function Campaigns() {
                     </TableBody>
                 </Table>
             </TableContainer>
+
+            <Dialog open={history !== null} onClose={() => setHistory(null)} maxWidth="md" fullWidth>
+                <DialogTitle>Dados preservados da campanha</DialogTitle>
+                <DialogContent>
+                    {history && (
+                        <Stack spacing={2}>
+                            <Typography variant="h6">{history.nomeCampanha}</Typography>
+                            <Typography variant="body2" color="text.secondary">
+                                {history.status} · E-mail: {history.templateNome} · Página falsa: {history.landingPageNome} · Treinamento: {history.educationalPageNome}
+                            </Typography>
+                            <Alert severity={history.isLegacySnapshot ? 'warning' : 'info'}>
+                                {history.isLegacySnapshot
+                                    ? 'Histórico legado: estes dados foram preservados na atualização. O departamento e o conteúdo originais na data do envio não podem ser confirmados.'
+                                    : history.status === CampaignStatus.Rascunho
+                                        ? 'Esta campanha possui dados preservados ou histórico e está disponível somente para consulta.'
+                                        : 'Estes destinatários e conteúdos foram preservados na ativação. Alterações no cadastro atual não modificam esta campanha.'}
+                            </Alert>
+                            {history.snapshotCapturedAtUtc && (
+                                <Typography variant="body2">Registro preservado em {new Date(history.snapshotCapturedAtUtc).toLocaleString()}</Typography>
+                            )}
+                            <TableContainer component={Paper} variant="outlined">
+                                <Table size="small" aria-label="Destinatários preservados na campanha">
+                                    <TableHead><TableRow>
+                                        <TableCell>Nome</TableCell><TableCell>E-mail</TableCell><TableCell>Departamento</TableCell>
+                                    </TableRow></TableHead>
+                                    <TableBody>
+                                        {(history.targetsSnapshot ?? []).map((target) => (
+                                            <TableRow key={target.targetId}>
+                                                <TableCell>{target.name ?? 'Não registrado'}</TableCell>
+                                                <TableCell>{target.email ?? 'Não registrado'}</TableCell>
+                                                <TableCell>{target.department ?? 'Não registrado'}</TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            </TableContainer>
+                        </Stack>
+                    )}
+                </DialogContent>
+                <DialogActions><Button onClick={() => setHistory(null)}>Fechar</Button></DialogActions>
+            </Dialog>
 
             <Dialog open={open} onClose={closeModal} maxWidth="sm" fullWidth>
                 <DialogTitle>{currentId ? 'Editar Campanha' : 'Nova Campanha'}</DialogTitle>

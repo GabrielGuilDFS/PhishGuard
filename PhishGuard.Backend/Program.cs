@@ -243,6 +243,8 @@ builder.Services.AddCors(options =>
 
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ITenantProvider, TenantProvider>();
+builder.Services.AddScoped<TenantMutationFilter>();
+builder.Services.AddScoped<TrackingCampaignScope>();
 builder.Services.AddScoped<IAuthSessionValidator, AuthSessionValidator>();
 // Habilite somente se todas as escritas de autenticação passam por este processo.
 if (builder.Configuration.GetValue<bool>("AuthSessionCache:SingleInstanceEnabled"))
@@ -280,7 +282,8 @@ builder.Services.AddSingleton<IEmailMessageComposer>(sp =>
     var trackingTokenService = sp.GetRequiredService<ITrackingTokenService>();
     var configuration = sp.GetRequiredService<IConfiguration>();
     var apiBase = configuration["AppSettings:PublicApiBaseUrl"] ?? "http://localhost:5000";
-    return new EmailMessageComposer(trackingTokenService, apiBase);
+    return new EmailMessageComposer(trackingTokenService, apiBase,
+        sp.GetRequiredService<IHtmlSanitizationService>());
 });
 builder.Services.AddSingleton<IEmailSender, SmtpEmailSender>();
 builder.Services.AddHttpClient<ProviderApiEmailSender>(client =>

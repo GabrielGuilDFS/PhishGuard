@@ -24,6 +24,8 @@ for /f "usebackq eol=# tokens=1,* delims==" %%A in (".env") do (
     if /I "%%A"=="POSTGRES_PORT" set "POSTGRES_PORT=%%B"
     if /I "%%A"=="AppSettings__Token" set "AppSettings__Token=%%B"
     if /I "%%A"=="NGROK_DOMAIN" set "NGROK_DOMAIN=%%B"
+    if /I "%%A"=="AppSettings__PublicApiBaseUrl" set "AppSettings__PublicApiBaseUrl=%%B"
+    if /I "%%A"=="AppSettings__PublicAppBaseUrl" set "AppSettings__PublicAppBaseUrl=%%B"
 )
 
 if not defined POSTGRES_DB goto config_error
@@ -68,6 +70,12 @@ if errorlevel 1 (
 echo Ambiente local pronto!
 echo API:      http://localhost:5000/swagger
 echo Frontend: http://localhost:5173
+if not defined AppSettings__PublicApiBaseUrl (
+    echo AVISO: o rastreamento usa a URL local configurada no backend.
+    echo Para testar abertura no Gmail, defina AppSettings__PublicApiBaseUrl
+    echo e AppSettings__PublicAppBaseUrl com URLs HTTPS publicas acessiveis.
+    echo O SMTP envia o email, mas nao publica a imagem de rastreamento.
+)
 exit /b 0
 
 :config_error

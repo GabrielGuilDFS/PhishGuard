@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { landingTemplates } from '../data/landingTemplates';
 import { normalizarIdLanding } from '../data/scenarioAliases';
 import { API_BASE } from '../config';
+import { useNotify } from '../context/NotificationContext';
 import {
     TRACKING_ACTIONS,
     educationalFeedbackUrl,
@@ -17,12 +18,20 @@ const TRAINING_BY_LANDING: Record<string, string> = {
     'mercado-liv-login': 'mercadoliv',
 };
 
+interface LandingContent {
+    conteudoHtml: string;
+    templateId?: string | null;
+}
+
 export default function LandingPage() {
     const { id } = useParams(); // ID da PhishingPage salva no banco
     const [searchParams] = useSearchParams();
     const campaignId = searchParams.get('c') || '';
     const targetId = searchParams.get('t') || '';
     const trackingToken = searchParams.get('k') || '';
+    const { showNotify } = useNotify();
+    const notifyRef = useRef(showNotify);
+    useEffect(() => { notifyRef.current = showNotify; }, [showNotify]);
 
     const [htmlContent, setHtmlContent] = useState<string>(
         '<div style="padding: 2rem; text-align: center; font-family: sans-serif;">Carregando ambiente seguro...</div>'
@@ -34,14 +43,17 @@ export default function LandingPage() {
 
         // Busca o HTML da página falsa cadastrada no banco de dados.
         // Em dev usa /api pelo proxy Vite; no Static Site usa a URL pública da API.
-        fetch(`${API_BASE}/PhishingPages/${id}`, {
+        const query = new URLSearchParams({ c: campaignId, t: targetId, k: trackingToken });
+        const controller = new AbortController();
+        fetch(`${API_BASE}/PhishingPages/${id}?${query}`, {
+            signal: controller.signal,
             // Pula a página de aviso do ngrok (free/estático) para o fetch receber JSON,
             // não o HTML interstitial. Inócuo fora do túnel.
             headers: { 'ngrok-skip-browser-warning': 'true' },
         })
             .then(res => {
                 if (!res.ok) throw new Error('Página não encontrada');
-                return res.json();
+                return res.json() as Promise<LandingContent>;
             })
             .then(data => {
                 if (data && data.conteudoHtml) {
@@ -51,7 +63,7 @@ export default function LandingPage() {
                     // legados criados antes da refatoração do MVP).
                     const molde = landingTemplates.find((t) => t.id === normalizarIdLanding(data.conteudoHtml));
                     const rawHtml = molde ? molde.html : data.conteudoHtml;
-                    setLandingTemplateId(molde?.id ?? '');
+                    setLandingTemplateId(normalizarIdLanding(data.templateId ?? molde?.id) ?? '');
 
                     // Preenche os placeholders dinamicamente com os dados da vítima.
                     // {{CAMPAIGN_ID}} e {{TARGET_ID}} alimentam o gatilho de telemetria
@@ -69,9 +81,12 @@ export default function LandingPage() {
                     setHtmlContent(processedHtml);
                 }
             })
-            .catch(() =>
-                setHtmlContent('<div style="padding: 2rem; text-align: center; font-family: sans-serif; color: red;">Erro 404: Página não encontrada ou link expirado.</div>')
-            );
+            .catch((error: unknown) => {
+                if (error instanceof DOMException && error.name === 'AbortError') return;
+                setHtmlContent('<div style="padding: 2rem; text-align: center; font-family: sans-serif; color: red;">Erro 404: Página não encontrada ou link expirado.</div>');
+                notifyRef.current('Não foi possível carregar a página da simulação.', 'error');
+            });
+        return () => controller.abort();
     }, [id, campaignId, targetId, trackingToken]);
 
     const handleSubmit = useCallback((event: FormEvent<HTMLDivElement>) => {
@@ -105,6 +120,10 @@ export default function LandingPage() {
                 'ngrok-skip-browser-warning': 'true',
             },
             body: JSON.stringify(metadata),
+        }).then((response) => {
+            if (!response.ok) notifyRef.current('Não foi possível registrar a interação. Você pode continuar o treinamento.', 'warning');
+        }).catch(() => {
+            notifyRef.current('Falha de conexão ao registrar a interação. Você pode continuar o treinamento.', 'warning');
         }).finally(() => {
             window.location.href = educationalFeedbackUrl({
                 template: TRAINING_BY_LANDING[landingTemplateId] ?? 'basico_phishing',

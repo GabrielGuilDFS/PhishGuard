@@ -67,7 +67,7 @@ public class CampaignsControllerTests : CampaignTestBase
         await context.SaveChangesAsync();
         var (template, phishing, edu, alvo) = await SemearRecursosAsync(context, tenantId);
 
-        var controller = new CampaignsController(context, tenantProvider);
+        var controller = new CampaignsController(context, tenantProvider, htmlSanitizer: new PhishGuard.Backend.Services.HtmlSanitizationService());
         var dataFim = new DateTime(2030, 9, 10, 22, 0, 0, DateTimeKind.Utc);
         var input = new CampaignInputDto
         {
@@ -118,7 +118,7 @@ public class CampaignsControllerTests : CampaignTestBase
         context.Campaigns.Add(campanha);
         await context.SaveChangesAsync();
 
-        var controller = new CampaignsController(context, tenantProvider);
+        var controller = new CampaignsController(context, tenantProvider, htmlSanitizer: new PhishGuard.Backend.Services.HtmlSanitizationService());
         var novoPrazo = new DateTime(2031, 2, 2, 8, 30, 0, DateTimeKind.Utc);
         var input = new CampaignInputDto
         {
@@ -151,7 +151,7 @@ public class CampaignsControllerTests : CampaignTestBase
 
         var campanha = await SemearCampanhaRascunhoAsync(context, tenantProvider, tenant.Id, DateTime.UtcNow.AddHours(2));
 
-        var controller = new CampaignsController(context, tenantProvider);
+        var controller = new CampaignsController(context, tenantProvider, htmlSanitizer: new PhishGuard.Backend.Services.HtmlSanitizationService());
 
         // Act
         var resultado = await controller.AtivarCampanha(campanha.Id);
@@ -175,7 +175,7 @@ public class CampaignsControllerTests : CampaignTestBase
         var campanha = await SemearCampanhaRascunhoAsync(context, tenantProvider, tenant.Id, DateTime.UtcNow.AddMinutes(-5));
 
         using var signal = new CampaignDispatchSignal();
-        var controller = new CampaignsController(context, tenantProvider, dispatchSignal: signal);
+        var controller = new CampaignsController(context, tenantProvider, dispatchSignal: signal, htmlSanitizer: new PhishGuard.Backend.Services.HtmlSanitizationService());
 
         // Act
         var resultado = await controller.AtivarCampanha(campanha.Id);
@@ -217,7 +217,7 @@ public class CampaignsControllerTests : CampaignTestBase
                 ["AppSettings:SmtpTransportDisabledReason"] = "SMTP bloqueado no Render."
             })
             .Build();
-        var controller = new CampaignsController(context, tenantProvider, configuration);
+        var controller = new CampaignsController(context, tenantProvider, configuration, htmlSanitizer: new PhishGuard.Backend.Services.HtmlSanitizationService());
 
         var resultado = await controller.AtivarCampanha(campanha.Id);
 
@@ -245,7 +245,7 @@ public class CampaignsControllerTests : CampaignTestBase
                 ["AppSettings:SmtpTransportEnabled"] = "false"
             })
             .Build();
-        var controller = new CampaignsController(context, tenantProvider, configuration);
+        var controller = new CampaignsController(context, tenantProvider, configuration, htmlSanitizer: new PhishGuard.Backend.Services.HtmlSanitizationService());
 
         var resultado = await controller.AtivarCampanha(campanha.Id);
 
@@ -281,7 +281,7 @@ public class CampaignsControllerTests : CampaignTestBase
                 ["AppSettings:SmtpTransportEnabled"] = "false"
             })
             .Build();
-        var controller = new CampaignsController(context, tenantProvider, configuration);
+        var controller = new CampaignsController(context, tenantProvider, configuration, htmlSanitizer: new PhishGuard.Backend.Services.HtmlSanitizationService());
 
         var resultado = await controller.RetryDispatch(campanha.Id);
 
@@ -301,7 +301,7 @@ public class CampaignsControllerTests : CampaignTestBase
         context.SmtpConfigs.Remove(smtp);
         await context.SaveChangesAsync();
 
-        var controller = new CampaignsController(context, tenantProvider);
+        var controller = new CampaignsController(context, tenantProvider, htmlSanitizer: new PhishGuard.Backend.Services.HtmlSanitizationService());
         var resultado = await controller.AtivarCampanha(campanha.Id);
 
         Assert.IsType<ConflictObjectResult>(resultado);
@@ -324,7 +324,7 @@ public class CampaignsControllerTests : CampaignTestBase
         var controller = new CampaignsController(
             context,
             tenantProvider,
-            smtpCredentialProtector: new UnreadableSmtpProtector());
+            smtpCredentialProtector: new UnreadableSmtpProtector(), htmlSanitizer: new PhishGuard.Backend.Services.HtmlSanitizationService());
         var resultado = await controller.AtivarCampanha(campanha.Id);
 
         Assert.IsType<ConflictObjectResult>(resultado);
@@ -356,7 +356,7 @@ public class CampaignsControllerTests : CampaignTestBase
         var controller = new CampaignsController(
             context,
             tenantProvider,
-            smtpCredentialProtector: protector);
+            smtpCredentialProtector: protector, htmlSanitizer: new PhishGuard.Backend.Services.HtmlSanitizationService());
         var resultado = await controller.AtivarCampanha(campanha.Id);
 
         Assert.IsType<AcceptedResult>(resultado);
@@ -389,7 +389,7 @@ public class CampaignsControllerTests : CampaignTestBase
         var controller = new CampaignsController(
             context,
             tenantProvider,
-            smtpCredentialProtector: protector);
+            smtpCredentialProtector: protector, htmlSanitizer: new PhishGuard.Backend.Services.HtmlSanitizationService());
         var resultado = await controller.RetryDispatch(campanha.Id);
 
         Assert.IsType<AcceptedResult>(resultado);
@@ -409,7 +409,7 @@ public class CampaignsControllerTests : CampaignTestBase
         campanha.Status = CampaignStatus.Agendada; // já agendada
         await context.SaveChangesAsync();
 
-        var controller = new CampaignsController(context, tenantProvider);
+        var controller = new CampaignsController(context, tenantProvider, htmlSanitizer: new PhishGuard.Backend.Services.HtmlSanitizationService());
 
         // Act
         var resultado = await controller.AtivarCampanha(campanha.Id);
@@ -445,7 +445,7 @@ public class CampaignsControllerTests : CampaignTestBase
         context.Targets.Add(alvo);
         await context.SaveChangesAsync();
 
-        var controller = new CampaignsController(context, tenantProvider);
+        var controller = new CampaignsController(context, tenantProvider, htmlSanitizer: new PhishGuard.Backend.Services.HtmlSanitizationService());
 
         // Datas SEM fuso (Kind=Unspecified) — o cenário problemático.
         var input = new CampaignInputDto
@@ -500,7 +500,7 @@ public class CampaignsControllerTests : CampaignTestBase
         context.Campaigns.Add(campanha);
         await context.SaveChangesAsync();
 
-        var controller = new CampaignsController(context, tenantProvider);
+        var controller = new CampaignsController(context, tenantProvider, htmlSanitizer: new PhishGuard.Backend.Services.HtmlSanitizationService());
 
         // Act
         var resultado = await controller.GetCampaigns();

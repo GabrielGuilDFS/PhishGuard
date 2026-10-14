@@ -15,6 +15,8 @@ node_modules/
 dist/
 build/
 .env
+# Private recovery snapshots may contain credentials, encryption keys and user data.
+/.backups/
 .DS_Store
 
 # Documentacao/relatorios gerados — nao essenciais para rodar o projeto.

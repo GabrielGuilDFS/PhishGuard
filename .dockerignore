@@ -1,0 +1,12 @@
+.git
+.backups
+.env
+.vs
+**/node_modules
+**/bin
+**/obj
+**/dist
+**/DataProtection-Keys
+**/TestResults
+**/test-results
+**/playwright-report

@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using PhishGuard.Backend.Controllers;
 using PhishGuard.Backend.Data;
 using PhishGuard.Backend.Models;
+using PhishGuard.Backend.Services;
 using Xunit;
 
 namespace PhishGuard.Tests.Controllers;
@@ -41,7 +42,7 @@ public class EducationalPagesControllerTests
         });
         await context.SaveChangesAsync();
 
-        var controller = new EducationalPagesController(context, provider);
+        var controller = new EducationalPagesController(context, provider, new HtmlSanitizationService());
         var resultado = await controller.PutPage(id, new PageInputDto
         {
             Nome = "Treinamento Interativo — Mercado Liv",
@@ -73,7 +74,7 @@ public class EducationalPagesControllerTests
         await context.SaveChangesAsync();
 
         provider.TenantIdAtivo = tenantB;
-        var controller = new EducationalPagesController(context, provider);
+        var controller = new EducationalPagesController(context, provider, new HtmlSanitizationService());
         var resultado = await controller.PutPage(pagina.Id, new PageInputDto
         {
             Nome = "Treinamento Interativo — Mercado Liv",

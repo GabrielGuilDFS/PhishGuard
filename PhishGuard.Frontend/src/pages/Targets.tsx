@@ -1,20 +1,20 @@
 import { useState, useEffect, useRef } from 'react';
 import { API_BASE } from '../config';
 import { authFetch, getToken } from '../auth/session';
+import { useNotify } from '../context/NotificationContext';
+import { apiErrorMessage } from '../utils/apiError';
 import { 
   Box, Button, Typography, Paper, Table, TableBody, TableCell, 
   TableContainer, TableHead, TableRow, IconButton, Dialog, 
   DialogTitle, DialogContent, DialogActions, TextField, Stack,
-  Snackbar, Alert, CircularProgress, Tooltip, InputAdornment
+  CircularProgress, Tooltip, InputAdornment, Alert
 } from '@mui/material';
-import { 
-  Delete as DeleteIcon, 
-  Edit as EditIcon, 
-  PersonAdd as PersonAddIcon,
-  FileUpload as UploadIcon,
-  Search as SearchIcon,
-  Send as SendIcon
-} from '@mui/icons-material';
+import DeleteIcon from '@mui/icons-material/Delete';
+import EditIcon from '@mui/icons-material/Edit';
+import PersonAddIcon from '@mui/icons-material/PersonAdd';
+import UploadIcon from '@mui/icons-material/FileUpload';
+import SearchIcon from '@mui/icons-material/Search';
+import SendIcon from '@mui/icons-material/Send';
 import Papa from 'papaparse';
 import PageContainer from '../components/PageContainer';
 
@@ -32,7 +32,7 @@ export default function Targets() {
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null); 
   const [novoAlvo, setNewTarget] = useState({ nome: '', email: '', departamento: '' });
-  const [notify, setNotify] = useState({ open: false, message: '', type: 'success' as 'success' | 'error' | 'info' });
+  const { showNotify } = useNotify();
   const [emailError, setEmailError] = useState<string | null>(null);
   // Cota de alvos do plano ativo do Tenant (Bronze: 50, Prata: 500).
   const [limiteAlvos, setLimiteAlvos] = useState<number | null>(null);
@@ -59,16 +59,14 @@ export default function Targets() {
       if (response.ok) {
         const data = await response.json();
         setTargets(data);
+      } else {
+        showNotify('Não foi possível carregar os alvos.', 'error');
       }
     } catch {
       showNotify("Erro ao conectar com o servidor", "error");
     } finally {
       setLoading(false);
     }
-  };
-
-  const showNotify = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
-    setNotify({ open: true, message, type });
   };
 
   // Consulta a cota do plano ativo para saber o limite de alvos permitido.
@@ -104,13 +102,14 @@ export default function Targets() {
         }
 
         let sucessos = 0;
+        let falhas = 0;
         const token = getToken();
 
         setLoading(true);
         for (const item of dadosCSV) {
           try {
             // 2. URL ATUALIZADA PARA TARGETS
-            await authFetch(`${API_BASE}/Targets`, {
+            const response = await authFetch(`${API_BASE}/Targets`, {
               method: 'POST',
               headers: { 
                 'Content-Type': 'application/json',
@@ -122,13 +121,14 @@ export default function Targets() {
                 departamento: item.departamento || item.setor || 'Geral' 
               })
             });
-            sucessos++;
+            if (response.ok) sucessos++;
+            else falhas++;
           } catch {
-            console.error("Falha ao importar linha", item);
+            falhas++;
           }
         }
         setLoading(false);
-        showNotify(`${sucessos} alvos importados com sucesso!`);
+        showNotify(`${sucessos} alvos importados. ${falhas} não importados (duplicados, inválidos, sem cota ou falha de conexão).`, falhas ? 'warning' : 'success');
         fetchTargets();
         fetchQuota();
       }
@@ -160,6 +160,8 @@ export default function Targets() {
         fetchTargets();
         fetchQuota();
         handleClose();
+      } else if (response.status === 409) {
+        showNotify(await apiErrorMessage(response, 'Não foi possível salvar este alvo.'), 'error');
       } else if (response.status === 400) {
         const raw = await response.text();
         let mensagem = "Falha ao salvar. Verifique os dados.";
@@ -199,7 +201,7 @@ export default function Targets() {
           fetchTargets();
           fetchQuota();
         } else {
-          showNotify("Falha ao remover o alvo.", "error");
+          showNotify(await apiErrorMessage(response, 'Falha ao remover o alvo.'), 'error');
         }
       } catch {
         showNotify("Erro de rede ao remover alvo.", "error");
@@ -355,8 +357,8 @@ export default function Targets() {
                         <SendIcon fontSize="small" />
                       </IconButton>
                     </Tooltip>
-                    <IconButton color="primary" onClick={() => handleEdit(target)}><EditIcon fontSize="small" /></IconButton>
-                    <IconButton color="error" onClick={() => handleDelete(target.id)}><DeleteIcon fontSize="small" /></IconButton>
+                    <IconButton aria-label="Editar alvo" color="primary" onClick={() => handleEdit(target)}><EditIcon fontSize="small" /></IconButton>
+                    <IconButton aria-label="Excluir alvo" color="error" onClick={() => handleDelete(target.id)}><DeleteIcon fontSize="small" /></IconButton>
                   </TableCell>
 
                 </TableRow>
@@ -378,6 +380,11 @@ export default function Targets() {
       <Dialog open={open} onClose={handleClose} fullWidth maxWidth="xs">
         <DialogTitle>{editId ? "Editar Alvo" : "Adicionar Novo Alvo"}</DialogTitle>
         <DialogContent>
+          {editId && (
+            <Alert severity="info" sx={{ mt: 1 }}>
+              Alterações no cadastro serão usadas nas próximas ativações. Campanhas já ativadas preservam o nome, o e-mail e o departamento registrados na ativação.
+            </Alert>
+          )}
           <TextField margin="normal" fullWidth label="Nome Completo" value={novoAlvo.nome} onChange={(e) => setNewTarget({...novoAlvo, nome: e.target.value})} />
           <TextField margin="normal" fullWidth label="E-mail Corporativo" value={novoAlvo.email} onChange={(e) => setNewTarget({...novoAlvo, email: e.target.value})} />
           {emailError && (
@@ -393,16 +400,6 @@ export default function Targets() {
         </DialogActions>
       </Dialog>
 
-      <Snackbar 
-        open={notify.open} 
-        autoHideDuration={4000} 
-        onClose={() => setNotify({ ...notify, open: false })}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-      >
-        <Alert severity={notify.type} variant="filled" sx={{ width: '100%' }}>
-          {notify.message}
-        </Alert>
-      </Snackbar>
     </PageContainer>
   );
 }

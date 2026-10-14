@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using PhishGuard.Backend.Controllers;
 using PhishGuard.Backend.Data;
 using PhishGuard.Backend.Models;
+using PhishGuard.Backend.DTOs;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -76,7 +77,7 @@ public class TargetsControllerTests
 
         var controller = new TargetsController(context, tenantProvider);
 
-        var novoAlvo = new Target
+        var novoAlvo = new TargetInputDto
         {
             Nome = "Fulano de Tal",
             Email = "fulano@teste.com",
@@ -167,7 +168,7 @@ public class TargetsControllerTests
             controller.ModelState.AddModelError("Email", "Formato de e-mail inválido.");
         }
 
-        var alvoInvalido = new Target
+        var alvoInvalido = new TargetInputDto
         {
             Nome = nome,
             Email = emailInvalido,
@@ -233,7 +234,7 @@ public class TargetsControllerTests
         await SemearAlvosAsync(context, PlanoLimites.LimiteAlvosBronze);
 
         var controller = new TargetsController(context, tenantProvider);
-        var alvoExcedente = new Target
+        var alvoExcedente = new TargetInputDto
         {
             Nome = "Alvo Excedente",
             Email = "excedente@teste.com",
@@ -265,7 +266,7 @@ public class TargetsControllerTests
         await SemearAlvosAsync(context, PlanoLimites.LimiteAlvosBronze);
 
         var controller = new TargetsController(context, tenantProvider);
-        var novoAlvo = new Target
+        var novoAlvo = new TargetInputDto
         {
             Nome = "Alvo 51",
             Email = "alvo51@teste.com",

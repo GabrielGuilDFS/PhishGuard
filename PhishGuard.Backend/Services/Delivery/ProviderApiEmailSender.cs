@@ -192,10 +192,14 @@ namespace PhishGuard.Backend.Services.Delivery
             string idempotencyKey,
             DateTimeOffset now)
         {
-            var senderEmail = configuration.SenderEmail;
-            var senderName = string.IsNullOrWhiteSpace(configuration.SenderName)
-                ? message.FromName
-                : configuration.SenderName;
+            var hasSender = !string.IsNullOrWhiteSpace(message.FromEmail);
+            var senderEmail = hasSender ? message.FromEmail : configuration.SenderEmail;
+            var senderName = hasSender ? message.FromName : configuration.SenderName;
+            if (string.IsNullOrWhiteSpace(senderEmail) || senderEmail.Any(char.IsControl)
+                || senderName.Any(character => character is '\r' or '\n')
+                || !MailboxAddress.TryParse(senderEmail, out var mailbox)
+                || mailbox.Address != senderEmail)
+                throw new ArgumentException("O remetente da mensagem é inválido.");
 
             if (configuration.ApiProvider == ApiProviderName.AwsSes)
                 return BuildAwsSesRequest(configuration, message, senderEmail, senderName, apiSecret, idempotencyKey, now);

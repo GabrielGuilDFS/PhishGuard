@@ -47,6 +47,10 @@ public sealed class DashboardOverviewService : IDashboardOverviewService
             .Select(t => t.Departamento)
             .Distinct()
             .ToListAsync(cancellationToken);
+        var historicalDepartments = await _context.CampaignTargets.AsNoTracking()
+            .Where(p => p.TenantId == tenantId && p.SnapshotCapturedAtUtc.HasValue)
+            .Select(p => p.DepartmentSnapshot ?? string.Empty).Distinct().ToListAsync(cancellationToken);
+        departments.AddRange(historicalDepartments);
 
         var availableDepartments = departments
             .Select(d => d?.Trim())
@@ -95,7 +99,14 @@ public sealed class DashboardOverviewService : IDashboardOverviewService
         {
             var filteredTargets = _context.Targets.Where(t => t.TenantId == tenantId
                 && matchingDepartments.Contains(t.Departamento));
-            logsQuery = logsQuery.Where(l => filteredTargets.Any(t => t.Id == l.TargetId));
+            // Department belongs to the campaign recipient, not today's employee record.
+            // Old records without a captured association retain an explicit legacy fallback.
+            logsQuery = logsQuery.Where(l => _context.CampaignTargets.Any(p => p.TenantId == tenantId
+                    && p.CampaignsId == l.CampaignId && p.TargetsId == l.TargetId && p.SnapshotCapturedAtUtc.HasValue
+                    && matchingDepartments.Contains(p.DepartmentSnapshot ?? string.Empty))
+                || (!_context.CampaignTargets.Any(p => p.TenantId == tenantId && p.CampaignsId == l.CampaignId
+                    && p.TargetsId == l.TargetId && p.SnapshotCapturedAtUtc.HasValue)
+                    && filteredTargets.Any(t => t.Id == l.TargetId)));
         }
 
         // O ciclo anterior só participa do delta de envios: conte no banco.
@@ -129,10 +140,16 @@ public sealed class DashboardOverviewService : IDashboardOverviewService
             .FirstOrDefaultAsync(cancellationToken) ?? string.Empty;
 
         var campaignIds = currentSent.Select(k => k.CampaignId).Distinct().ToArray();
+        var snapshots = await _context.CampaignTargets.AsNoTracking()
+            .Where(p => p.TenantId == tenantId && campaignIds.Contains(p.CampaignsId))
+            .Select(p => new { p.CampaignsId, p.TargetsId, p.SnapshotCapturedAtUtc, p.IsLegacySnapshot })
+            .ToListAsync(cancellationToken);
+        var authoritativeHistory = snapshots.Where(p => p.SnapshotCapturedAtUtc.HasValue && !p.IsLegacySnapshot)
+            .Select(p => new DashboardEmailKey(p.CampaignsId, p.TargetsId)).ToHashSet();
         var campaigns = await _context.Campaigns
             .AsNoTracking()
             .Where(c => c.TenantId == tenantId && campaignIds.Contains(c.Id))
-            .Select(c => new { c.Id, c.NomeCampanha, c.Status, c.DataInicio })
+            .Select(c => new { c.Id, c.NomeCampanha, c.Status, c.DataInicio, c.IsLegacySnapshot, c.SnapshotCapturedAtUtc })
             .OrderByDescending(c => c.DataInicio)
             .Take(10)
             .ToListAsync(cancellationToken);
@@ -151,6 +168,7 @@ public sealed class DashboardOverviewService : IDashboardOverviewService
             return new DashboardRecentCampaignDto
             {
                 Id = c.Id,
+                IsLegacySnapshot = c.IsLegacySnapshot || !c.SnapshotCapturedAtUtc.HasValue,
                 Name = c.NomeCampanha,
                 Status = c.Status,
                 Date = c.DataInicio,
@@ -178,7 +196,8 @@ public sealed class DashboardOverviewService : IDashboardOverviewService
             {
                 CampaignCount = campaignIds.Length,
                 UniqueTargetCount = currentSent.Select(key => key.TargetId).Distinct().Count(),
-                CampaignTargetCount = currentSent.Count
+                CampaignTargetCount = currentSent.Count,
+                LegacyCampaignTargetCount = currentSent.Count(key => !authoritativeHistory.Contains(key))
             },
             AvailableDepartments = availableDepartments,
             Kpis = new DashboardKpisDto

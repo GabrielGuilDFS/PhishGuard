@@ -16,10 +16,11 @@ afterEach(() => {
 
 describe('Campaigns — compatibilidade dos cenários restaurados', () => {
   it.each([
-    ['mercado-liv-novo-acesso', 'mercado-liv-login', 'cenario-mercado-liv', 'Mercado Liv'],
-    ['mercadoliv-novo-acesso', 'mercadoliv-login', 'cenario-mercado-liv', 'Mercado Liv'],
-    ['microcorp-expiracao-senha', 'microcorp-login', 'cenario-microcorp', 'Microsft 365'],
-  ])('edita campanha com %s sem duplicar seus recursos', async (emailId, landingId, scenarioId, oldBrand) => {
+    ['mercado-liv-novo-acesso', 'mercado-liv-login', 'cenario-mercado-liv', 'Mercado Liv', false],
+    ['mercadoliv-novo-acesso', 'mercadoliv-login', 'cenario-mercado-liv', 'Mercado Liv', false],
+    ['microcorp-expiracao-senha', 'microcorp-login', 'cenario-microcorp', 'Microsft 365', false],
+    ['microcorp-expiracao-senha', 'microcorp-login', 'cenario-microcorp', 'Microsft 365', true],
+  ] as [string, string, string, string, boolean][])('edita campanha com %s preservando recursos ativados quando necess�rio', async (emailId, landingId, scenarioId, oldBrand, frozen) => {
     const user = userEvent.setup();
     setToken(jwtDeTeste({
       tenant_id: '11111111-1111-1111-1111-111111111111',
@@ -39,6 +40,9 @@ describe('Campaigns — compatibilidade dos cenários restaurados', () => {
       const path = new URL(String(input), 'http://localhost').pathname;
       if (init?.method && init.method !== 'GET') {
         mutations.push({ path, method: init.method, body: JSON.parse(String(init.body)) });
+        if (frozen && init.method === 'PUT' && !path.includes('/Campaigns'))
+          return new Response(JSON.stringify({ message: 'Recurso usado por campanha ativada.' }), { status: 409 });
+        if (init.method === 'POST') return new Response(JSON.stringify({ id: `copy-${path.split('/').pop()}`, nome: 'C�pia' }), { status: 201 });
         return new Response('{}', { status: 200 });
       }
       const responses: Record<string, unknown> = {
@@ -63,7 +67,15 @@ describe('Campaigns — compatibilidade dos cenários restaurados', () => {
     await screen.findByRole('dialog', { name: 'Editar Campanha' });
     expect(screen.getByRole('combobox', { name: /Cenário de Simulação/i })).toHaveValue(cenario.nome);
     await user.click(screen.getByRole('button', { name: 'Salvar' }));
-    await waitFor(() => expect(mutations).toHaveLength(4));
+    await waitFor(() => expect(mutations).toHaveLength(frozen ? 7 : 4));
+    if (frozen) {
+      expect(mutations.filter(item => item.method === 'POST')).toHaveLength(3);
+      expect(mutations[6]).toMatchObject({
+        path: '/api/Campaigns/campaign-1', method: 'PUT',
+        body: { emailTemplateId: 'copy-Templates', landingPageId: 'copy-PhishingPages', educationalPageId: 'copy-EducationalPages' },
+      });
+      return;
+    }
     expect(mutations[0]).toMatchObject({
       path: '/api/Templates/email-row', method: 'PUT',
       body: { id: 'email-row', assunto: 'Assunto preservado', remetenteEmail: 'training@example.test', corpoHtml: emailId },

@@ -208,6 +208,45 @@ public class CampaignDispatchServiceTests
     }
 
     [Fact]
+    public async Task Dispatch_UsesFrozenRecipientForSendAndDestinationAllowListAfterCurrentRecordChanges()
+    {
+        var (ctx, campaign) = await SemearCampanhaAsync("original@test.io");
+        var target = campaign.Targets.Single();
+        var participant = campaign.CampaignTargets.Single();
+        var capturedAt = DateTime.UtcNow;
+        participant.TargetNameSnapshot = "Nome original";
+        participant.TargetEmailSnapshot = target.Email;
+        participant.DepartmentSnapshot = "TI";
+        participant.SnapshotCapturedAtUtc = capturedAt;
+        campaign.SnapshotCapturedAtUtc = capturedAt;
+        campaign.EmailBodySnapshot = "<p>Mensagem original para {{NOME}}</p>";
+        campaign.EmailSubjectSnapshot = "Assunto congelado";
+        campaign.SenderEmailSnapshot = "sender@test.io";
+        campaign.SenderNameSnapshot = "Equipe original";
+        await ctx.SaveChangesAsync();
+        target.Email = "current@outside.io";
+        target.Nome = "Nome atual";
+        campaign.Template.CorpoHtml = "<p>Mensagem alterada</p>";
+        await ctx.SaveChangesAsync();
+        var client = new FakeSmtpClient(_ => false);
+        var service = CriarServicoComConfig(ctx, client, new Dictionary<string, string?>
+        {
+            ["AppSettings:OutboundEmailAllowedDomains"] = "test.io",
+            ["AppSettings:SmtpThrottleMs"] = "0"
+        });
+        await service.DispatchAsync(campaign);
+        await service.DispatchAsync(campaign);
+        Assert.Equal(new[] { "original@test.io" }, client.Enviados);
+        Assert.Equal("Assunto congelado", client.UltimaMensagem!.Subject);
+        Assert.Equal("sender@test.io", client.UltimaMensagem.From.Mailboxes.Single().Address);
+        Assert.Equal("Equipe original", client.UltimaMensagem.From.Mailboxes.Single().Name);
+        Assert.Contains("Nome original", client.UltimaMensagem.HtmlBody);
+        Assert.DoesNotContain("Mensagem alterada", client.UltimaMensagem.HtmlBody);
+        Assert.Single(await LogsAsync(ctx, campaign.Id, SimulationActions.Envio));
+        Assert.Empty(await LogsAsync(ctx, campaign.Id, SimulationActions.Falha));
+    }
+
+    [Fact]
     public async Task Envio_CincoAlvos_GeraUmaEntregaIdempotentePorDestinatario()
     {
         var emails = Enumerable.Range(1, 5)

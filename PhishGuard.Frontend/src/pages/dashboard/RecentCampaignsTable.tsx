@@ -146,6 +146,11 @@ export default function RecentCampaignsTable({
                 <TableRow key={campaign.id} hover>
                   <TableCell component="th" scope="row" sx={{ fontWeight: 650, maxWidth: 260 }}>
                     <Typography variant="body2" noWrap title={campaign.name}>{campaign.name}</Typography>
+                    {campaign.isLegacySnapshot && (
+                      <Tooltip title="Dados preservados na atualização. O departamento e o conteúdo originais na data do envio não podem ser confirmados.">
+                        <Chip label="Histórico legado" size="small" variant="outlined" sx={{ mt: 0.5 }} />
+                      </Tooltip>
+                    )}
                   </TableCell>
                   <TableCell align="center">
                     <Chip

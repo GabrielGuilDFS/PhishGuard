@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { render, screen, act } from '@testing-library/react';
+import { render, screen, act, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 // Teste de UI co-located (padrão de espelhamento do frontend).
 import Campaigns from './Campaigns';
@@ -18,6 +18,9 @@ let statusAtual = 'Agendada';
 let dataFimAtual: string | null = null;
 let smtpConfigurado = true;
 let smtpTransporteDisponivel = true;
+let isLegacySnapshot = false;
+let snapshotCapturedAtUtc: string | null = null;
+let hasHistory = false;
 
 function campanha() {
   return {
@@ -29,10 +32,19 @@ function campanha() {
     templateNome: 'Isca',
     landingPageNome: 'Pagina',
     educationalPageNome: 'Edu',
+    isLegacySnapshot,
+    snapshotCapturedAtUtc,
+    hasHistory,
   };
 }
 
 const fetchMock = vi.fn((url: string) => {
+  if (String(url).endsWith('/Campaigns/c1')) {
+    return Promise.resolve({ ok: true, json: async () => ({ ...campanha(),
+      snapshotCapturedAtUtc: '2026-10-03T01:00:00Z',
+      targetsSnapshot: [{ targetId: 't1', name: 'Nome na ativação', email: 'email-historico@example.test', department: 'Departamento histórico' }],
+    }) });
+  }
   if (String(url).includes('/Campaigns')) {
     return Promise.resolve({ ok: true, json: async () => [campanha()] });
   }
@@ -74,6 +86,9 @@ beforeEach(() => {
   dataFimAtual = null;
   smtpConfigurado = true;
   smtpTransporteDisponivel = true;
+  isLegacySnapshot = false;
+  snapshotCapturedAtUtc = null;
+  hasHistory = false;
   vi.stubGlobal('fetch', fetchMock);
   setToken(jwtDeTeste({
     tenant_id: '11111111-1111-1111-1111-111111111111',
@@ -89,6 +104,61 @@ afterEach(() => {
 });
 
 describe('Campaigns — atualização reativa do status (polling inteligente)', () => {
+  it.each(['snapshot', 'history'] as const)('bloqueia ações e oferece consulta em rascunho legado protegido por %s', async (protection) => {
+    statusAtual = 'Rascunho';
+    isLegacySnapshot = true;
+    snapshotCapturedAtUtc = protection === 'snapshot' ? '2026-10-03T01:00:00Z' : null;
+    hasHistory = protection === 'history';
+    renderTela('/admin/campaigns?editar=c1');
+    await flush();
+    expect(screen.getByTitle('Campanhas ativadas ou com histórico preservam sua configuração')).toBeDisabled();
+    expect(screen.getByTitle('Campanhas ativadas ou com histórico preservam seu histórico')).toBeDisabled();
+    expect(screen.queryByTitle('Ativar Campanha')).not.toBeInTheDocument();
+    // The deep-link has opened a modal, so MUI hides the background from the
+    // accessibility tree while keeping the read-only action in the table.
+    expect(screen.getByLabelText('Ver dados preservados de Campanha 1')).toBeEnabled();
+    expect(screen.getByRole('dialog', { name: 'Dados preservados da campanha' })).toBeInTheDocument();
+    expect(screen.getByText('email-historico@example.test')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Salvar' })).not.toBeInTheDocument();
+  });
+
+  it('abre detalhes somente leitura e exibe destinatários da ativação', async () => {
+    statusAtual = 'Em Andamento';
+    renderTela();
+    await flush();
+    fireEvent.click(screen.getByRole('button', { name: 'Ver dados preservados de Campanha 1' }));
+    await flush();
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    expect(screen.getByText('email-historico@example.test')).toBeInTheDocument();
+    expect(screen.getByText('Departamento histórico')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Salvar' })).not.toBeInTheDocument();
+    expect(fetchMock.mock.calls.some(([url]) => String(url).includes('/Targets'))).toBe(false);
+  });
+
+  it('identifica campanhas legadas e comunica que a exclusão preserva histórico', async () => {
+    isLegacySnapshot = true;
+    renderTela();
+    await flush();
+    expect(screen.getByText('Histórico legado')).toBeInTheDocument();
+    expect(screen.getByText(/Somente rascunhos sem histórico podem ser excluídos/)).toBeInTheDocument();
+    expect(screen.queryByText(/exclusão permanente de campanhas antigas/i)).not.toBeInTheDocument();
+  });
+
+  it('bloqueia edição e exclusão de campanhas ativadas', async () => {
+    statusAtual = 'Em Andamento';
+    renderTela();
+    await flush();
+    expect(screen.getByTitle('Campanhas ativadas ou com histórico preservam sua configuração')).toBeDisabled();
+    expect(screen.getByTitle('Campanhas ativadas ou com histórico preservam seu histórico')).toBeDisabled();
+  });
+
+  it('mantém ações disponíveis para rascunhos', async () => {
+    statusAtual = 'Rascunho';
+    renderTela();
+    await flush();
+    expect(screen.getByTitle('Editar')).toBeEnabled();
+    expect(screen.getByTitle('Excluir')).toBeEnabled();
+  });
   it('atualiza Processando em dois segundos e encerra polling ao concluir', async () => {
     statusAtual = 'Processando';
     renderTela();

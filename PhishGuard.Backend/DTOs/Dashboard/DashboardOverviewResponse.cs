@@ -29,6 +29,7 @@ public sealed class DashboardScopeDto
     public int CampaignCount { get; init; }
     public int UniqueTargetCount { get; init; }
     public int CampaignTargetCount { get; init; }
+    public int LegacyCampaignTargetCount { get; init; }
 }
 
 public sealed class DashboardKpisDto
@@ -84,6 +85,7 @@ public sealed class DashboardTrendPointDto
 public sealed class DashboardRecentCampaignDto
 {
     public Guid Id { get; init; }
+    public bool IsLegacySnapshot { get; init; }
     public string Name { get; init; } = string.Empty;
     public string Status { get; init; } = string.Empty;
     public DateTime Date { get; init; }

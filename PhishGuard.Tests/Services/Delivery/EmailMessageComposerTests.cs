@@ -17,7 +17,7 @@ public sealed class EmailMessageComposerTests
             Template = new Template { CorpoHtml = templateId, RemetenteNome = "Mercado Livre", Assunto = "Novo acesso" }
         };
         var target = new Target { Id = Guid.NewGuid(), Nome = "Pessoa de teste", Email = "target@example.test" };
-        var composer = new EmailMessageComposer(new TrackingTokenService(), "https://api.example.test");
+        var composer = new EmailMessageComposer(new TrackingTokenService(), "https://api.example.test", new PhishGuard.Backend.Services.HtmlSanitizationService());
 
         var message = composer.Compose(campaign, target, "training@example.test");
 
@@ -50,12 +50,12 @@ public sealed class EmailMessageComposerTests
                 CorpoHtml = "<p>Olá {{NOME}} <a href=\"{{LINK}}\">abrir</a></p><img src=\"cid:logo-bhomax\">"
             }
         };
-        var composer = new EmailMessageComposer(new TrackingTokenService(), "https://api.example.test");
+        var composer = new EmailMessageComposer(new TrackingTokenService(), "https://api.example.test", new PhishGuard.Backend.Services.HtmlSanitizationService());
 
         var message = composer.Compose(campaign, target, "sender@example.com");
 
         Assert.Equal("sender@example.com", message.FromEmail);
-        Assert.Contains("Olá Álvaro", message.HtmlBody);
+        Assert.Contains("Olá Álvaro", System.Net.WebUtility.HtmlDecode(message.HtmlBody));
         Assert.Contains($"https://api.example.test/api/tracking/click/{campaign.Id}/{target.Id}?k=signed-token", message.HtmlBody);
         Assert.Contains($"https://api.example.test/api/tracking/open/{campaign.Id}/{target.Id}?k=signed-token", message.HtmlBody);
         Assert.Single(message.InlineAttachments);

@@ -16,6 +16,11 @@ namespace PhishGuard.Backend.Models
         [EmailAddress(ErrorMessage = "O formato do e-mail é inválido.")]
         public string Email { get; set; } = string.Empty;
 
+        [JsonIgnore]
+        public string EmailNormalizado { get; set; } = string.Empty;
+
+        public static string NormalizeEmail(string email) => email.Trim().ToLowerInvariant();
+
         public string Departamento { get; set; } = string.Empty;
 
         [JsonIgnore]
@@ -23,5 +28,8 @@ namespace PhishGuard.Backend.Models
 
         [JsonIgnore]    
         public ICollection<Campaign> Campaigns { get; set; } = new List<Campaign>();
+
+        [JsonIgnore]
+        public ICollection<CampaignTarget> CampaignTargets { get; set; } = new List<CampaignTarget>();
     }
 }

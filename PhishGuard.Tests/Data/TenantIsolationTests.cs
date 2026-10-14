@@ -66,6 +66,7 @@ public class TenantIsolationTests
             LandingPageId = phishing.Id,
             EducationalPageId = edu.Id,
             CriadoEm = DateTime.UtcNow,
+            Targets = [target],
         };
         db.Campaigns.Add(campaign);
         await db.SaveChangesAsync();

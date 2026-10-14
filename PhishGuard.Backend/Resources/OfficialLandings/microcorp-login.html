@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Recuperar sua conta | Microsoft</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  .mc-page {
+    position: relative;
+    min-height: 100vh;
+    min-height: 100svh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 64px 24px 96px;
+    background: #f3f3f8 url('/scenarios/microsoft-background-wide.webp') center center / cover no-repeat;
+    color: #1b1b1b;
+    font-family: 'Segoe UI', system-ui, -apple-system, Roboto, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .mc-card {
+    width: 100%;
+    max-width: 440px;
+    background: #ffffff;
+    padding: 36px 44px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+  }
+  .mc-brand { display: flex; align-items: center; gap: 8px; }
+  .mc-logo { display: grid; grid-template-columns: 11px 11px; grid-template-rows: 11px 11px; gap: 2px; }
+  .mc-logo i { display: block; width: 11px; height: 11px; }
+  .mc-brand span { font-size: 15px; font-weight: 600; color: #5e5e5e; }
+  .mc-title { margin-top: 24px; font-size: 24px; font-weight: 600; line-height: 1.2; color: #1b1b1b; }
+  .mc-desc { margin-top: 16px; font-size: 15px; line-height: 1.4; color: #1b1b1b; }
+  .mc-field { margin-top: 20px; }
+  .mc-input {
+    width: 100%;
+    padding: 0 0 6px 0;
+    font-size: 15px;
+    color: #1b1b1b;
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid #666666;
+    outline: none;
+  }
+  .mc-input::placeholder { color: #767676; }
+  .mc-input:focus { border-bottom: 2px solid #0067b8; }
+  .mc-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 36px; }
+  .mc-btn {
+    min-width: 108px;
+    height: 32px;
+    padding: 0 16px;
+    font-size: 15px;
+    border: none;
+    cursor: pointer;
+    transition: background 0.15s ease;
+  }
+  .mc-btn-secondary { background: #e6e6e6; color: #1b1b1b; }
+  .mc-btn-secondary:hover { background: #dadada; }
+  .mc-btn-primary { background: #0067b8; color: #ffffff; }
+  .mc-btn-primary:hover { background: #005da6; }
+  .mc-foot {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+    padding: 12px 16px;
+    font-size: 13px;
+    color: #1b1b1b;
+  }
+  .mc-foot-links { display: flex; gap: 20px; }
+  .mc-foot a { color: inherit; text-decoration: none; }
+  .mc-foot a:hover { text-decoration: underline; }
+  .mc-foot a.mc-link { color: #0067b8; }
+  @media (max-width: 600px) {
+    .mc-page { padding: 32px 16px 16px; background-image: url('/scenarios/microsoft-background-mobile.webp'); }
+    .mc-card { padding: 32px 24px; }
+    .mc-foot { position: static; align-items: center; text-align: center; margin-top: 32px; padding: 12px 0; }
+  }
+  @media (max-height: 620px) {
+    .mc-page { justify-content: flex-start; padding-top: 24px; padding-bottom: 16px; }
+    .mc-foot { position: static; margin-top: 24px; }
+  }
+</style>
+</head>
+<body>
+  <div class="mc-page">
+  <div class="mc-card">
+    <div class="mc-brand">
+      <div class="mc-logo" aria-hidden="true">
+        <i style="background:#e8452a"></i>
+        <i style="background:#6faf12"></i>
+        <i style="background:#1b9de0"></i>
+        <i style="background:#f5a800"></i>
+      </div>
+      <span>Microsoft</span>
+    </div>
+
+    <h1 class="mc-title">Recuperar sua conta</h1>
+
+    <p class="mc-desc">Podemos ajudá-lo a redefinir sua senha e informações de segurança. Primeiro, insira sua senha e e-mail da conta institucional e siga as instruções a seguir.</p>
+
+    <!-- Telemetria segura: intercepta o submit, envia SOMENTE metadados (flags/tamanho),
+         nunca e-mail/senha reais, e encaminha para o treinamento de conscientização. -->
+    <form class="mc-form"
+      onsubmit="event.preventDefault();var qs=new URLSearchParams(window.location.search);var c='{{CAMPAIGN_ID}}'||qs.get('c')||'';var t='{{TARGET_ID}}'||qs.get('t')||'';var k='{{TRACKING_TOKEN}}'||qs.get('k')||'';var e=(document.getElementById('mc-email')||{}).value||'';var p=(document.getElementById('mc-password')||{}).value||'';var meta={camposPreenchidos:(e.length>0&&p.length>0),senhasCoincidem:true,tamanhoSenha:p.length};fetch('/api/tracking/submit/'+c+'/'+t+'?k='+encodeURIComponent(k),{method:'POST',headers:{'Content-Type':'application/json','ngrok-skip-browser-warning':'true'},body:JSON.stringify(meta)}).catch(function(){}).finally(function(){window.location.href='/educational-feedback?template=microsft365&c='+encodeURIComponent(c)+'&t='+encodeURIComponent(t)+'&k='+encodeURIComponent(k);});return false;">
+
+      <div class="mc-field">
+        <input class="mc-input" id="mc-email" name="email" type="text" autocomplete="username" placeholder="Email" aria-label="Email" required>
+      </div>
+
+      <div class="mc-field">
+        <input class="mc-input" id="mc-password" name="password" type="password" autocomplete="current-password" placeholder="Senha" aria-label="Senha" required>
+      </div>
+
+      <div class="mc-actions">
+        <button type="button" class="mc-btn mc-btn-secondary" onclick="window.location.href='/educational-feedback?template=microsft365&c={{CAMPAIGN_ID}}&t={{TARGET_ID}}';">Cancelar</button>
+        <button type="submit" class="mc-btn mc-btn-primary">Avançar</button>
+      </div>
+    </form>
+  </div>
+
+  <footer class="mc-foot">
+    <div class="mc-foot-links">
+      <a href="#">Termos de uso</a>
+      <a href="#">Privacidade e cookies</a>
+    </div>
+    <p>Use a navegação privada se esse não for seu dispositivo. <a href="#" class="mc-link">Saiba mais</a></p>
+  </footer>
+  </div>
+</body>
+</html>

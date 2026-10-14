@@ -101,7 +101,14 @@ namespace PhishGuard.Backend.Services.Delivery
                 await retryPolicy.ExecuteAsync(GarantirConexaoAsync, cancellationToken);
 
                 var mimeMessage = new MimeMessage();
-                mimeMessage.From.Add(new MailboxAddress(outbound.FromName, config.Usuario));
+                var hasSender = !string.IsNullOrWhiteSpace(outbound.FromEmail);
+                var senderEmail = hasSender ? outbound.FromEmail : config.Usuario;
+                var senderName = hasSender ? outbound.FromName
+                    : string.IsNullOrWhiteSpace(outbound.FromName) ? config.SenderName : outbound.FromName;
+                if (string.IsNullOrWhiteSpace(senderEmail) || senderEmail.Any(char.IsControl)
+                    || senderName.Any(character => character is '\r' or '\n'))
+                    return EmailSendResult.Fail("EMAIL_SENDER_INVALID", "O remetente da mensagem é inválido.");
+                mimeMessage.From.Add(new MailboxAddress(senderName, senderEmail));
                 mimeMessage.To.Add(new MailboxAddress(outbound.ToName, outbound.ToEmail));
                 mimeMessage.Subject = outbound.Subject;
                 mimeMessage.Headers.Add("X-PhishGuard-Idempotency-Key", idempotencyKey);

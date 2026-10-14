@@ -5,6 +5,7 @@ import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
 import { axe } from 'vitest-axe';
 import LandingPage from './LandingPage';
+import { NotificationProvider } from '../context/NotificationContext';
 
 // Auditoria de acessibilidade automatizada das landings (Passo 10 — Onda 2 da P1).
 // A landing servida é HTML de molde oficial resolvido por ID via API (interceptada
@@ -25,11 +26,13 @@ function renderLanding(conteudoHtml: string) {
     http.get('/api/PhishingPages/:id', () => HttpResponse.json({ conteudoHtml })),
   );
   return render(
+    <NotificationProvider>
     <MemoryRouter initialEntries={['/landing/pp-1?c=camp-abc&t=tgt-xyz']}>
       <Routes>
         <Route path="/landing/:id" element={<LandingPage />} />
       </Routes>
-    </MemoryRouter>,
+    </MemoryRouter>
+    </NotificationProvider>,
   );
 }
 

@@ -12,6 +12,7 @@ namespace PhishGuard.Backend.Data
     public class AppDbContext : DbContext, IDataProtectionKeyContext
     {
         private readonly ITenantProvider _tenantProvider;
+        private Guid? _systemTenantScopeId;
 
         public AppDbContext(
             DbContextOptions<AppDbContext> options, 
@@ -44,12 +45,37 @@ namespace PhishGuard.Backend.Data
         public DbSet<PhishingPage> PhishingPages { get; set; }
         public DbSet<EducationalPage> EducationalPages { get; set; }
         public DbSet<Campaign> Campaigns { get; set; }
+        public DbSet<CampaignTarget> CampaignTargets { get; set; }
         public DbSet<SimulationLog> SimulationsLogs { get; set; }
         public DbSet<CampaignDelivery> CampaignDeliveries { get; set; }
         public DbSet<AuthSession> AuthSessions { get; set; }
         public DbSet<DataProtectionKey> DataProtectionKeys { get; set; }
 
-        public Guid TenantIdAtual => _tenantProvider.GetTenantId();
+        public Guid TenantIdAtual => _systemTenantScopeId ?? _tenantProvider.GetTenantId();
+
+        // A signed public campaign link has no JWT tenant. Its capability service opens
+        // a narrow, disposable tenant scope so even anonymous reads retain query filters.
+        internal IDisposable UseSystemTenantScope(Guid tenantId)
+        {
+            var requestTenant = _tenantProvider.GetTenantId();
+            if (tenantId == Guid.Empty || (requestTenant != Guid.Empty && requestTenant != tenantId)
+                || (_systemTenantScopeId.HasValue && _systemTenantScopeId.Value != tenantId))
+                throw new InvalidOperationException("Escopo de tenant inválido.");
+            var previous = _systemTenantScopeId;
+            _systemTenantScopeId = tenantId;
+            return new TenantScope(this, previous);
+        }
+
+        private sealed class TenantScope(AppDbContext context, Guid? previous) : IDisposable
+        {
+            private bool _disposed;
+            public void Dispose()
+            {
+                if (_disposed) return;
+                context._systemTenantScopeId = previous;
+                _disposed = true;
+            }
+        }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {   
@@ -85,6 +111,9 @@ namespace PhishGuard.Backend.Data
 
             modelBuilder.Entity<Administrador>(entity =>
             {
+                entity.HasAlternateKey(a => new { a.TenantId, a.Id });
+                entity.HasOne<Tenant>().WithMany(t => t.Administradores).HasForeignKey(a => a.TenantId)
+                    .OnDelete(DeleteBehavior.Cascade);
                 entity.HasQueryFilter(a => a.TenantId == this.TenantIdAtual);
 
                 entity.Property(e => e.Nome)
@@ -115,6 +144,9 @@ namespace PhishGuard.Backend.Data
             modelBuilder.Entity<Target>(entity =>
             {
                 entity.ToTable("Alvos"); 
+                entity.HasAlternateKey(a => new { a.TenantId, a.Id });
+                entity.HasOne<Tenant>().WithMany(t => t.Alvos).HasForeignKey(a => a.TenantId)
+                    .OnDelete(DeleteBehavior.Cascade);
 
                 entity.HasQueryFilter(a => a.TenantId == this.TenantIdAtual);
 
@@ -126,10 +158,32 @@ namespace PhishGuard.Backend.Data
                     .IsRequired()
                     .HasMaxLength(150); 
 
+                entity.Property(e => e.EmailNormalizado).IsRequired().HasMaxLength(150);
+                entity.HasIndex(e => new { e.TenantId, e.EmailNormalizado })
+                    .IsUnique().HasDatabaseName("ux_alvos_tenant_email_normalizado");
+
                 entity.Property(e => e.Departamento)
                     .IsRequired()
                     .HasMaxLength(80); 
             });
+
+            modelBuilder.Entity<Campaign>().HasMany(c => c.Targets).WithMany(t => t.Campaigns)
+                .UsingEntity<CampaignTarget>(
+                    right => right.HasOne(p => p.Target).WithMany(t => t.CampaignTargets)
+                        .HasForeignKey(p => new { p.TenantId, p.TargetsId })
+                        .HasPrincipalKey(t => new { t.TenantId, t.Id })
+                        .OnDelete(DeleteBehavior.Restrict),
+                    left => left.HasOne(p => p.Campaign).WithMany(c => c.CampaignTargets)
+                        .HasForeignKey(p => new { p.TenantId, p.CampaignsId })
+                        .HasPrincipalKey(c => new { c.TenantId, c.Id })
+                        .OnDelete(DeleteBehavior.Cascade),
+                    join =>
+                    {
+                        join.ToTable("campaign_target");
+                        join.HasKey(p => new { p.CampaignsId, p.TargetsId });
+                        join.HasAlternateKey(p => new { p.TenantId, p.CampaignsId, p.TargetsId });
+                        join.HasQueryFilter(p => p.TenantId == this.TenantIdAtual);
+                    });
 
             modelBuilder.Entity<SmtpConfig>(entity =>
             {
@@ -187,6 +241,7 @@ namespace PhishGuard.Backend.Data
             modelBuilder.Entity<Template>(entity =>
             {
                 entity.ToTable("Templates");
+                entity.HasAlternateKey(t => new { t.TenantId, t.Id });
 
                 entity.HasQueryFilter(t => t.TenantId == this.TenantIdAtual);
 
@@ -205,6 +260,7 @@ namespace PhishGuard.Backend.Data
             modelBuilder.Entity<PhishingPage>(entity =>
             {
                 entity.ToTable("PhishingPages");
+                entity.HasAlternateKey(p => new { p.TenantId, p.Id });
 
                 entity.HasQueryFilter(p => p.TenantId == this.TenantIdAtual);
 
@@ -219,6 +275,7 @@ namespace PhishGuard.Backend.Data
             modelBuilder.Entity<EducationalPage>(entity =>
             {
                 entity.ToTable("EducationalPages");
+                entity.HasAlternateKey(p => new { p.TenantId, p.Id });
 
                 entity.HasQueryFilter(e => e.TenantId == this.TenantIdAtual);
 
@@ -233,6 +290,7 @@ namespace PhishGuard.Backend.Data
             modelBuilder.Entity<Campaign>(entity =>
             {
                 entity.ToTable("Campaigns");
+                entity.HasAlternateKey(c => new { c.TenantId, c.Id });
 
                 entity.HasQueryFilter(c => c.TenantId == this.TenantIdAtual);
 
@@ -275,11 +333,17 @@ namespace PhishGuard.Backend.Data
                 // página (falsa/educativa) NÃO pode derrubar campanhas antigas em cascata —
                 // isso destruiria o histórico de relatórios. RESTRICT bloqueia a exclusão do
                 // recurso enquanto houver campanha que o referencie.
-                entity.HasOne(c => c.Template).WithMany().HasForeignKey(c => c.EmailTemplateId)
+                entity.HasOne(c => c.Template).WithMany()
+                    .HasForeignKey(c => new { c.TenantId, c.EmailTemplateId })
+                    .HasPrincipalKey(t => new { t.TenantId, t.Id })
                     .OnDelete(DeleteBehavior.Restrict);
-                entity.HasOne(c => c.PhishingPage).WithMany().HasForeignKey(c => c.LandingPageId)
+                entity.HasOne(c => c.PhishingPage).WithMany()
+                    .HasForeignKey(c => new { c.TenantId, c.LandingPageId })
+                    .HasPrincipalKey(p => new { p.TenantId, p.Id })
                     .OnDelete(DeleteBehavior.Restrict);
-                entity.HasOne(c => c.EducationalPage).WithMany().HasForeignKey(c => c.EducationalPageId)
+                entity.HasOne(c => c.EducationalPage).WithMany()
+                    .HasForeignKey(c => new { c.TenantId, c.EducationalPageId })
+                    .HasPrincipalKey(p => new { p.TenantId, p.Id })
                     .OnDelete(DeleteBehavior.Restrict);
             });
 
@@ -287,19 +351,27 @@ namespace PhishGuard.Backend.Data
             {
                 // Global Query Filter (isolamento de tenant): SimulationLog tem TenantId, logo
                 // — pela regra do projeto — PRECISA do filtro, como toda entidade multi-tenant.
-                // Todos os leitores atuais já escopam manualmente (Dashboard: Where TenantId;
-                // Tracking e Dispatch: IgnoreQueryFilters), então o filtro é defesa-em-profundidade
+                // Dashboards e tracking mantêm filtros e escopo explícito; somente o worker
+                // desabilita filtros ao executar operações de sistema reescopadas por tenant.
+                // O filtro é defesa-em-profundidade
                 // contra QUALQUER consulta futura que esqueça o escopo e vaze logs cross-tenant.
                 entity.HasQueryFilter(l => l.TenantId == this.TenantIdAtual);
 
                 // simulations_logs já usa snake_case via data annotations ([Table]/[Column]).
-                // Aqui declaramos as FKs FÍSICAS que faltavam — sem elas, os logs eram GUIDs
-                // soltos (risco de registro órfão). Cascade: se a campanha/alvo/tenant for
-                // removido, os logs de auditoria correspondentes vão junto (sem órfãos).
-                entity.HasOne<Campaign>().WithMany().HasForeignKey(l => l.CampaignId)
+                // Compound keys also enforce tenant isolation for non-HTTP writers.
+                entity.HasOne<Campaign>().WithMany()
+                    .HasForeignKey(l => new { l.TenantId, l.CampaignId })
+                    .HasPrincipalKey(c => new { c.TenantId, c.Id })
                     .OnDelete(DeleteBehavior.Cascade);
-                entity.HasOne<Target>().WithMany().HasForeignKey(l => l.TargetId)
-                    .OnDelete(DeleteBehavior.Cascade);
+                entity.HasOne<Target>().WithMany()
+                    .HasForeignKey(l => new { l.TenantId, l.TargetId })
+                    .HasPrincipalKey(t => new { t.TenantId, t.Id })
+                    .OnDelete(DeleteBehavior.Restrict);
+                entity.HasOne<CampaignTarget>().WithMany()
+                    .HasForeignKey(l => new { l.TenantId, l.CampaignId, l.TargetId })
+                    .HasPrincipalKey(p => new { p.TenantId, p.CampaignsId, p.TargetsId })
+                    .HasConstraintName("fk_simulations_logs_participant")
+                    .OnDelete(DeleteBehavior.Restrict);
                 entity.HasOne<Tenant>().WithMany().HasForeignKey(l => l.TenantId)
                     .OnDelete(DeleteBehavior.Cascade);
 
@@ -345,12 +417,19 @@ namespace PhishGuard.Backend.Data
 
                 entity.HasOne(delivery => delivery.Campaign)
                     .WithMany()
-                    .HasForeignKey(delivery => delivery.CampaignId)
+                    .HasForeignKey(delivery => new { delivery.TenantId, delivery.CampaignId })
+                    .HasPrincipalKey(c => new { c.TenantId, c.Id })
                     .OnDelete(DeleteBehavior.Cascade);
                 entity.HasOne(delivery => delivery.Target)
                     .WithMany()
-                    .HasForeignKey(delivery => delivery.TargetId)
-                    .OnDelete(DeleteBehavior.Cascade);
+                    .HasForeignKey(delivery => new { delivery.TenantId, delivery.TargetId })
+                    .HasPrincipalKey(t => new { t.TenantId, t.Id })
+                    .OnDelete(DeleteBehavior.Restrict);
+                entity.HasOne<CampaignTarget>().WithMany()
+                    .HasForeignKey(delivery => new { delivery.TenantId, delivery.CampaignId, delivery.TargetId })
+                    .HasPrincipalKey(p => new { p.TenantId, p.CampaignsId, p.TargetsId })
+                    .HasConstraintName("fk_campaign_deliveries_participant")
+                    .OnDelete(DeleteBehavior.Restrict);
                 entity.HasOne<Tenant>()
                     .WithMany()
                     .HasForeignKey(delivery => delivery.TenantId)
@@ -366,7 +445,8 @@ namespace PhishGuard.Backend.Data
                 entity.HasIndex(session => new { session.TenantId, session.AdministratorId, session.RevokedAtUtc });
                 entity.HasOne<Administrador>()
                     .WithMany()
-                    .HasForeignKey(session => session.AdministratorId)
+                    .HasForeignKey(session => new { session.TenantId, session.AdministratorId })
+                    .HasPrincipalKey(a => new { a.TenantId, a.Id })
                     .OnDelete(DeleteBehavior.Cascade);
                 entity.HasOne<Tenant>()
                     .WithMany()
@@ -450,6 +530,10 @@ namespace PhishGuard.Backend.Data
 
         private void StampCurrentTenant()
         {
+            foreach (var entry in ChangeTracker.Entries<Target>()
+                .Where(e => e.State is EntityState.Added or EntityState.Modified))
+                entry.Entity.EmailNormalizado = Target.NormalizeEmail(entry.Entity.Email);
+
             var currentTenantId = this.TenantIdAtual; 
             if (currentTenantId != Guid.Empty)
             {
@@ -462,6 +546,33 @@ namespace PhishGuard.Backend.Data
                 }
             }
 
+            // The association is also created by EF's skip navigation. System contexts
+            // have no request tenant, so derive its scope from the owning campaign.
+            foreach (var entry in ChangeTracker.Entries<CampaignTarget>()
+                .Where(e => e.State == EntityState.Added && e.Entity.TenantId == Guid.Empty))
+            {
+                if (entry.Entity.Campaign is not null)
+                    entry.Entity.TenantId = entry.Entity.Campaign.TenantId;
+            }
+
+            ProtectCapturedSnapshots();
+
+        }
+
+        private void ProtectCapturedSnapshots()
+        {
+            foreach (var entry in ChangeTracker.Entries()
+                .Where(e => e.State == EntityState.Modified && e.Entity is Campaign or CampaignTarget))
+            {
+                if (entry.Property("SnapshotCapturedAtUtc").OriginalValue is null)
+                    continue;
+
+                // Status and delivery bookkeeping may change; captured identity/content may not.
+                if (entry.Properties.Any(p => p.IsModified &&
+                    (p.Metadata.Name.EndsWith("Snapshot", StringComparison.Ordinal)
+                     || p.Metadata.Name == "SnapshotCapturedAtUtc")))
+                    throw new InvalidOperationException("O snapshot de uma campanha ativada é imutável.");
+            }
         }
 
         public override int SaveChanges()

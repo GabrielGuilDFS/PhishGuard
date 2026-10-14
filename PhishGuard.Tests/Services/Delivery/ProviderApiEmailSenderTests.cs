@@ -107,6 +107,56 @@ public sealed class ProviderApiEmailSenderTests
             _ => TimeSpan.Zero,
             () => new DateTimeOffset(2026, 8, 8, 0, 0, 0, TimeSpan.Zero));
 
+    [Theory]
+    [InlineData(ApiProviderName.SendGrid)]
+    [InlineData(ApiProviderName.Postmark)]
+    [InlineData(ApiProviderName.Brevo)]
+    [InlineData(ApiProviderName.MailtrapSandbox)]
+    [InlineData(ApiProviderName.AwsSes)]
+    public async Task SendAsync_PreservesComposedSenderAfterCurrentProviderConfigurationChanges(ApiProviderName provider)
+    {
+        var handler = new RecordingHandler(HttpStatusCode.Accepted);
+        var config = Config(provider);
+        config.SenderEmail = "current@example.com";
+        config.SenderName = "Equipe atual";
+        config.ApiAccountIdentifier = provider == ApiProviderName.MailtrapSandbox ? "4015" : "AKIATEST";
+        var message = Message();
+        message.FromEmail = "frozen@example.com";
+        message.FromName = "Equipe congelada";
+        var result = await Sender(handler).SendAsync(message, config, "immutable-sender", CancellationToken.None);
+        Assert.True(result.Success);
+        using var json = JsonDocument.Parse(handler.Body!);
+        switch (provider)
+        {
+            case ApiProviderName.AwsSes:
+                Assert.Contains("frozen@example.com", json.RootElement.GetProperty("FromEmailAddress").GetString());
+                Assert.Contains("Equipe congelada", json.RootElement.GetProperty("FromEmailAddress").GetString());
+                break;
+            case ApiProviderName.Postmark:
+                Assert.Contains("frozen@example.com", json.RootElement.GetProperty("From").GetString());
+                Assert.Contains("Equipe congelada", json.RootElement.GetProperty("From").GetString());
+                break;
+            default:
+                var from = json.RootElement.GetProperty(provider == ApiProviderName.Brevo ? "sender" : "from");
+                Assert.Equal("frozen@example.com", from.GetProperty("email").GetString());
+                Assert.Equal("Equipe congelada", from.GetProperty("name").GetString());
+                break;
+        }
+        Assert.DoesNotContain("current@example.com", handler.Body);
+        Assert.DoesNotContain("Equipe atual", handler.Body);
+    }
+
+    [Fact]
+    public async Task SendAsync_EmptyCapturedSenderNameDoesNotAcquireCurrentConfigurationName()
+    {
+        var handler = new RecordingHandler(HttpStatusCode.Accepted);
+        var message = Message();
+        message.FromName = string.Empty;
+        Assert.True((await Sender(handler).SendAsync(message, Config(ApiProviderName.SendGrid), "anonymous-name", CancellationToken.None)).Success);
+        using var json = JsonDocument.Parse(handler.Body!);
+        Assert.Equal(string.Empty, json.RootElement.GetProperty("from").GetProperty("name").GetString());
+    }
+
     [Fact]
     public async Task SendGrid_UsaEndpointFixoEMapeiaCidInline()
     {

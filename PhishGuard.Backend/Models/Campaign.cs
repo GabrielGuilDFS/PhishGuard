@@ -42,6 +42,23 @@ namespace PhishGuard.Backend.Models
         public EducationalPage EducationalPage { get; set; } = null!;
 
         public ICollection<Target> Targets { get; set; } = new List<Target>();
+        public ICollection<CampaignTarget> CampaignTargets { get; set; } = new List<CampaignTarget>();
+
+        // Captured at activation. Legacy captures describe data available during migration,
+        // not necessarily the content that was sent before snapshots existed.
+        public DateTime? SnapshotCapturedAtUtc { get; set; }
+        public bool IsLegacySnapshot { get; set; }
+        [MaxLength(100)] public string? TemplateNameSnapshot { get; set; }
+        [MaxLength(150)] public string? EmailSubjectSnapshot { get; set; }
+        public string? EmailBodySnapshot { get; set; }
+        [MaxLength(100)] public string? SenderNameSnapshot { get; set; }
+        [MaxLength(254)] public string? SenderEmailSnapshot { get; set; }
+        [MaxLength(100)] public string? LandingNameSnapshot { get; set; }
+        public string? LandingHtmlSnapshot { get; set; }
+        [MaxLength(100)] public string? LandingTemplateIdSnapshot { get; set; }
+        [MaxLength(100)] public string? EducationalNameSnapshot { get; set; }
+        public string? EducationalHtmlSnapshot { get; set; }
+        public string? EducationalFeedbackConfigJsonSnapshot { get; set; }
         
         public DateTime CriadoEm { get; set; }
 
