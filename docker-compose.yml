@@ -19,6 +19,25 @@ services:
     networks:
       - phishguard-network
 
+  # SMTP de desenvolvimento: captura mensagens localmente, sem enviá-las à internet.
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: phishguard-mailpit
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8025:8025" # Interface web e API
+      - "127.0.0.1:1025:1025" # SMTP
+    environment:
+      MP_SMTP_AUTH_ACCEPT_ANY: "true"
+      MP_SMTP_AUTH_ALLOW_INSECURE: "true"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8025/readyz"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks:
+      - phishguard-network
+
   backend:
     build:
       context: .
@@ -34,21 +53,21 @@ services:
       AppSettings__SmtpSecureSocketOptions: "None"
       ConnectionStrings__DefaultConnection: "Host=db;Port=${POSTGRES_PORT:-5433};Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}"
       AppSettings__Token: "${AppSettings__Token}"
-      # 1 TÚNEL: frontend e backend compartilham o MESMO domínio público. O Vite
-      # (frontend) faz reverse-proxy de /api para o backend na rede interna. Por isso
-      # ambas as URLs públicas apontam para o mesmo domínio do ngrok.
-      AppSettings__PublicApiBaseUrl: "https://${NGROK_DOMAIN}"
-      AppSettings__PublicAppBaseUrl: "https://${NGROK_DOMAIN}"
-      # Same-origin: a landing chama /api relativo (sem CORS). __0 é o domínio público;
-      # __1 mantém o dev local (admin em localhost:5173 -> localhost:5000).
-      AppSettings__AllowedCorsOrigins__0: "https://${NGROK_DOMAIN}"
-      AppSettings__AllowedCorsOrigins__1: "http://localhost:5173"
+      # Auto + Development: mensagens e redirects usam localhost, via proxy Vite.
+      # URLs públicas antigas no .env só são usadas se o modo for Public.
+      AppSettings__TrackingUrlMode: "${AppSettings__TrackingUrlMode:-Auto}"
+      AppSettings__LocalApiBaseUrl: "${AppSettings__LocalApiBaseUrl:-http://localhost:5173}"
+      AppSettings__LocalAppBaseUrl: "${AppSettings__LocalAppBaseUrl:-http://localhost:5173}"
+      AppSettings__PublicApiBaseUrl: "${AppSettings__PublicApiBaseUrl:-}"
+      AppSettings__PublicAppBaseUrl: "${AppSettings__PublicAppBaseUrl:-}"
+      AppSettings__AllowedCorsOrigins__0: "http://localhost:5173"
       AppSettings__TrustedProxies__0: "172.28.0.10"
-      AppSettings__TrustedProxies__1: "172.28.0.30"
     volumes:
       - dataprotection-keys:/app/DataProtection-Keys
     depends_on:
       db:
+        condition: service_healthy
+      mailpit:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "--fail", "--silent", "http://localhost:5000/health/ready"]
@@ -68,8 +87,6 @@ services:
       - "127.0.0.1:5173:5173"
     environment:
       CHOKIDAR_USEPOLLING: "true"
-      # Usado pelo vite.config.ts para liberar o Host público no dev server (allowedHosts).
-      NGROK_DOMAIN: "${NGROK_DOMAIN}"
       VITE_API_BASE_URL: "/api"
       VITE_API_PROXY_TARGET: "http://backend:5000"
     volumes:
@@ -86,21 +103,6 @@ services:
     networks:
       phishguard-network:
         ipv4_address: 172.28.0.10
-
-  # ÚNICO túnel público: aponta para o frontend, que reverte /api para o backend.
-  ngrok-frontend:
-    image: ngrok/ngrok:latest
-    container_name: phishguard-ngrok-frontend
-    restart: unless-stopped
-    environment:
-      NGROK_AUTHTOKEN: "${NGROK_AUTHTOKEN}"
-    command: ["http", "frontend:5173", "--domain=${NGROK_DOMAIN}"]
-    depends_on:
-      frontend:
-        condition: service_healthy
-    networks:
-      phishguard-network:
-        ipv4_address: 172.28.0.30
 
 volumes:
   postgres-data:

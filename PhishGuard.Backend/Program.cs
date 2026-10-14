@@ -17,12 +17,14 @@ using PhishGuard.Backend.Security;
 using PhishGuard.Backend.Services;
 using PhishGuard.Backend.Services.Delivery;
 using PhishGuard.Backend.BackgroundServices;
+using PhishGuard.Backend.Configuration;
 
 // O cenário acadêmico/startup inicial é elegível para a licença Community.
 // QuestPDF exige a declaração uma única vez, antes da criação dos documentos.
 QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
 
 var builder = WebApplication.CreateBuilder(args);
+TrackingUrlConfiguration.Apply(builder.Configuration, builder.Environment);
 
 var connectionString = DatabaseConnectionString.Normalize(
     builder.Configuration.GetConnectionString("DefaultConnection"));
@@ -302,6 +304,9 @@ builder.Services.AddHostedService<CampaignSchedulerWorker>();
 builder.Services.AddSingleton<CampaignDispatchSignal>();
 
 var app = builder.Build();
+app.Logger.LogInformation("URLs de rastreamento: API {ApiUrl}; aplicação {AppUrl}",
+    app.Configuration["AppSettings:PublicApiBaseUrl"],
+    app.Configuration["AppSettings:PublicAppBaseUrl"]);
 
 // Swagger fica no topo e sem condicional de ambiente: /swagger e o documento JSON
 // são tratados antes de proxy headers, redirects, CORS, autenticação e endpoints.

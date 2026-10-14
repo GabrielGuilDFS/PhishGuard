@@ -1,5 +1,5 @@
 import { type ReactNode, useEffect, useState } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
 import { restoreSession, validateSession } from './session';
 
 /**
@@ -15,6 +15,7 @@ import { restoreSession, validateSession } from './session';
  * storage esperando a próxima navegação — e o usuário é enviado ao login limpo.
  */
 export default function PrivateRoute({ children }: { children: ReactNode }) {
+  const location = useLocation();
   const [state, setState] = useState<'checking' | 'authenticated' | 'anonymous'>(
     () => validateSession().valida ? 'authenticated' : 'checking',
   );
@@ -29,6 +30,6 @@ export default function PrivateRoute({ children }: { children: ReactNode }) {
   }, [state]);
 
   if (state === 'checking') return null;
-  if (state === 'anonymous') return <Navigate to="/login" replace />;
+  if (state === 'anonymous') return <Navigate to="/login" replace state={{ from: `${location.pathname}${location.search}${location.hash}` }} />;
   return <>{children}</>;
 }

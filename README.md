@@ -128,11 +128,40 @@ git clone https://github.com/GabrielGuilDFS/PhishGuard.git
 cd PhishGuard
 cp .env.example .env      # e preencha os segredos (ver acima)
 
-# Sobe db + backend (5000) + frontend (5173). A porta do db vem de POSTGRES_PORT (.env).
+# Sobe db + Mailpit + backend (5000) + frontend (5173), sem ngrok.
+# A porta do db vem de POSTGRES_PORT (.env).
 # O backend aplica as migrations automaticamente no startup — não é preciso rodar
 # `dotnet ef database update` manualmente.
 docker compose up -d --build
 ```
+
+O rastreamento detecta o ambiente no startup: `AppSettings__TrackingUrlMode=Auto`
+usa URLs locais em `Development`, mesmo que o `.env` ainda contenha um domínio
+ngrok. Pixel e clique apontam para `http://localhost:5173/api/tracking/...`,
+encaminhados pelo proxy Vite; a landing também usa `http://localhost:5173`.
+O Mailpit fica em `http://localhost:8025` (SMTP: `mailpit:1025` no Docker ou
+`localhost:1025` com backend no host, sem TLS). Os testes devem ser abertos no
+mesmo computador que executa a aplicação. Portas locais diferentes podem ser
+configuradas em `AppSettings__LocalApiBaseUrl` e `AppSettings__LocalAppBaseUrl`.
+
+Em produção, `Auto` usa `AppSettings__PublicApiBaseUrl` e
+`AppSettings__PublicAppBaseUrl`, como no Blueprint da Render. HTTP na rede interna
+do servidor não muda essa escolha. As origens são validadas no startup; produção
+sem URLs públicas configuradas falha explicitamente em vez de enviar localhost.
+
+Para um ensaio com caixas reais ou dispositivos externos, preencha `NGROK_DOMAIN`
+e `NGROK_AUTHTOKEN` e habilite o túnel opcional:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.ngrok.yml up -d --build
+```
+
+Esse arquivo seleciona `Public` e usa o domínio HTTPS do túnel. Com backend no
+host, configure `AppSettings__TrackingUrlMode=Public` e as duas URLs públicas.
+Para voltar ao Docker local após usar o túnel, execute
+`docker compose up -d --build --remove-orphans`; isso também remove o container
+ngrok antigo. Reinicie a API após trocar as URLs e gere novos e-mails: mensagens
+já recebidas conservam os links originais.
 
 ### Opção B — Desenvolvimento local com hot-reload
 ```bash

@@ -1,0 +1,27 @@
+# Exposição pública opcional para ensaios com caixas reais/dispositivos externos:
+# docker compose -f docker-compose.yml -f docker-compose.ngrok.yml up -d --build
+services:
+  backend:
+    environment:
+      AppSettings__TrackingUrlMode: "Public"
+      AppSettings__PublicApiBaseUrl: "https://${NGROK_DOMAIN:?Defina NGROK_DOMAIN para habilitar o tunel}"
+      AppSettings__PublicAppBaseUrl: "https://${NGROK_DOMAIN:?Defina NGROK_DOMAIN para habilitar o tunel}"
+      AppSettings__TrustedProxies__1: "172.28.0.30"
+
+  frontend:
+    environment:
+      NGROK_DOMAIN: "${NGROK_DOMAIN}"
+
+  ngrok-frontend:
+    image: ngrok/ngrok:latest
+    container_name: phishguard-ngrok-frontend
+    restart: unless-stopped
+    environment:
+      NGROK_AUTHTOKEN: "${NGROK_AUTHTOKEN:?Defina NGROK_AUTHTOKEN para habilitar o tunel}"
+    command: ["http", "frontend:5173", "--domain=${NGROK_DOMAIN}"]
+    depends_on:
+      frontend:
+        condition: service_healthy
+    networks:
+      phishguard-network:
+        ipv4_address: 172.28.0.30
